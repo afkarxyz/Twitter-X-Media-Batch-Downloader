@@ -1,5 +1,7 @@
 [![GitHub All Releases](https://img.shields.io/github/downloads/afkarxyz/Twitter-X-Media-Batch-Downloader/total?style=for-the-badge)](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases)
 
+![TwitterXMediaBatchDownloader](https://github.com/user-attachments/assets/354d7470-c01c-4aa6-9da1-ea6c42d27330)
+
 **Twitter/X Media Batch Downloader** is a GUI tool for downloading all media, including images and videos, from Twitter/X accounts, using `gallery-dl` and requiring `cookies.`
 
 ## Download
