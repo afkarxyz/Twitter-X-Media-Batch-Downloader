@@ -2,12 +2,7 @@
 
 **Twitter/X Media Batch Downloader** is a GUI tool for downloading all media, including images and videos, from Twitter/X accounts, using `gallery-dl` and requiring `cookies.`
 
-## Usage
-
-| Link   | Requirements |
-| :--: | :--: |
-| [Download](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v1.0/TwitterXMediaBatchDownloader.exe) | TwitterXMediaBatchDownloader |
-| [Download](https://github.com/mikf/gallery-dl/releases) | gallery-dl |
+## Download
 
 ## Screenshots
 
