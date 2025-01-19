@@ -18,7 +18,7 @@
 
 ## How to obtain Auth Token
 
-1. Go to [X's website](https://www.x.com/)
+1. Go to [Twitter's website](https://www.x.com/)
 2. Log into your account
 3. Open the Developer Tools by pressing `F12`
 4. Navigate to the **Application** tab, then select **Storage** > **Cookies**
