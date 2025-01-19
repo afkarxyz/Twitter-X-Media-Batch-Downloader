@@ -20,7 +20,7 @@ def get_metadata(username):
         "extractor": {
             "twitter": {
                 "cookies": {
-                    "auth_token": "fbaf8037664f5c4d18dafb5293a72039938991fb"
+                    "auth_token": ""
                 }
             }
         }
@@ -71,5 +71,5 @@ def get_metadata(username):
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(output, f, ensure_ascii=False, indent=2)
 
-username = "Eririchyan"
+username = ""
 get_metadata(username)
