@@ -4,6 +4,10 @@
 
 ## Download
 
+- Download the latest version of [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v1.0/gallery-dl.exe) and [gallery-dl](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v1.0/gallery-dl.exe)
+- Check for **gallery-dl** updates [here](https://github.com/mikf/gallery-dl/releases)
+- Ensure that `gallery-dl` is in the same directory
+    
 ## Screenshots
 
 ![image](https://github.com/user-attachments/assets/6401f71b-328f-4f57-950c-3300c2bd2939)
