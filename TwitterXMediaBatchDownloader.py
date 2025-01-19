@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                             QHBoxLayout, QLabel, QLineEdit, QPushButton, 
-                            QProgressBar, QFileDialog, QRadioButton)
+                            QProgressBar, QFileDialog, QRadioButton, QComboBox)
 from PyQt6.QtCore import QThread, pyqtSignal, Qt, QSettings
 from PyQt6.QtGui import QIcon, QPixmap, QCursor
 
@@ -155,12 +155,13 @@ class MediaDownloader(QThread):
     error = pyqtSignal(str)
     status_update = pyqtSignal(str)
 
-    def __init__(self, media_list, output_dir, filename_format, username):
+    def __init__(self, media_list, output_dir, filename_format, username, batch_size=10):
         super().__init__()
         self.media_list = media_list
         self.output_dir = output_dir
         self.filename_format = filename_format
         self.username = username
+        self.batch_size = batch_size
         
     async def download_file(self, session, url, filepath):
         try:
@@ -182,25 +183,21 @@ class MediaDownloader(QThread):
             for item in self.media_list:
                 url = item['url']
                 date = datetime.strptime(item['date'], "%Y-%m-%d %H:%M:%S")
-                formatted_date = date.strftime("%Y-%m-%d_%H%M%S")
+                formatted_date = date.strftime("%Y-%m-%d")
                 
                 if self.filename_format == "username_date":
-                    filename = f"{self.username}_{formatted_date}.{'mp4' if 'video' in url else 'jpg'}"
+                    filename = f"{self.username}_{formatted_date}"
                 else:
-                    filename = f"{formatted_date}_{self.username}.{'mp4' if 'video' in url else 'jpg'}"
+                    filename = f"{formatted_date}_{self.username}"
+                
+                filename = f"{filename}_{len(tasks):03d}.{'mp4' if 'video' in url else 'jpg'}"
                 
                 filepath = os.path.join(self.output_dir, filename)
-                
-                base, ext = os.path.splitext(filepath)
-                counter = 1
-                while os.path.exists(filepath):
-                    filepath = f"{base} ({counter}){ext}"
-                    counter += 1
                 
                 task = asyncio.create_task(self.download_file(session, url, filepath))
                 tasks.append(task)
                 
-                if len(tasks) >= 10:
+                if len(tasks) >= self.batch_size:
                     results = await asyncio.gather(*tasks)
                     completed += sum(1 for r in results if r)
                     progress = int((completed / total) * 100)
@@ -302,20 +299,34 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         auth_layout.addWidget(self.auth_input)
         input_layout.addLayout(auth_layout)
 
-        format_layout = QHBoxLayout()
-        format_label = QLabel("Filename Format:")
-        format_label.setFixedWidth(100)
+        combined_layout = QHBoxLayout()
+        
+        batch_label = QLabel("Batch Size:")
+        batch_label.setFixedWidth(100)
+        
+        self.batch_size_combo = QComboBox()
+        self.batch_size_combo.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.batch_size_combo.setFixedWidth(70)
+        for size in range(10, 101, 10):
+            self.batch_size_combo.addItem(str(size))
+        
+        format_label = QLabel("Filename:")
+        format_label.setFixedWidth(50)
         
         self.format_username_date = QRadioButton("Username - Date")
         self.format_date_username = QRadioButton("Date - Username")
         self.format_username_date.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.format_date_username.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         
-        format_layout.addWidget(format_label)
-        format_layout.addWidget(self.format_username_date)
-        format_layout.addWidget(self.format_date_username)
-        format_layout.addStretch()
-        input_layout.addLayout(format_layout)
+        combined_layout.addWidget(batch_label)
+        combined_layout.addWidget(self.batch_size_combo)
+        combined_layout.addSpacing(10)
+        combined_layout.addWidget(format_label)
+        combined_layout.addWidget(self.format_username_date)
+        combined_layout.addWidget(self.format_date_username)
+        combined_layout.addStretch()
+        
+        input_layout.addLayout(combined_layout)
 
         self.main_layout.addWidget(self.input_widget)
 
@@ -407,7 +418,6 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.progress_bar.hide()
         self.main_layout.addWidget(self.progress_bar)
 
-        # Add bottom layout with status label and update button
         bottom_layout = QHBoxLayout()
         
         self.status_label = QLabel("")
@@ -444,6 +454,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.auth_input.textChanged.connect(self.auto_save_settings)
         self.dir_input.textChanged.connect(self.auto_save_settings)
         self.format_username_date.toggled.connect(self.auto_save_settings)
+        self.batch_size_combo.currentTextChanged.connect(self.auto_save_settings)
     
     def auto_save_settings(self):
         self.settings.setValue('url_input', self.url_input.text())
@@ -451,6 +462,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.settings.setValue('output_dir', self.dir_input.text())
         self.settings.setValue('filename_format', 
                              'username_date' if self.format_username_date.isChecked() else 'date_username')
+        self.settings.setValue('batch_size', self.batch_size_combo.currentText())
         self.settings.sync()
 
     def load_settings(self):
@@ -461,6 +473,11 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         format_setting = self.settings.value('filename_format', 'username_date')
         self.format_username_date.setChecked(format_setting == 'username_date')
         self.format_date_username.setChecked(format_setting == 'date_username')
+        
+        batch_size = self.settings.value('batch_size', '10')
+        index = self.batch_size_combo.findText(batch_size)
+        if index >= 0:
+            self.batch_size_combo.setCurrentIndex(index)
 
     def select_directory(self):
         directory = QFileDialog.getExistingDirectory(self, "Select Output Directory")
@@ -575,6 +592,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.status_label.setText("Starting download...")
 
         filename_format = "username_date" if self.format_username_date.isChecked() else "date_username"
+        batch_size = int(self.batch_size_combo.currentText())
         
         username = self.url_input.text().strip()
         if "x.com/" in username or "twitter.com/" in username:
@@ -586,7 +604,8 @@ class TwitterMediaDownloaderGUI(QMainWindow):
             self.media_info['timeline'],
             self.user_output_dir,
             filename_format,
-            username
+            username,
+            batch_size
         )
         self.worker.progress.connect(self.update_progress)
         self.worker.finished.connect(self.download_finished)
