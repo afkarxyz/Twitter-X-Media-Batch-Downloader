@@ -2,7 +2,7 @@
 
 ![TwitterXMediaBatchDownloader](https://github.com/user-attachments/assets/354d7470-c01c-4aa6-9da1-ea6c42d27330)
 
-**Twitter/X Media Batch Downloader** is a GUI tool for downloading all media, including images and videos, from Twitter/X accounts, using `gallery-dl`.
+**Twitter/X Media Batch Downloader** is a GUI tool for downloading all media, including images and videos, from Twitter/X accounts, using `gallery-dl`
 
 ## Download
 
