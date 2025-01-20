@@ -6,18 +6,16 @@
 
 ## Download
 
-- Download the latest version of [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v1.0/gallery-dl.exe) and [gallery-dl](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v1.0/gallery-dl.exe)
-- Check for **gallery-dl** updates [here](https://github.com/mikf/gallery-dl/releases)
-- Ensure that `gallery-dl` is in the same directory
+- Download the latest version of [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v1.1/TwitterXMediaBatchDownloader.exe)
 - If you're familiar with **userscripts**, please install it [here](https://greasyfork.org/en/scripts/523157-twitter-x-media-batch-downloader)
     
 ## Screenshots
 
-![image](https://github.com/user-attachments/assets/6401f71b-328f-4f57-950c-3300c2bd2939)
+![image](https://github.com/user-attachments/assets/ccdd8a8d-890f-4d3c-a3b1-56dad3eb82a9)
 
-![image](https://github.com/user-attachments/assets/a9ff0e34-892e-4538-9ea3-63fa0c222be4)
+![image](https://github.com/user-attachments/assets/01a80593-59fe-4c2b-a325-7e401fa3048f)
 
-![image](https://github.com/user-attachments/assets/f5c0933b-6a3e-463f-9170-c11f85610853)
+![image](https://github.com/user-attachments/assets/1779659e-3512-4e74-be0a-088419267fe0)
 
 ## How to obtain Auth Token
 
