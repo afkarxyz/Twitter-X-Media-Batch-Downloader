@@ -1,8 +1,8 @@
 import sys
 import os
-import json
 import asyncio
 import aiohttp
+import re
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -10,7 +10,8 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                             QHBoxLayout, QLabel, QLineEdit, QPushButton, 
                             QProgressBar, QFileDialog, QRadioButton, QComboBox)
 from PyQt6.QtCore import QThread, pyqtSignal, Qt, QSettings
-from PyQt6.QtGui import QIcon, QPixmap, QCursor
+from PyQt6.QtGui import QIcon, QPixmap, QCursor, QPainter, QPainterPath
+from gallery_dl.extractor import twitter
 
 class ImageDownloader(QThread):
     finished = pyqtSignal(bytes)
@@ -35,9 +36,11 @@ class MetadataFetcher(QThread):
     finished = pyqtSignal(dict)
     error = pyqtSignal(str)
     
-    def __init__(self, username):
+    def __init__(self, username, media_type='media'):
         super().__init__()
         self.username = username
+        self.auth_token = None
+        self.media_type = media_type
         
     def run(self):
         try:
@@ -49,100 +52,79 @@ class MetadataFetcher(QThread):
             
             url = f"https://x.com/{username}/timeline"
             
-            if getattr(sys, 'frozen', False):
-                base_path = sys._MEIPASS
-            else:
-                base_path = os.path.dirname(os.path.abspath(__file__))
-            
-            cookies_path = os.path.join(base_path, 'cookies.json')
-            gallery_dl_path = os.path.join(base_path, 'gallery-dl.exe')
-            
-            if not os.path.exists(gallery_dl_path):
-                gallery_dl_path = os.path.join(os.getcwd(), 'gallery-dl.exe')
-            
-            if not os.path.exists(gallery_dl_path):
-                gallery_dl_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'gallery-dl.exe')
-            
-            if not os.path.exists(gallery_dl_path):
-                raise FileNotFoundError(
-                    "gallery-dl.exe not found. Please ensure it's in the same directory as the executable."
-                )
-            
-            config = {
-                "extractor": {
-                    "twitter": {
-                        "cookies": {
-                            "auth_token": self.auth_token
-                        }
-                    }
-                }
-            }
-            
-            try:
-                cookies_dir = os.path.dirname(cookies_path)
-                if not os.path.exists(cookies_dir):
-                    os.makedirs(cookies_dir)
+            match = re.match(twitter.TwitterTimelineExtractor.pattern, url)
+            if not match:
+                raise ValueError(f"Invalid URL: {url}")
                 
-                with open(cookies_path, 'w', encoding='utf-8') as f:
-                    json.dump(config, f)
-            except Exception as e:
-                raise Exception(f"Failed to write cookies file: {str(e)}")
-
-            startupinfo = None
-            if sys.platform == 'win32':
-                startupinfo = subprocess.STARTUPINFO()
-                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            extractor = twitter.TwitterTimelineExtractor(match)
+            extractor.config = lambda key, default=None: {
+                "cookies": {
+                    "auth_token": self.auth_token
+                }
+            }.get(key, default)
             
-            try:
-                process = subprocess.run(
-                    [gallery_dl_path, '-j', '--config', cookies_path, url],
-                    capture_output=True,
-                    text=True,
-                    encoding='utf-8',
-                    check=True,
-                    startupinfo=startupinfo
-                )
-            except subprocess.CalledProcessError as e:
-                raise Exception(f"gallery-dl.exe failed: {e.stderr}")
-            except Exception as e:
-                raise Exception(f"Failed to execute gallery-dl.exe: {str(e)}")
-            finally:
-                try:
-                    if os.path.exists(cookies_path):
-                        os.remove(cookies_path)
-                except Exception:
-                    pass
+            extractor.initialize()
             
-            data = json.loads(process.stdout)
             output = {
                 'account_info': {},
                 'timeline': []
             }
             
-            for item in data:
-                if isinstance(item, list) and len(item) > 2 and isinstance(item[2], dict):
-                    if not output['account_info'] and 'user' in item[2]:
-                        user = item[2]['user']
-                        output['account_info'] = {
-                            'date': user.get('date', ''),
-                            'followers_count': user.get('followers_count', ''),
-                            'friends_count': user.get('friends_count', ''),
-                            'name': user.get('name', ''),
-                            'nick': user.get('nick', ''),
-                            'profile_image': user.get('profile_image', ''),
-                            'statuses_count': user.get('statuses_count', '')
-                        }
-                    if isinstance(item[1], str):
-                        url = item[1]
-                        if ('pbs.twimg.com' in url and 'format=jpg&name=orig' in url) or 'video.twimg.com' in url:
-                            tweet_date = item[2].get('date')
-                            if not tweet_date:
-                                tweet_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            
-                            output['timeline'].append({
-                                'url': url,
-                                'date': tweet_date
-                            })
+            for item in extractor:
+                if isinstance(item, tuple) and len(item) >= 3:
+                    media_url = item[1]
+                    tweet_data = item[2]
+                    
+                    if not output['account_info']:
+                        if 'user' in tweet_data:
+                            user = tweet_data['user']
+                            user_date = user.get('date', '')
+                            if isinstance(user_date, datetime):
+                                user_date = user_date.strftime("%Y-%m-%d %H:%M:%S")
+                                
+                            output['account_info'] = {
+                                'name': user.get('name', ''),
+                                'nick': user.get('nick', ''),
+                                'date': user_date,
+                                'followers_count': user.get('followers_count', 0),
+                                'friends_count': user.get('friends_count', 0),
+                                'profile_image': user.get('profile_image', ''),
+                                'statuses_count': user.get('statuses_count', 0)
+                            }
+                    
+                    should_include = False
+                    
+                    if self.media_type == 'media':
+                        should_include = ('pbs.twimg.com' in media_url or 
+                                        'video.twimg.com' in media_url)
+                    elif self.media_type == 'image':
+                        should_include = 'pbs.twimg.com' in media_url
+                    elif self.media_type == 'video':
+                        should_include = 'video.twimg.com' in media_url
+                    
+                    if should_include:
+                        tweet_date = tweet_data.get('date', datetime.now())
+                        if isinstance(tweet_date, datetime):
+                            tweet_date = tweet_date.strftime("%Y-%m-%d %H:%M:%S")
+                        
+                        output['timeline'].append({
+                            'url': media_url,
+                            'date': tweet_date,
+                            'type': ('video' if 'video.twimg.com' in media_url 
+                                    else 'image')
+                        })
+            
+            if not output['account_info']:
+                raise ValueError("Failed to fetch account information. Please check the username and auth token.")
+            
+            if not output['timeline']:
+                if self.media_type == 'media':
+                    message = "No media found in timeline"
+                elif self.media_type == 'image':
+                    message = "No images found in timeline"
+                else:
+                    message = "No videos found in timeline"
+                raise ValueError(message)
             
             self.finished.emit(output)
             
@@ -155,16 +137,19 @@ class MediaDownloader(QThread):
     error = pyqtSignal(str)
     status_update = pyqtSignal(str)
 
-    def __init__(self, media_list, output_dir, filename_format, username, batch_size=10):
+    def __init__(self, media_list, output_dir, filename_format, username, media_type='media', batch_size=10):
         super().__init__()
         self.media_list = media_list
         self.output_dir = output_dir
         self.filename_format = filename_format
         self.username = username
+        self.media_type = media_type
         self.batch_size = batch_size
         
     async def download_file(self, session, url, filepath):
         try:
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+            
             async with session.get(url) as response:
                 if response.status == 200:
                     with open(filepath, 'wb') as f:
@@ -175,23 +160,34 @@ class MediaDownloader(QThread):
             return False
 
     async def download_all(self):
+        os.makedirs(self.output_dir, exist_ok=True)
+        
         async with aiohttp.ClientSession() as session:
             total = len(self.media_list)
             completed = 0
+            
+            used_filenames = set()
             
             tasks = []
             for item in self.media_list:
                 url = item['url']
                 date = datetime.strptime(item['date'], "%Y-%m-%d %H:%M:%S")
-                formatted_date = date.strftime("%Y-%m-%d")
+                formatted_date = date.strftime("%Y%m%d_%H%M%S")
+                
+                extension = 'mp4' if 'video.twimg.com' in url else 'jpg'
                 
                 if self.filename_format == "username_date":
-                    filename = f"{self.username}_{formatted_date}"
+                    base_filename = f"{self.username}_{formatted_date}"
                 else:
-                    filename = f"{formatted_date}_{self.username}"
+                    base_filename = f"{formatted_date}_{self.username}"
                 
-                filename = f"{filename}_{len(tasks):03d}.{'mp4' if 'video' in url else 'jpg'}"
+                filename = f"{base_filename}.{extension}"
+                counter = 1
+                while filename in used_filenames:
+                    filename = f"{base_filename}_{counter:02d}.{extension}"
+                    counter += 1
                 
+                used_filenames.add(filename)
                 filepath = os.path.join(self.output_dir, filename)
                 
                 task = asyncio.create_task(self.download_file(session, url, filepath))
@@ -202,7 +198,16 @@ class MediaDownloader(QThread):
                     completed += sum(1 for r in results if r)
                     progress = int((completed / total) * 100)
                     self.progress.emit(progress)
-                    self.status_update.emit(f"Downloaded {completed} of {total} files...")
+                    completed_str = f"{completed:,}" if completed >= 1000 else str(completed)
+                    total_str = f"{total:,}" if total >= 1000 else str(total)
+                    
+                    media_type_str = "files"
+                    if self.media_type == "image":
+                        media_type_str = "images"
+                    elif self.media_type == "video":
+                        media_type_str = "videos"
+                    
+                    self.status_update.emit(f"Downloaded {completed_str} of {total_str} {media_type_str}...")
                     tasks = []
             
             if tasks:
@@ -216,7 +221,15 @@ class MediaDownloader(QThread):
     def run(self):
         try:
             completed = asyncio.run(self.download_all())
-            self.finished.emit(f"Downloaded {completed} files successfully!")
+            completed_str = f"{completed:,}" if completed >= 1000 else str(completed)
+            
+            media_type_str = "files"
+            if self.media_type == "image":
+                media_type_str = "images"
+            elif self.media_type == "video":
+                media_type_str = "videos"
+            
+            self.finished.emit(f"Downloaded {completed_str} {media_type_str} successfully!")
         except Exception as e:
             self.error.emit(str(e))
 
@@ -233,8 +246,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.setFixedHeight(180)
         
         self.default_pictures_dir = str(Path.home() / "Pictures")
-        if not os.path.exists(self.default_pictures_dir):
-            os.makedirs(self.default_pictures_dir)
+        os.makedirs(self.default_pictures_dir, exist_ok=True)
         
         self.media_info = None
         self.settings = QSettings('TwitterMediaDownloader', 'Settings')
@@ -299,34 +311,47 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         auth_layout.addWidget(self.auth_input)
         input_layout.addLayout(auth_layout)
 
-        combined_layout = QHBoxLayout()
+        options_layout = QHBoxLayout()
         
-        batch_label = QLabel("Batch Size:")
-        batch_label.setFixedWidth(100)
+        media_label = QLabel("Media Type:")
+        media_label.setFixedWidth(100)
+        
+        self.media_type_combo = QComboBox()
+        self.media_type_combo.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        media_types = [('media', 'Media'), ('image', 'Image'), ('video', 'Video')]
+        for value, display in media_types:
+            self.media_type_combo.addItem(display, value)
+        self.media_type_combo.setFixedWidth(100)
+        
+        batch_label = QLabel("Batch:")
+        batch_label.setFixedWidth(40)
         
         self.batch_size_combo = QComboBox()
         self.batch_size_combo.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.batch_size_combo.setFixedWidth(70)
+        self.batch_size_combo.setFixedWidth(50)
         for size in range(10, 101, 10):
             self.batch_size_combo.addItem(str(size))
-        
+
         format_label = QLabel("Filename:")
-        format_label.setFixedWidth(50)
+        format_label.setFixedWidth(60)
         
-        self.format_username_date = QRadioButton("Username - Date")
-        self.format_date_username = QRadioButton("Date - Username")
-        self.format_username_date.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.format_date_username.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.format_username = QRadioButton("Username")
+        self.format_date = QRadioButton("Date")
+        self.format_username.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.format_date.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         
-        combined_layout.addWidget(batch_label)
-        combined_layout.addWidget(self.batch_size_combo)
-        combined_layout.addSpacing(10)
-        combined_layout.addWidget(format_label)
-        combined_layout.addWidget(self.format_username_date)
-        combined_layout.addWidget(self.format_date_username)
-        combined_layout.addStretch()
+        options_layout.addWidget(media_label)
+        options_layout.addWidget(self.media_type_combo)
+        options_layout.addSpacing(10)
+        options_layout.addWidget(batch_label)
+        options_layout.addWidget(self.batch_size_combo)
+        options_layout.addSpacing(10)
+        options_layout.addWidget(format_label)
+        options_layout.addWidget(self.format_username)
+        options_layout.addWidget(self.format_date)
+        options_layout.addStretch()
         
-        input_layout.addLayout(combined_layout)
+        input_layout.addLayout(options_layout)
 
         self.main_layout.addWidget(self.input_widget)
 
@@ -382,6 +407,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         profile_details_layout.addWidget(self.join_date_label)
         profile_details_layout.addWidget(self.followers_label)
         profile_details_layout.addWidget(self.following_label)
+        profile_details_layout.addWidget(self.posts_label)
         profile_details_layout.addWidget(self.posts_label)
         profile_layout.addWidget(profile_details_container, stretch=1)
         profile_layout.addStretch()
@@ -453,7 +479,8 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.url_input.textChanged.connect(self.auto_save_settings)
         self.auth_input.textChanged.connect(self.auto_save_settings)
         self.dir_input.textChanged.connect(self.auto_save_settings)
-        self.format_username_date.toggled.connect(self.auto_save_settings)
+        self.format_username.toggled.connect(self.auto_save_settings)
+        self.media_type_combo.currentTextChanged.connect(self.auto_save_settings)
         self.batch_size_combo.currentTextChanged.connect(self.auto_save_settings)
     
     def auto_save_settings(self):
@@ -461,7 +488,8 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.settings.setValue('auth_token', self.auth_input.text())
         self.settings.setValue('output_dir', self.dir_input.text())
         self.settings.setValue('filename_format', 
-                             'username_date' if self.format_username_date.isChecked() else 'date_username')
+                             'username_date' if self.format_username.isChecked() else 'date_username')
+        self.settings.setValue('media_type', self.media_type_combo.currentData())
         self.settings.setValue('batch_size', self.batch_size_combo.currentText())
         self.settings.sync()
 
@@ -471,8 +499,14 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.dir_input.setText(self.settings.value('output_dir', self.default_pictures_dir, str))
         
         format_setting = self.settings.value('filename_format', 'username_date')
-        self.format_username_date.setChecked(format_setting == 'username_date')
-        self.format_date_username.setChecked(format_setting == 'date_username')
+        self.format_username.setChecked(format_setting == 'username_date')
+        self.format_date.setChecked(format_setting == 'date_username')
+        
+        media_type = self.settings.value('media_type', 'media')
+        for i in range(self.media_type_combo.count()):
+            if self.media_type_combo.itemData(i) == media_type:
+                self.media_type_combo.setCurrentIndex(i)
+                break
         
         batch_size = self.settings.value('batch_size', '10')
         index = self.batch_size_combo.findText(batch_size)
@@ -482,6 +516,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
     def select_directory(self):
         directory = QFileDialog.getExistingDirectory(self, "Select Output Directory")
         if directory:
+            os.makedirs(directory, exist_ok=True)
             self.dir_input.setText(directory)
 
     def open_output_directory(self):
@@ -508,7 +543,8 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.fetch_button.setEnabled(False)
         self.status_label.setText("Fetching profile information...")
         
-        self.fetcher = MetadataFetcher(username)
+        media_type = self.media_type_combo.currentData()
+        self.fetcher = MetadataFetcher(username, media_type)
         self.fetcher.auth_token = auth_token
         self.fetcher.finished.connect(self.handle_profile_info)
         self.fetcher.error.connect(self.handle_fetch_error)
@@ -561,15 +597,30 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         
         output_base = self.dir_input.text().strip() or self.default_pictures_dir
         self.user_output_dir = os.path.join(output_base, username)
-        if not os.path.exists(self.user_output_dir):
-            os.makedirs(self.user_output_dir)
+        os.makedirs(self.user_output_dir, exist_ok=True)
 
     def update_profile_image(self, image_data):
-        pixmap = QPixmap()
-        pixmap.loadFromData(image_data)
-        scaled_pixmap = pixmap.scaled(100, 100, Qt.AspectRatioMode.KeepAspectRatio, 
-                                    Qt.TransformationMode.SmoothTransformation)
-        self.profile_image_label.setPixmap(scaled_pixmap)
+        original_pixmap = QPixmap()
+        original_pixmap.loadFromData(image_data)
+        
+        scaled_pixmap = original_pixmap.scaled(100, 100, 
+                                             Qt.AspectRatioMode.KeepAspectRatio, 
+                                             Qt.TransformationMode.SmoothTransformation)
+        
+        rounded_pixmap = QPixmap(scaled_pixmap.size())
+        rounded_pixmap.fill(Qt.GlobalColor.transparent)
+        
+        painter = QPainter(rounded_pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        path = QPainterPath()
+        path.addRoundedRect(0, 0, scaled_pixmap.width(), scaled_pixmap.height(), 10, 10)
+        
+        painter.setClipPath(path)
+        painter.drawPixmap(0, 0, scaled_pixmap)
+        painter.end()
+        
+        self.profile_image_label.setPixmap(rounded_pixmap)
 
     def handle_fetch_error(self, error):
         self.fetch_button.setEnabled(True)
@@ -591,8 +642,9 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.progress_bar.setValue(0)
         self.status_label.setText("Starting download...")
 
-        filename_format = "username_date" if self.format_username_date.isChecked() else "date_username"
+        filename_format = "username_date" if self.format_username.isChecked() else "date_username"
         batch_size = int(self.batch_size_combo.currentText())
+        media_type = self.media_type_combo.currentData()
         
         username = self.url_input.text().strip()
         if "x.com/" in username or "twitter.com/" in username:
@@ -605,6 +657,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
             self.user_output_dir,
             filename_format,
             username,
+            media_type,
             batch_size
         )
         self.worker.progress.connect(self.update_progress)
