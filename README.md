@@ -9,6 +9,7 @@
 - Download the latest version of [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v1.0/gallery-dl.exe) and [gallery-dl](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v1.0/gallery-dl.exe)
 - Check for **gallery-dl** updates [here](https://github.com/mikf/gallery-dl/releases)
 - Ensure that `gallery-dl` is in the same directory
+- If you're familiar with **userscripts**, please install it [here](https://greasyfork.org/en/scripts/523157-twitter-x-media-batch-downloader)
     
 ## Screenshots
 
