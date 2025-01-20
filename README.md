@@ -8,7 +8,15 @@
 
 - Download the latest version of [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v1.1/TwitterXMediaBatchDownloader.exe)
 - If you're familiar with **userscripts**, please install it [here](https://greasyfork.org/en/scripts/523157-twitter-x-media-batch-downloader)
-    
+
+## Features
+
+- Uses the powerful `gallery-dl` library, similar to `yt-dlp`  
+- Simple and compact GUI  
+- Option to choose the media type to download: **media** (image + video) or just **image/video**
+- **Batch** download settings, ranging from 10 to 100 files per download  
+- Filename format customization
+  
 ## Screenshots
 
 ![image](https://github.com/user-attachments/assets/ccdd8a8d-890f-4d3c-a3b1-56dad3eb82a9)
