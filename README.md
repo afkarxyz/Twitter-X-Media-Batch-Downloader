@@ -26,7 +26,7 @@
 
 ![image](https://github.com/user-attachments/assets/1779659e-3512-4e74-be0a-088419267fe0)
 
-## How to obtain Auth Token
+## How to Obtain Auth Token
 
 1. Go to [Twitter's website](https://www.x.com/)
 2. Log into your account
