@@ -93,14 +93,19 @@ class MetadataFetcher(QThread):
                             }
                     
                     should_include = False
+                    media_type = tweet_data.get('type', '')
                     
                     if self.media_type == 'media':
                         should_include = ('pbs.twimg.com' in media_url or 
                                         'video.twimg.com' in media_url)
                     elif self.media_type == 'image':
-                        should_include = 'pbs.twimg.com' in media_url
+                        should_include = ('pbs.twimg.com' in media_url and 
+                                        media_type == 'photo')
+                    elif self.media_type == 'gif':
+                        should_include = media_type == 'animated_gif'
                     elif self.media_type == 'video':
-                        should_include = 'video.twimg.com' in media_url
+                        should_include = (media_type == 'video' and 
+                                        'video.twimg.com' in media_url)
                     
                     if should_include:
                         tweet_date = tweet_data.get('date', datetime.now())
@@ -110,8 +115,8 @@ class MetadataFetcher(QThread):
                         output['timeline'].append({
                             'url': media_url,
                             'date': tweet_date,
-                            'type': ('video' if 'video.twimg.com' in media_url 
-                                    else 'image')
+                            'type': media_type,
+                            'tweet_id': tweet_data.get('tweet_id', '')
                         })
             
             if not output['account_info']:
@@ -122,6 +127,8 @@ class MetadataFetcher(QThread):
                     message = "No media found in timeline"
                 elif self.media_type == 'image':
                     message = "No images found in timeline"
+                elif self.media_type == 'gif':
+                    message = "No GIFs found in timeline"
                 else:
                     message = "No videos found in timeline"
                 raise ValueError(message)
@@ -173,13 +180,14 @@ class MediaDownloader(QThread):
                 url = item['url']
                 date = datetime.strptime(item['date'], "%Y-%m-%d %H:%M:%S")
                 formatted_date = date.strftime("%Y%m%d_%H%M%S")
+                tweet_id = str(item.get('tweet_id', ''))
                 
                 extension = 'mp4' if 'video.twimg.com' in url else 'jpg'
                 
                 if self.filename_format == "username_date":
-                    base_filename = f"{self.username}_{formatted_date}"
+                    base_filename = f"{self.username}_{formatted_date}_{tweet_id}"
                 else:
-                    base_filename = f"{formatted_date}_{self.username}"
+                    base_filename = f"{formatted_date}_{self.username}_{tweet_id}"
                 
                 filename = f"{base_filename}.{extension}"
                 counter = 1
@@ -318,7 +326,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         
         self.media_type_combo = QComboBox()
         self.media_type_combo.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        media_types = [('media', 'Media'), ('image', 'Image'), ('video', 'Video')]
+        media_types = [('media', 'Media'), ('image', 'Image'), ('gif', 'GIF'), ('video', 'Video')]
         for value, display in media_types:
             self.media_type_combo.addItem(display, value)
         self.media_type_combo.setFixedWidth(100)
