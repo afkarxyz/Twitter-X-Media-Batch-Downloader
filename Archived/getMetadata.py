@@ -53,10 +53,17 @@ def get_metadata(username):
                 tweet_date = tweet_data.get('date', datetime.now())
                 if isinstance(tweet_date, datetime):
                     tweet_date = tweet_date.strftime("%Y-%m-%d %H:%M:%S")
-                output['timeline'].append({
+                
+                timeline_entry = {
                     'url': media_url,
-                    'date': tweet_date
-                })
+                    'date': tweet_date,
+                    'tweet_id': tweet_data.get('tweet_id', 0),
+                }
+                
+                if 'type' in tweet_data:
+                    timeline_entry['type'] = tweet_data['type']
+                
+                output['timeline'].append(timeline_entry)
                 output['total_urls'] += 1
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
