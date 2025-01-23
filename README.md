@@ -31,6 +31,9 @@
 
 ## How to Obtain Auth Token
 
+> [!Warning]
+> I suggest not using the **main account** to obtain the token.
+
 1. Go to [Twitter's website](https://www.x.com/)
 2. Log into your account
 3. Open the Developer Tools by pressing `F12`
