@@ -10,7 +10,7 @@
 
 - Download the latest version of [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v1.2/TwitterXMediaBatchDownloader.exe)
 - If you're familiar with **userscripts**, please install it [here](https://greasyfork.org/en/scripts/523157-twitter-x-media-batch-downloader)
-- If you want to download media from a **suspended account**, use the userscript version.
+- If you want to download media from a **suspended account**, use the userscript version
 
 ## Features
 
