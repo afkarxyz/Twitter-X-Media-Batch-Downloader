@@ -34,7 +34,7 @@
 > [!Warning]
 > - I suggest not using the **main account** to obtain the token.
 > - You can use https://temp-mail.io to register a Twitter account.
-> - Using an auth token or cookies has the potential to get the account suspended.
+> - Using an auth token or cookies has the potential to get the **account suspended.**
 
 1. Go to [Twitter's website](https://www.x.com/)
 2. Log into your account
