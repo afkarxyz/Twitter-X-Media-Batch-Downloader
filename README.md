@@ -8,13 +8,13 @@
 
 ## Download
 
-- Download the latest version of [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v1.3/TwitterXMediaBatchDownloader.exe)
+- Download the latest version of [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v1.4/TwitterXMediaBatchDownloader.exe)
 - If you're familiar with **userscripts**, please install it [here](https://greasyfork.org/en/scripts/523157-twitter-x-media-batch-downloader)
 
 ## Features
 
 - Uses the powerful `gallery-dl` library, similar to `yt-dlp`
-- The ability to download media from **Withheld Accounts**
+- The ability to download media from **Withheld Accounts** (requires unchecking the Local option)
 - Simple and compact GUI
 - Download images and videos in original quality
 - Option to choose the media type to download: **media** (image + GIF + video) or just **image/GIF/video**
@@ -23,19 +23,19 @@
   
 ## Screenshots
 
-![image](https://github.com/user-attachments/assets/c8af187c-fd4c-4b3d-abb8-475a4d4a6b14)
+![image](https://github.com/user-attachments/assets/085cdcee-5272-41bb-8612-06737c0ebe32)
 
-![image](https://github.com/user-attachments/assets/8e9ecb0b-59ec-43a8-9648-78838b121582)
+![image](https://github.com/user-attachments/assets/3e71f14b-c4f0-4e86-87d5-9217d88cb0c2)
 
-![image](https://github.com/user-attachments/assets/779c7f75-08fb-4ba8-977a-8a29bae4a7e3)
+![image](https://github.com/user-attachments/assets/c4e086c2-d4d5-4eee-8bab-dba8e5fdd90d)
 
 > Downloading from **Withheld Accounts**
 
-![image](https://github.com/user-attachments/assets/8ed5d0de-e83e-4dca-bf17-f9ed78bfd2ae)
+![image](https://github.com/user-attachments/assets/f5e301cf-9700-4986-a87d-8424be40db5c)
 
-![image](https://github.com/user-attachments/assets/bb76e9f1-6fa9-416d-92f1-e9d10ff85d86)
+![image](https://github.com/user-attachments/assets/92f814b1-069f-4605-b31f-8a5ff8dc0f17)
 
-![image](https://github.com/user-attachments/assets/48bf3cc6-81d7-45dd-9d8c-40ef5b0317e9)
+![image](https://github.com/user-attachments/assets/c6e7dc0d-659d-456e-b30c-6cca66fe9359)
 
 ## How to Obtain Auth Token
 
