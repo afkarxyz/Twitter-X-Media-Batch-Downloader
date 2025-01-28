@@ -8,7 +8,8 @@ from datetime import datetime
 from pathlib import Path
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                             QHBoxLayout, QLabel, QLineEdit, QPushButton, 
-                            QProgressBar, QFileDialog, QRadioButton, QComboBox)
+                            QProgressBar, QFileDialog, QRadioButton, QComboBox,
+                            QGroupBox, QCheckBox)
 from PyQt6.QtCore import QThread, pyqtSignal, Qt, QSettings
 from PyQt6.QtGui import QIcon, QPixmap, QCursor, QPainter, QPainterPath
 from gallery_dl.extractor import twitter
@@ -36,105 +37,147 @@ class MetadataFetcher(QThread):
     finished = pyqtSignal(dict)
     error = pyqtSignal(str)
     
-    def __init__(self, username, media_type='media'):
+    def __init__(self, username, media_type='media', use_api=True):
         super().__init__()
         self.username = username
         self.auth_token = None
         self.media_type = media_type
+        self.use_api = use_api
         
+    def normalize_url(self, url_or_username):
+        url_or_username = url_or_username.strip()
+        username = url_or_username
+        
+        if "x.com/" in url_or_username or "twitter.com/" in url_or_username:
+            parts = url_or_username.split('/')
+            for i, part in enumerate(parts):
+                if part in ['x.com', 'twitter.com'] and i + 1 < len(parts):
+                    username = parts[i + 1]
+                    username = username.split('/')[0]
+                    break
+        
+        username = username.strip()
+        return username
+
+    async def fetch_from_api(self, username, auth_token):
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = f"https://twitterxapis.vercel.app/metadata/{username}/{auth_token}"
+                async with session.get(url) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        
+                        if self.media_type != 'media':
+                            filtered_timeline = []
+                            for item in data['timeline']:
+                                if (self.media_type == 'image' and item['type'] == 'photo') or \
+                                   (self.media_type == 'gif' and item['type'] == 'animated_gif') or \
+                                   (self.media_type == 'video' and item['type'] == 'video'):
+                                    filtered_timeline.append(item)
+                            data['timeline'] = filtered_timeline
+                        
+                        return data
+                    else:
+                        raise ValueError(f"API request failed with status {response.status}")
+        except Exception as e:
+            raise ValueError(f"API request failed: {str(e)}")
+
     def run(self):
         try:
-            username = self.username.strip()
-            if "x.com/" in username or "twitter.com/" in username:
-                username = username.split("/")[-1]
-                if username.endswith("/timeline"):
-                    username = username[:-9]
+            normalized = self.normalize_url(self.username)
             
-            url = f"https://x.com/{username}/timeline"
-            
-            match = re.match(twitter.TwitterTimelineExtractor.pattern, url)
-            if not match:
-                raise ValueError(f"Invalid URL: {url}")
-                
-            extractor = twitter.TwitterTimelineExtractor(match)
-            extractor.config = lambda key, default=None: {
-                "cookies": {
-                    "auth_token": self.auth_token
-                }
-            }.get(key, default)
-            
-            extractor.initialize()
-            
-            output = {
-                'account_info': {},
-                'timeline': []
-            }
-            
-            for item in extractor:
-                if isinstance(item, tuple) and len(item) >= 3:
-                    media_url = item[1]
-                    tweet_data = item[2]
+            try:
+                data = asyncio.run(self.fetch_from_api(normalized, self.auth_token))
+                self.finished.emit(data)
+                return
+            except Exception as api_error:
+                try:
+                    match = re.match(twitter.TwitterTimelineExtractor.pattern, f"https://x.com/{normalized}/timeline")
+                    if not match:
+                        raise ValueError(f"Invalid username: {normalized}")
+                        
+                    extractor = twitter.TwitterTimelineExtractor(match)
+                    extractor.config = lambda key, default=None: {
+                        "cookies": {
+                            "auth_token": self.auth_token
+                        }
+                    }.get(key, default)
+                    
+                    extractor.initialize()
+                    
+                    output = {
+                        'account_info': {},
+                        'timeline': []
+                    }
+                    
+                    for item in extractor:
+                        if isinstance(item, tuple) and len(item) >= 3:
+                            media_url = item[1]
+                            tweet_data = item[2]
+                            
+                            if not output['account_info']:
+                                if 'user' in tweet_data:
+                                    user = tweet_data['user']
+                                    user_date = user.get('date', '')
+                                    if isinstance(user_date, datetime):
+                                        user_date = user_date.strftime("%Y-%m-%d %H:%M:%S")
+                                        
+                                    output['account_info'] = {
+                                        'name': user.get('name', ''),
+                                        'nick': user.get('nick', ''),
+                                        'date': user_date,
+                                        'followers_count': user.get('followers_count', 0),
+                                        'friends_count': user.get('friends_count', 0),
+                                        'profile_image': user.get('profile_image', ''),
+                                        'statuses_count': user.get('statuses_count', 0)
+                                    }
+                            
+                            should_include = False
+                            media_type = tweet_data.get('type', '')
+                            
+                            if self.media_type == 'media':
+                                should_include = ('pbs.twimg.com' in media_url or 
+                                                'video.twimg.com' in media_url)
+                            elif self.media_type == 'image':
+                                should_include = ('pbs.twimg.com' in media_url and 
+                                                media_type == 'photo')
+                            elif self.media_type == 'gif':
+                                should_include = media_type == 'animated_gif'
+                            elif self.media_type == 'video':
+                                should_include = (media_type == 'video' and 
+                                                'video.twimg.com' in media_url)
+                            
+                            if should_include:
+                                tweet_date = tweet_data.get('date', datetime.now())
+                                if isinstance(tweet_date, datetime):
+                                    tweet_date = tweet_date.strftime("%Y-%m-%d %H:%M:%S")
+                                
+                                output['timeline'].append({
+                                    'url': media_url,
+                                    'date': tweet_date,
+                                    'type': media_type,
+                                    'tweet_id': tweet_data.get('tweet_id', '')
+                                })
                     
                     if not output['account_info']:
-                        if 'user' in tweet_data:
-                            user = tweet_data['user']
-                            user_date = user.get('date', '')
-                            if isinstance(user_date, datetime):
-                                user_date = user_date.strftime("%Y-%m-%d %H:%M:%S")
-                                
-                            output['account_info'] = {
-                                'name': user.get('name', ''),
-                                'nick': user.get('nick', ''),
-                                'date': user_date,
-                                'followers_count': user.get('followers_count', 0),
-                                'friends_count': user.get('friends_count', 0),
-                                'profile_image': user.get('profile_image', ''),
-                                'statuses_count': user.get('statuses_count', 0)
-                            }
+                        raise ValueError("Failed to fetch account information. Please check the username and auth token.")
                     
-                    should_include = False
-                    media_type = tweet_data.get('type', '')
+                    if not output['timeline']:
+                        if self.media_type == 'media':
+                            message = "No media found in timeline"
+                        elif self.media_type == 'image':
+                            message = "No images found in timeline"
+                        elif self.media_type == 'gif':
+                            message = "No GIFs found in timeline"
+                        else:
+                            message = "No videos found in timeline"
+                        raise ValueError(message)
                     
-                    if self.media_type == 'media':
-                        should_include = ('pbs.twimg.com' in media_url or 
-                                        'video.twimg.com' in media_url)
-                    elif self.media_type == 'image':
-                        should_include = ('pbs.twimg.com' in media_url and 
-                                        media_type == 'photo')
-                    elif self.media_type == 'gif':
-                        should_include = media_type == 'animated_gif'
-                    elif self.media_type == 'video':
-                        should_include = (media_type == 'video' and 
-                                        'video.twimg.com' in media_url)
+                    self.finished.emit(output)
                     
-                    if should_include:
-                        tweet_date = tweet_data.get('date', datetime.now())
-                        if isinstance(tweet_date, datetime):
-                            tweet_date = tweet_date.strftime("%Y-%m-%d %H:%M:%S")
-                        
-                        output['timeline'].append({
-                            'url': media_url,
-                            'date': tweet_date,
-                            'type': media_type,
-                            'tweet_id': tweet_data.get('tweet_id', '')
-                        })
-            
-            if not output['account_info']:
-                raise ValueError("Failed to fetch account information. Please check the username and auth token.")
-            
-            if not output['timeline']:
-                if self.media_type == 'media':
-                    message = "No media found in timeline"
-                elif self.media_type == 'image':
-                    message = "No images found in timeline"
-                elif self.media_type == 'gif':
-                    message = "No GIFs found in timeline"
-                else:
-                    message = "No videos found in timeline"
-                raise ValueError(message)
-            
-            self.finished.emit(output)
-            
+                except Exception as local_error:
+                    raise ValueError(f"Both API and local methods failed.\nAPI error: {str(api_error)}\nLocal error: {str(local_error)}")
+                    
         except Exception as e:
             self.error.emit(str(e))
 
@@ -148,88 +191,129 @@ class MediaDownloader(QThread):
         super().__init__()
         self.media_list = media_list
         self.output_dir = output_dir
-        self.filename_format = filename_format
         self.username = username
+        self.filename_format = filename_format
         self.media_type = media_type
         self.batch_size = batch_size
-        
+        self._is_cancelled = False
+        self._download_lock = asyncio.Lock()
+
+    def cancel(self):
+        self._is_cancelled = True
+
     async def download_file(self, session, url, filepath):
         try:
+            if os.path.exists(filepath):
+                return True, True
+            
+            if self._is_cancelled:
+                return False, False
+            
             os.makedirs(os.path.dirname(filepath), exist_ok=True)
             
             async with session.get(url) as response:
                 if response.status == 200:
                     with open(filepath, 'wb') as f:
                         f.write(await response.read())
-                    return True
-                return False
-        except Exception:
-            return False
+                    return True, False
+                return False, False
+        except Exception as e:
+            print(f"Error downloading {url}: {str(e)}")
+            return False, False
 
     async def download_all(self):
         os.makedirs(self.output_dir, exist_ok=True)
         
-        async with aiohttp.ClientSession() as session:
+        timeout = aiohttp.ClientTimeout(total=30)
+        connector = aiohttp.TCPConnector(limit=self.batch_size)
+        
+        async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
             total = len(self.media_list)
             completed = 0
+            skipped = 0
+            failed = 0
             
             used_filenames = set()
             
-            tasks = []
-            for item in self.media_list:
-                url = item['url']
-                date = datetime.strptime(item['date'], "%Y-%m-%d %H:%M:%S")
-                formatted_date = date.strftime("%Y%m%d_%H%M%S")
-                tweet_id = str(item.get('tweet_id', ''))
+            for i in range(0, total, self.batch_size):
+                if self._is_cancelled:
+                    break
                 
-                extension = 'mp4' if 'video.twimg.com' in url else 'jpg'
+                batch = self.media_list[i:i + self.batch_size]
+                tasks = []
                 
-                if self.filename_format == "username_date":
-                    base_filename = f"{self.username}_{formatted_date}_{tweet_id}"
-                else:
-                    base_filename = f"{formatted_date}_{self.username}_{tweet_id}"
-                
-                filename = f"{base_filename}.{extension}"
-                counter = 1
-                while filename in used_filenames:
-                    filename = f"{base_filename}_{counter:02d}.{extension}"
-                    counter += 1
-                
-                used_filenames.add(filename)
-                filepath = os.path.join(self.output_dir, filename)
-                
-                task = asyncio.create_task(self.download_file(session, url, filepath))
-                tasks.append(task)
-                
-                if len(tasks) >= self.batch_size:
-                    results = await asyncio.gather(*tasks)
-                    completed += sum(1 for r in results if r)
-                    progress = int((completed / total) * 100)
-                    self.progress.emit(progress)
-                    completed_str = f"{completed:,}" if completed >= 1000 else str(completed)
-                    total_str = f"{total:,}" if total >= 1000 else str(total)
+                for item in batch:
+                    url = item['url']
+                    date = datetime.strptime(item['date'], "%Y-%m-%d %H:%M:%S")
+                    formatted_date = date.strftime("%Y%m%d_%H%M%S")
+                    tweet_id = str(item.get('tweet_id', ''))
                     
-                    media_type_str = "files"
-                    if self.media_type == "image":
-                        media_type_str = "images"
-                    elif self.media_type == "video":
-                        media_type_str = "videos"
+                    extension = 'mp4' if 'video.twimg.com' in url else 'jpg'
                     
-                    self.status_update.emit(f"Downloaded {completed_str} of {total_str} {media_type_str}...")
-                    tasks = []
-            
-            if tasks:
-                results = await asyncio.gather(*tasks)
-                completed += sum(1 for r in results if r)
+                    if self.filename_format == "username_date":
+                        base_filename = f"{self.username}_{formatted_date}_{tweet_id}"
+                    else:
+                        base_filename = f"{formatted_date}_{self.username}_{tweet_id}"
+                    
+                    filename = f"{base_filename}.{extension}"
+                    counter = 1
+                    while filename in used_filenames:
+                        filename = f"{base_filename}_{counter:02d}.{extension}"
+                        counter += 1
+                    
+                    used_filenames.add(filename)
+                    filepath = os.path.join(self.output_dir, filename)
+                    
+                    task = asyncio.create_task(self.download_file(session, url, filepath))
+                    tasks.append(task)
+                
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                
+                for result in results:
+                    if isinstance(result, tuple):
+                        success, was_skipped = result
+                        if success:
+                            completed += 1
+                            if was_skipped:
+                                skipped += 1
+                        else:
+                            failed += 1
+                    else:
+                        failed += 1
+                
                 progress = int((completed / total) * 100)
                 self.progress.emit(progress)
                 
-            return completed
+                completed_str = f"{completed:,}" if completed >= 1000 else str(completed)
+                total_str = f"{total:,}" if total >= 1000 else str(total)
+                skipped_str = f" ({skipped:,} skipped)" if skipped > 0 else ""
+                failed_str = f" ({failed:,} failed)" if failed > 0 else ""
+                
+                media_type_str = "files"
+                if self.media_type == "image":
+                    media_type_str = "images"
+                elif self.media_type == "video":
+                    media_type_str = "videos"
+                
+                self.status_update.emit(
+                    f"Downloaded {completed_str} of {total_str} {media_type_str}{skipped_str}{failed_str}..."
+                )
+                
+                await asyncio.sleep(0.1)
+            
+            return completed, skipped, failed
 
     def run(self):
         try:
-            completed = asyncio.run(self.download_all())
+            completed, skipped, failed = asyncio.run(self.download_all())
+            
+            if self._is_cancelled:
+                self.status_update.emit("Download cancelled")
+                return
+                
             completed_str = f"{completed:,}" if completed >= 1000 else str(completed)
+            skipped_str = f" ({skipped:,} skipped)" if skipped > 0 else ""
+            failed_str = f" ({failed:,} failed)" if failed > 0 else ""
             
             media_type_str = "files"
             if self.media_type == "image":
@@ -237,7 +321,9 @@ class MediaDownloader(QThread):
             elif self.media_type == "video":
                 media_type_str = "videos"
             
-            self.finished.emit(f"Downloaded {completed_str} {media_type_str} successfully!")
+            self.finished.emit(
+                f"Downloaded {completed_str} {media_type_str}{skipped_str}{failed_str} successfully!"
+            )
         except Exception as e:
             self.error.emit(str(e))
 
@@ -251,7 +337,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
             self.setWindowIcon(QIcon(icon_path))
             
         self.setFixedWidth(600)
-        self.setFixedHeight(180)
+        self.setFixedHeight(210)
         
         self.default_pictures_dir = str(Path.home() / "Pictures")
         os.makedirs(self.default_pictures_dir, exist_ok=True)
@@ -262,6 +348,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.init_ui()
         self.load_settings()
         self.setup_auto_save()
+        self.clean_username = None
 
     def init_ui(self):
         central_widget = QWidget()
@@ -319,47 +406,83 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         auth_layout.addWidget(self.auth_input)
         input_layout.addLayout(auth_layout)
 
-        options_layout = QHBoxLayout()
-        
+        settings_group = QGroupBox("Settings")
+        settings_layout = QVBoxLayout()
+        settings_layout.setSpacing(5)
+        settings_layout.setContentsMargins(5, 5, 5, 5)
+
+        centered_settings_layout = QHBoxLayout()
+        centered_settings_layout.addStretch()
+
+        media_layout = QHBoxLayout()
+        media_layout.setSpacing(5)
+
         media_label = QLabel("Media Type:")
-        media_label.setFixedWidth(100)
-        
+        media_label.setFixedWidth(65)
+
         self.media_type_combo = QComboBox()
         self.media_type_combo.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         media_types = [('media', 'Media'), ('image', 'Image'), ('gif', 'GIF'), ('video', 'Video')]
         for value, display in media_types:
             self.media_type_combo.addItem(display, value)
-        self.media_type_combo.setFixedWidth(100)
+        self.media_type_combo.setFixedWidth(70)
         
+        media_layout.addWidget(media_label)
+        media_layout.addWidget(self.media_type_combo)
+        media_layout.addSpacing(10)
+
+        self.use_api_checkbox = QCheckBox("Use API")
+        self.use_api_checkbox.setToolTip("Use external API instead of gallery-dl")
+        self.use_api_checkbox.setChecked(True)
+        self.use_api_checkbox.stateChanged.connect(self.auto_save_settings)
+
+        media_layout.addWidget(self.use_api_checkbox)
+        media_layout.addSpacing(10)
+
+        batch_layout = QHBoxLayout()
+        batch_layout.setSpacing(5)
+
         batch_label = QLabel("Batch:")
-        batch_label.setFixedWidth(40)
-        
+        batch_label.setFixedWidth(35)
+
         self.batch_size_combo = QComboBox()
         self.batch_size_combo.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.batch_size_combo.setFixedWidth(50)
+        self.batch_size_combo.setFixedWidth(60)
         for size in range(10, 101, 10):
             self.batch_size_combo.addItem(str(size))
+        self.batch_size_combo.setCurrentText("20")
+
+        batch_layout.addWidget(batch_label)
+        batch_layout.addWidget(self.batch_size_combo)
+        batch_layout.addSpacing(10)
+
+        filename_layout = QHBoxLayout()
+        filename_layout.setSpacing(5)
 
         format_label = QLabel("Filename:")
-        format_label.setFixedWidth(60)
-        
+        format_label.setFixedWidth(50)
+
         self.format_username = QRadioButton("Username")
         self.format_date = QRadioButton("Date")
         self.format_username.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.format_date.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        
-        options_layout.addWidget(media_label)
-        options_layout.addWidget(self.media_type_combo)
-        options_layout.addSpacing(10)
-        options_layout.addWidget(batch_label)
-        options_layout.addWidget(self.batch_size_combo)
-        options_layout.addSpacing(10)
-        options_layout.addWidget(format_label)
-        options_layout.addWidget(self.format_username)
-        options_layout.addWidget(self.format_date)
-        options_layout.addStretch()
-        
-        input_layout.addLayout(options_layout)
+
+        filename_layout.addWidget(format_label)
+        filename_layout.addWidget(self.format_username)
+        filename_layout.addWidget(self.format_date)
+
+        combined_layout = QHBoxLayout()
+        combined_layout.addLayout(media_layout)
+        combined_layout.addLayout(batch_layout)
+        combined_layout.addLayout(filename_layout)
+
+        centered_settings_layout.addLayout(combined_layout)
+        centered_settings_layout.addStretch()
+
+        settings_layout.addLayout(centered_settings_layout)
+        settings_group.setLayout(settings_layout)
+
+        input_layout.addWidget(settings_group)
 
         self.main_layout.addWidget(self.input_widget)
 
@@ -416,7 +539,6 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         profile_details_layout.addWidget(self.followers_label)
         profile_details_layout.addWidget(self.following_label)
         profile_details_layout.addWidget(self.posts_label)
-        profile_details_layout.addWidget(self.posts_label)
         profile_layout.addWidget(profile_details_container, stretch=1)
         profile_layout.addStretch()
 
@@ -453,6 +575,8 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.main_layout.addWidget(self.progress_bar)
 
         bottom_layout = QHBoxLayout()
+        bottom_layout.setContentsMargins(0, 0, 0, 0)
+        bottom_layout.setSpacing(5)
         
         self.status_label = QLabel("")
         bottom_layout.addWidget(self.status_label, stretch=1)
@@ -478,6 +602,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         bottom_layout.addWidget(self.update_button)
         
         self.main_layout.addLayout(bottom_layout)
+        self.main_layout.setAlignment(bottom_layout, Qt.AlignmentFlag.AlignBottom)
 
     def open_update_page(self):
         import webbrowser
@@ -489,8 +614,9 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.dir_input.textChanged.connect(self.auto_save_settings)
         self.format_username.toggled.connect(self.auto_save_settings)
         self.media_type_combo.currentTextChanged.connect(self.auto_save_settings)
+        self.use_api_checkbox.stateChanged.connect(self.auto_save_settings)
         self.batch_size_combo.currentTextChanged.connect(self.auto_save_settings)
-    
+        
     def auto_save_settings(self):
         self.settings.setValue('url_input', self.url_input.text())
         self.settings.setValue('auth_token', self.auth_input.text())
@@ -498,6 +624,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.settings.setValue('filename_format', 
                              'username_date' if self.format_username.isChecked() else 'date_username')
         self.settings.setValue('media_type', self.media_type_combo.currentData())
+        self.settings.setValue('use_api', self.use_api_checkbox.isChecked())
         self.settings.setValue('batch_size', self.batch_size_combo.currentText())
         self.settings.sync()
 
@@ -515,8 +642,11 @@ class TwitterMediaDownloaderGUI(QMainWindow):
             if self.media_type_combo.itemData(i) == media_type:
                 self.media_type_combo.setCurrentIndex(i)
                 break
+
+        use_api = self.settings.value('use_api', True, type=bool)
+        self.use_api_checkbox.setChecked(use_api)
         
-        batch_size = self.settings.value('batch_size', '10')
+        batch_size = self.settings.value('batch_size', '20')
         index = self.batch_size_combo.findText(batch_size)
         if index >= 0:
             self.batch_size_combo.setCurrentIndex(index)
@@ -552,60 +682,120 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.status_label.setText("Fetching profile information...")
         
         media_type = self.media_type_combo.currentData()
-        self.fetcher = MetadataFetcher(username, media_type)
+        use_api = self.use_api_checkbox.isChecked()
+        self.fetcher = MetadataFetcher(username, media_type, use_api)
         self.fetcher.auth_token = auth_token
         self.fetcher.finished.connect(self.handle_profile_info)
         self.fetcher.error.connect(self.handle_fetch_error)
         self.fetcher.start()
 
     def handle_profile_info(self, info):
-        if not info.get('account_info'):
-            self.status_label.setText("Failed to fetch profile information")
+        try:
+            if not info or not isinstance(info, dict):
+                raise ValueError("Invalid info data received")
+
+            account_info = info.get('account_info', {})
+            if not account_info:
+                self.status_label.setText("Failed to fetch profile information")
+                self.fetch_button.setEnabled(True)
+                return
+
+            self.media_info = info
             self.fetch_button.setEnabled(True)
-            return
             
-        self.media_info = info
-        self.fetch_button.setEnabled(True)
-        
-        account_info = info['account_info']
-        name = account_info['name']
-        nick = account_info['nick']
-        join_date = datetime.strptime(account_info['date'], "%Y-%m-%d %H:%M:%S")
-        followers = account_info['followers_count']
-        following = account_info['friends_count']
-        posts = account_info['statuses_count']
-        
-        join_date_str = join_date.strftime("%A, %d %B %Y - %H:%M")
-        
-        self.name_label.setText(f"<b>{name}</b> ({nick})")
-        self.join_date_label.setText(f"<b>Join Date:</b> {join_date_str}")
-        self.followers_label.setText(f"<b>Followers:</b> {followers:,}")
-        self.following_label.setText(f"<b>Following:</b> {following:,}")
-        self.posts_label.setText(f"<b>Posts:</b> {posts:,}")
+            is_withheld = not account_info.get('nick') and not account_info.get('profile_image')
+            
+            name = account_info.get('name', 'Unknown')
+            nick = "Withheld" if is_withheld else account_info.get('nick', 'Unknown')
+            date_str = account_info.get('date', '')
+            followers = account_info.get('followers_count', 0)
+            following = account_info.get('friends_count', 0)
+            posts = account_info.get('statuses_count', 0)
+            
+            try:
+                join_date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+                join_date_str = join_date.strftime("%A, %d %B %Y - %H:%M")
+            except (ValueError, TypeError):
+                join_date_str = "Unknown Date"
+            
+            try:
+                self.name_label.setText(f"<b>{name}</b> ({nick})")
+                self.join_date_label.setText(f"<b>Join Date:</b> {join_date_str}")
+                self.followers_label.setText(f"<b>Followers:</b> {followers:,}")
+                self.following_label.setText(f"<b>Following:</b> {following:,}")
+                self.posts_label.setText(f"<b>Posts:</b> {posts:,}")
 
-        media_count = len(info['timeline'])
-        self.status_label.setText(f"Successfully fetched {media_count:,} media items")
-        
-        profile_image_url = account_info['profile_image']
-        self.image_downloader = ImageDownloader(profile_image_url)
-        self.image_downloader.finished.connect(self.update_profile_image)
-        self.image_downloader.start()
-        
-        self.input_widget.hide()
-        self.profile_widget.show()
-        self.download_button.show()
-        self.cancel_button.show()
-        self.update_button.hide()
+                timeline = info.get('timeline', [])
+                media_count = len(timeline) if isinstance(timeline, list) else 0
+                self.status_label.setText(f"Successfully fetched {media_count:,} media items")
+            except Exception as ui_error:
+                self.status_label.setText(f"Error updating UI: {str(ui_error)}")
+                return
 
-        username = self.url_input.text().strip()
-        if "x.com/" in username or "twitter.com/" in username:
-            username = username.split("/")[-1]
-            if username.endswith("/timeline"):
-                username = username[:-9]
-        
-        output_base = self.dir_input.text().strip() or self.default_pictures_dir
-        self.user_output_dir = os.path.join(output_base, username)
-        os.makedirs(self.user_output_dir, exist_ok=True)
+            if is_withheld:
+                try:
+                    withheld_icon_path = os.path.join(os.path.dirname(__file__), "withheld.svg")
+                    if os.path.exists(withheld_icon_path):
+                        icon = QIcon(withheld_icon_path)
+                        pixmap = icon.pixmap(90, 90)
+                        
+                        painter = QPainter(pixmap)
+                        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
+                        painter.fillRect(pixmap.rect(), self.palette().text().color())
+                        painter.end()
+                        
+                        scaled_pixmap = pixmap.scaled(
+                            90, 90, 
+                            Qt.AspectRatioMode.KeepAspectRatio, 
+                            Qt.TransformationMode.SmoothTransformation
+                        )
+                        self.profile_image_label.setPixmap(scaled_pixmap)
+                    else:
+                        print("Withheld icon not found:", withheld_icon_path)
+                except Exception as icon_error:
+                    print(f"Error loading withheld icon: {str(icon_error)}")
+            else:
+                profile_image_url = account_info.get('profile_image', '')
+                if profile_image_url:
+                    try:
+                        self.image_downloader = ImageDownloader(profile_image_url)
+                        self.image_downloader.finished.connect(self.update_profile_image)
+                        self.image_downloader.start()
+                    except Exception as img_error:
+                        print(f"Error starting image download: {str(img_error)}")
+            
+            try:
+                username = self.url_input.text().strip()
+                if "x.com/" in username or "twitter.com/" in username:
+                    parts = username.split('/')
+                    for i, part in enumerate(parts):
+                        if part in ['x.com', 'twitter.com'] and i + 1 < len(parts):
+                            username = parts[i + 1]
+                            username = username.split('/')[0]
+                            break
+                self.clean_username = username.strip()
+            except Exception as username_error:
+                self.clean_username = "unknown_user"
+                print(f"Error cleaning username: {str(username_error)}")
+
+            self.input_widget.hide()
+            self.profile_widget.show()
+            self.download_button.show()
+            self.cancel_button.show()
+            self.update_button.hide()
+            
+            try:
+                output_base = self.dir_input.text().strip() or self.default_pictures_dir
+                self.user_output_dir = os.path.join(output_base, self.clean_username)
+                os.makedirs(self.user_output_dir, exist_ok=True)
+            except Exception as dir_error:
+                self.status_label.setText(f"Error creating output directory: {str(dir_error)}")
+                return
+
+        except Exception as e:
+            self.status_label.setText(f"Error processing profile info: {str(e)}")
+            self.fetch_button.setEnabled(True)
+            print(f"Full error in handle_profile_info: {str(e)}")
 
     def update_profile_image(self, image_data):
         original_pixmap = QPixmap()
@@ -653,18 +843,12 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         filename_format = "username_date" if self.format_username.isChecked() else "date_username"
         batch_size = int(self.batch_size_combo.currentText())
         media_type = self.media_type_combo.currentData()
-        
-        username = self.url_input.text().strip()
-        if "x.com/" in username or "twitter.com/" in username:
-            username = username.split("/")[-1]
-            if username.endswith("/timeline"):
-                username = username[:-9]
 
         self.worker = MediaDownloader(
             self.media_info['timeline'],
             self.user_output_dir,
             filename_format,
-            username,
+            self.clean_username,
             media_type,
             batch_size
         )
