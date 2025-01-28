@@ -15,11 +15,8 @@
 
 - Uses the powerful `gallery-dl` library, similar to `yt-dlp`
 - The ability to download media from **Withheld Accounts** (requires unchecking the Local option)
-- Simple and compact GUI
-- Download images and videos in original quality
 - Option to choose the media type to download: **media** (image + GIF + video) or just **image/GIF/video**
-- **Batch** download settings, ranging from 10 to 100 files per download  
-- Filename format customization
+- Download images and videos in original quality
   
 ## Screenshots
 
