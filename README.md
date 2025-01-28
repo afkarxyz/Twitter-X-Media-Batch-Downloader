@@ -3,18 +3,18 @@
 ![TwitterXMediaBatchDownloader](https://github.com/user-attachments/assets/354d7470-c01c-4aa6-9da1-ea6c42d27330)
 
 <div align="center">
-<b>Twitter/X Media Batch Downloader</b> is a GUI tool that allows users to download all media, including images and videos, in their original quality from Twitter/X accounts using <code>gallery-dl</code>
+<b>Twitter/X Media Batch Downloader</b> is a GUI tool that allows users to download all media, including images and videos, in their original quality from Twitter/X accounts, even withheld accounts, using <code>gallery-dl</code>
 </div>
 
 ## Download
 
-- Download the latest version of [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v1.2/TwitterXMediaBatchDownloader.exe)
+- Download the latest version of [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v1.3/TwitterXMediaBatchDownloader.exe)
 - If you're familiar with **userscripts**, please install it [here](https://greasyfork.org/en/scripts/523157-twitter-x-media-batch-downloader)
-- If you want to download media from a **suspended account**, use the userscript version
 
 ## Features
 
-- Uses the powerful `gallery-dl` library, similar to `yt-dlp`  
+- Uses the powerful `gallery-dl` library, similar to `yt-dlp`
+- The ability to download media from **Withheld Accounts**
 - Simple and compact GUI
 - Download images and videos in original quality
 - Option to choose the media type to download: **media** (image + GIF + video) or just **image/GIF/video**
@@ -23,11 +23,19 @@
   
 ## Screenshots
 
-![image](https://github.com/user-attachments/assets/ccdd8a8d-890f-4d3c-a3b1-56dad3eb82a9)
+![image](https://github.com/user-attachments/assets/c8af187c-fd4c-4b3d-abb8-475a4d4a6b14)
 
-![image](https://github.com/user-attachments/assets/01a80593-59fe-4c2b-a325-7e401fa3048f)
+![image](https://github.com/user-attachments/assets/8e9ecb0b-59ec-43a8-9648-78838b121582)
 
-![image](https://github.com/user-attachments/assets/1779659e-3512-4e74-be0a-088419267fe0)
+![image](https://github.com/user-attachments/assets/779c7f75-08fb-4ba8-977a-8a29bae4a7e3)
+
+> Downloading from **Withheld Accounts**
+
+![image](https://github.com/user-attachments/assets/8ed5d0de-e83e-4dca-bf17-f9ed78bfd2ae)
+
+![image](https://github.com/user-attachments/assets/bb76e9f1-6fa9-416d-92f1-e9d10ff85d86)
+
+![image](https://github.com/user-attachments/assets/48bf3cc6-81d7-45dd-9d8c-40ef5b0317e9)
 
 ## How to Obtain Auth Token
 
