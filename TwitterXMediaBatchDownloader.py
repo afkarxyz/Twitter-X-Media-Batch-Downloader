@@ -37,12 +37,12 @@ class MetadataFetcher(QThread):
     finished = pyqtSignal(dict)
     error = pyqtSignal(str)
     
-    def __init__(self, username, media_type='media', use_api=True):
+    def __init__(self, username, media_type='media', use_local=False):
         super().__init__()
         self.username = username
         self.auth_token = None
         self.media_type = media_type
-        self.use_api = use_api
+        self.use_local = use_local
         
     def normalize_url(self, url_or_username):
         url_or_username = url_or_username.strip()
@@ -82,101 +82,115 @@ class MetadataFetcher(QThread):
         except Exception as e:
             raise ValueError(f"API request failed: {str(e)}")
 
+    async def fetch_local(self, normalized):
+        try:
+            match = re.match(twitter.TwitterTimelineExtractor.pattern, f"https://x.com/{normalized}/timeline")
+            if not match:
+                raise ValueError(f"Invalid username: {normalized}")
+                
+            extractor = twitter.TwitterTimelineExtractor(match)
+            extractor.config = lambda key, default=None: {
+                "cookies": {
+                    "auth_token": self.auth_token
+                }
+            }.get(key, default)
+            
+            extractor.initialize()
+            
+            output = {
+                'account_info': {},
+                'timeline': []
+            }
+            
+            for item in extractor:
+                if isinstance(item, tuple) and len(item) >= 3:
+                    media_url = item[1]
+                    tweet_data = item[2]
+                    
+                    if not output['account_info']:
+                        if 'user' in tweet_data:
+                            user = tweet_data['user']
+                            user_date = user.get('date', '')
+                            if isinstance(user_date, datetime):
+                                user_date = user_date.strftime("%Y-%m-%d %H:%M:%S")
+                                
+                            output['account_info'] = {
+                                'name': user.get('name', ''),
+                                'nick': user.get('nick', ''),
+                                'date': user_date,
+                                'followers_count': user.get('followers_count', 0),
+                                'friends_count': user.get('friends_count', 0),
+                                'profile_image': user.get('profile_image', ''),
+                                'statuses_count': user.get('statuses_count', 0)
+                            }
+                    
+                    should_include = False
+                    media_type = tweet_data.get('type', '')
+                    
+                    if self.media_type == 'media':
+                        should_include = ('pbs.twimg.com' in media_url or 
+                                        'video.twimg.com' in media_url)
+                    elif self.media_type == 'image':
+                        should_include = ('pbs.twimg.com' in media_url and 
+                                        media_type == 'photo')
+                    elif self.media_type == 'gif':
+                        should_include = media_type == 'animated_gif'
+                    elif self.media_type == 'video':
+                        should_include = (media_type == 'video' and 
+                                        'video.twimg.com' in media_url)
+                    
+                    if should_include:
+                        tweet_date = tweet_data.get('date', datetime.now())
+                        if isinstance(tweet_date, datetime):
+                            tweet_date = tweet_date.strftime("%Y-%m-%d %H:%M:%S")
+                        
+                        output['timeline'].append({
+                            'url': media_url,
+                            'date': tweet_date,
+                            'type': media_type,
+                            'tweet_id': tweet_data.get('tweet_id', '')
+                        })
+            
+            if not output['account_info']:
+                raise ValueError("Failed to fetch account information. Please check the username and auth token.")
+            
+            if not output['timeline']:
+                if self.media_type == 'media':
+                    message = "No media found in timeline"
+                elif self.media_type == 'image':
+                    message = "No images found in timeline"
+                elif self.media_type == 'gif':
+                    message = "No GIFs found in timeline"
+                else:
+                    message = "No videos found in timeline"
+                raise ValueError(message)
+            
+            return output
+            
+        except Exception as e:
+            raise ValueError(f"Local gallery-dl error: {str(e)}")
+
     def run(self):
         try:
             normalized = self.normalize_url(self.username)
             
-            try:
-                data = asyncio.run(self.fetch_from_api(normalized, self.auth_token))
-                self.finished.emit(data)
-                return
-            except Exception as api_error:
+            if not self.use_local:
                 try:
-                    match = re.match(twitter.TwitterTimelineExtractor.pattern, f"https://x.com/{normalized}/timeline")
-                    if not match:
-                        raise ValueError(f"Invalid username: {normalized}")
-                        
-                    extractor = twitter.TwitterTimelineExtractor(match)
-                    extractor.config = lambda key, default=None: {
-                        "cookies": {
-                            "auth_token": self.auth_token
-                        }
-                    }.get(key, default)
-                    
-                    extractor.initialize()
-                    
-                    output = {
-                        'account_info': {},
-                        'timeline': []
-                    }
-                    
-                    for item in extractor:
-                        if isinstance(item, tuple) and len(item) >= 3:
-                            media_url = item[1]
-                            tweet_data = item[2]
-                            
-                            if not output['account_info']:
-                                if 'user' in tweet_data:
-                                    user = tweet_data['user']
-                                    user_date = user.get('date', '')
-                                    if isinstance(user_date, datetime):
-                                        user_date = user_date.strftime("%Y-%m-%d %H:%M:%S")
-                                        
-                                    output['account_info'] = {
-                                        'name': user.get('name', ''),
-                                        'nick': user.get('nick', ''),
-                                        'date': user_date,
-                                        'followers_count': user.get('followers_count', 0),
-                                        'friends_count': user.get('friends_count', 0),
-                                        'profile_image': user.get('profile_image', ''),
-                                        'statuses_count': user.get('statuses_count', 0)
-                                    }
-                            
-                            should_include = False
-                            media_type = tweet_data.get('type', '')
-                            
-                            if self.media_type == 'media':
-                                should_include = ('pbs.twimg.com' in media_url or 
-                                                'video.twimg.com' in media_url)
-                            elif self.media_type == 'image':
-                                should_include = ('pbs.twimg.com' in media_url and 
-                                                media_type == 'photo')
-                            elif self.media_type == 'gif':
-                                should_include = media_type == 'animated_gif'
-                            elif self.media_type == 'video':
-                                should_include = (media_type == 'video' and 
-                                                'video.twimg.com' in media_url)
-                            
-                            if should_include:
-                                tweet_date = tweet_data.get('date', datetime.now())
-                                if isinstance(tweet_date, datetime):
-                                    tweet_date = tweet_date.strftime("%Y-%m-%d %H:%M:%S")
-                                
-                                output['timeline'].append({
-                                    'url': media_url,
-                                    'date': tweet_date,
-                                    'type': media_type,
-                                    'tweet_id': tweet_data.get('tweet_id', '')
-                                })
-                    
-                    if not output['account_info']:
-                        raise ValueError("Failed to fetch account information. Please check the username and auth token.")
-                    
-                    if not output['timeline']:
-                        if self.media_type == 'media':
-                            message = "No media found in timeline"
-                        elif self.media_type == 'image':
-                            message = "No images found in timeline"
-                        elif self.media_type == 'gif':
-                            message = "No GIFs found in timeline"
-                        else:
-                            message = "No videos found in timeline"
-                        raise ValueError(message)
-                    
-                    self.finished.emit(output)
-                    
-                except Exception as local_error:
+                    data = asyncio.run(self.fetch_from_api(normalized, self.auth_token))
+                    self.finished.emit(data)
+                    return
+                except Exception as api_error:
+                    print(f"API fetch failed, falling back to local: {str(api_error)}")
+                    pass
+            
+            try:
+                data = asyncio.run(self.fetch_local(normalized))
+                self.finished.emit(data)
+            except Exception as local_error:
+                if not self.use_local:
                     raise ValueError(f"Both API and local methods failed.\nAPI error: {str(api_error)}\nLocal error: {str(local_error)}")
+                else:
+                    raise ValueError(f"Local gallery-dl failed: {str(local_error)}")
                     
         except Exception as e:
             self.error.emit(str(e))
@@ -431,9 +445,9 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         media_layout.addWidget(self.media_type_combo)
         media_layout.addSpacing(10)
 
-        self.use_api_checkbox = QCheckBox("Use API")
-        self.use_api_checkbox.setToolTip("Use external API instead of gallery-dl")
-        self.use_api_checkbox.setChecked(True)
+        self.use_api_checkbox = QCheckBox("Local")
+        self.use_api_checkbox.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.use_api_checkbox.setToolTip("Use local gallery-dl instead of API")
         self.use_api_checkbox.stateChanged.connect(self.auto_save_settings)
 
         media_layout.addWidget(self.use_api_checkbox)
@@ -450,7 +464,6 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.batch_size_combo.setFixedWidth(60)
         for size in range(10, 101, 10):
             self.batch_size_combo.addItem(str(size))
-        self.batch_size_combo.setCurrentText("20")
 
         batch_layout.addWidget(batch_label)
         batch_layout.addWidget(self.batch_size_combo)
@@ -575,8 +588,6 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.main_layout.addWidget(self.progress_bar)
 
         bottom_layout = QHBoxLayout()
-        bottom_layout.setContentsMargins(0, 0, 0, 0)
-        bottom_layout.setSpacing(5)
         
         self.status_label = QLabel("")
         bottom_layout.addWidget(self.status_label, stretch=1)
@@ -602,7 +613,6 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         bottom_layout.addWidget(self.update_button)
         
         self.main_layout.addLayout(bottom_layout)
-        self.main_layout.setAlignment(bottom_layout, Qt.AlignmentFlag.AlignBottom)
 
     def open_update_page(self):
         import webbrowser
@@ -624,7 +634,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.settings.setValue('filename_format', 
                              'username_date' if self.format_username.isChecked() else 'date_username')
         self.settings.setValue('media_type', self.media_type_combo.currentData())
-        self.settings.setValue('use_api', self.use_api_checkbox.isChecked())
+        self.settings.setValue('use_local', self.use_api_checkbox.isChecked())
         self.settings.setValue('batch_size', self.batch_size_combo.currentText())
         self.settings.sync()
 
@@ -643,8 +653,8 @@ class TwitterMediaDownloaderGUI(QMainWindow):
                 self.media_type_combo.setCurrentIndex(i)
                 break
 
-        use_api = self.settings.value('use_api', True, type=bool)
-        self.use_api_checkbox.setChecked(use_api)
+        use_local = self.settings.value('use_local', False, type=bool)
+        self.use_api_checkbox.setChecked(use_local)
         
         batch_size = self.settings.value('batch_size', '20')
         index = self.batch_size_combo.findText(batch_size)
@@ -682,8 +692,8 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.status_label.setText("Fetching profile information...")
         
         media_type = self.media_type_combo.currentData()
-        use_api = self.use_api_checkbox.isChecked()
-        self.fetcher = MetadataFetcher(username, media_type, use_api)
+        use_local = self.use_api_checkbox.isChecked()
+        self.fetcher = MetadataFetcher(username, media_type, use_local)
         self.fetcher.auth_token = auth_token
         self.fetcher.finished.connect(self.handle_profile_info)
         self.fetcher.error.connect(self.handle_fetch_error)
@@ -706,7 +716,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
             is_withheld = not account_info.get('nick') and not account_info.get('profile_image')
             
             name = account_info.get('name', 'Unknown')
-            nick = "Withheld" if is_withheld else account_info.get('nick', 'Unknown')
+            nick = "Withheld Account" if is_withheld else account_info.get('nick', 'Unknown')
             date_str = account_info.get('date', '')
             followers = account_info.get('followers_count', 0)
             following = account_info.get('friends_count', 0)
@@ -783,6 +793,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
             self.download_button.show()
             self.cancel_button.show()
             self.update_button.hide()
+            self.setFixedHeight(180)
             
             try:
                 output_base = self.dir_input.text().strip() or self.default_pictures_dir
@@ -822,7 +833,12 @@ class TwitterMediaDownloaderGUI(QMainWindow):
 
     def handle_fetch_error(self, error):
         self.fetch_button.setEnabled(True)
-        self.status_label.setText(f"Error fetching profile info: {error}")
+        
+        error_str = str(error)
+        if "Local gallery-dl error: None" in error_str and self.use_api_checkbox.isChecked():
+            self.status_label.setText("Please uncheck the 'Local' option to fetch metadata using the API method.")
+        else:
+            self.status_label.setText(f"Error fetching profile info: {error}")
 
     def start_download(self):
         if not self.media_info:
@@ -887,6 +903,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.download_button.setText("Download")
         self.download_button.clicked.disconnect()
         self.download_button.clicked.connect(self.start_download)
+        self.setFixedHeight(210)
 
     def download_error(self, error_message):
         self.progress_bar.hide()
@@ -907,6 +924,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.media_info = None
         self.update_button.show()
         self.fetch_button.setEnabled(True)
+        self.setFixedHeight(210)
 
 def main():
     if getattr(sys, 'frozen', False):
