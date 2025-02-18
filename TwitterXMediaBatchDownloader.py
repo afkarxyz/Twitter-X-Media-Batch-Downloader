@@ -2,6 +2,7 @@ import sys
 import os
 import asyncio
 import aiohttp
+import requests
 import re
 import subprocess
 from datetime import datetime
@@ -9,9 +10,9 @@ from pathlib import Path
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                             QHBoxLayout, QLabel, QLineEdit, QPushButton, 
                             QProgressBar, QFileDialog, QRadioButton, QComboBox,
-                            QGroupBox, QCheckBox)
-from PyQt6.QtCore import QThread, pyqtSignal, Qt, QSettings
-from PyQt6.QtGui import QIcon, QPixmap, QCursor, QPainter, QPainterPath
+                            QGroupBox, QCheckBox, QDialog, QDialogButtonBox)
+from PyQt6.QtCore import QThread, pyqtSignal, Qt, QSettings, QTimer, QUrl
+from PyQt6.QtGui import QIcon, QPixmap, QCursor, QPainter, QPainterPath, QDesktopServices
 from gallery_dl.extractor import twitter
 
 class ImageDownloader(QThread):
@@ -341,10 +342,49 @@ class MediaDownloader(QThread):
         except Exception as e:
             self.error.emit(str(e))
 
+class UpdateDialog(QDialog):
+    def __init__(self, current_version, new_version, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Update Available")
+        self.setFixedWidth(400)
+        self.setModal(True)
+
+        layout = QVBoxLayout()
+
+        message = QLabel(f"A new version of Twitter/X Media Batch Downloader is available!\n\n"
+                        f"Current version: v{current_version}\n"
+                        f"New version: v{new_version}")
+        message.setWordWrap(True)
+        layout.addWidget(message)
+
+        self.disable_check = QCheckBox("Turn off update checking")
+        self.disable_check.setCursor(Qt.CursorShape.PointingHandCursor)
+        layout.addWidget(self.disable_check)
+
+        button_box = QDialogButtonBox()
+        self.update_button = QPushButton("Update")
+        self.update_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        
+        button_box.addButton(self.update_button, QDialogButtonBox.ButtonRole.AcceptRole)
+        button_box.addButton(self.cancel_button, QDialogButtonBox.ButtonRole.RejectRole)
+        
+        layout.addWidget(button_box)
+
+        self.setLayout(layout)
+
+        self.update_button.clicked.connect(self.accept)
+        self.cancel_button.clicked.connect(self.reject)
+        
 class TwitterMediaDownloaderGUI(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.current_version = "1.5" 
         self.setWindowTitle("Twitter/X Media Batch Downloader")
+        
+        self.settings = QSettings('TwitterMediaDownloader', 'Settings')
+        self.check_for_updates = self.settings.value('check_for_updates', True, type=bool)
         
         icon_path = os.path.join(os.path.dirname(__file__), "icon.svg")
         if os.path.exists(icon_path):
@@ -357,12 +397,34 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         os.makedirs(self.default_pictures_dir, exist_ok=True)
         
         self.media_info = None
-        self.settings = QSettings('TwitterMediaDownloader', 'Settings')
-        
         self.init_ui()
         self.load_settings()
         self.setup_auto_save()
         self.clean_username = None
+        
+        if self.check_for_updates:
+            QTimer.singleShot(0, self.check_updates)
+
+    def check_updates(self):
+        try:
+            response = requests.get("https://raw.githubusercontent.com/afkarxyz/Twitter-X-Media-Batch-Downloader/refs/heads/main/version.json")
+            if response.status_code == 200:
+                data = response.json()
+                new_version = data.get("version")
+                
+                if new_version and new_version != self.current_version:
+                    dialog = UpdateDialog(self.current_version, new_version, self)
+                    result = dialog.exec()
+                    
+                    if dialog.disable_check.isChecked():
+                        self.settings.setValue('check_for_updates', False)
+                        self.check_for_updates = False
+                    
+                    if result == QDialog.DialogCode.Accepted:
+                        QDesktopServices.openUrl(QUrl("https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases"))
+                        
+        except Exception as e:
+            print(f"Error checking for updates: {e}")
 
     def init_ui(self):
         central_widget = QWidget()
