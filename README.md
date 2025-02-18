@@ -51,7 +51,7 @@
 
 > X.com Auth Token Grabber
 
-![image](https://github.com/user-attachments/assets/1213305b-95eb-4a8f-80f3-2655ca70f6e6)
+![image](https://github.com/user-attachments/assets/4bf5f787-d34f-4259-837c-07a6432c4360)
 
 > Developer Tools
 
