@@ -7,6 +7,7 @@ import re
 import subprocess
 from datetime import datetime
 from pathlib import Path
+from packaging import version
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                             QHBoxLayout, QLabel, QLineEdit, QPushButton, 
                             QProgressBar, QFileDialog, QRadioButton, QComboBox,
@@ -380,7 +381,7 @@ class UpdateDialog(QDialog):
 class TwitterMediaDownloaderGUI(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.current_version = "1.5" 
+        self.current_version = "1.6" 
         self.setWindowTitle("Twitter/X Media Batch Downloader")
         
         self.settings = QSettings('TwitterMediaDownloader', 'Settings')
@@ -412,7 +413,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
                 data = response.json()
                 new_version = data.get("version")
                 
-                if new_version and new_version != self.current_version:
+                if new_version and version.parse(new_version) > version.parse(self.current_version):
                     dialog = UpdateDialog(self.current_version, new_version, self)
                     result = dialog.exec()
                     
