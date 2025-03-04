@@ -14,25 +14,25 @@
 ## Features
 
 - Uses the powerful `gallery-dl` library, similar to `yt-dlp`
-- The ability to download media from **Withheld Accounts** _(maybe requires checking the **Use gallery-dl API** option)_
+- The ability to download media from **Withheld Account** _(maybe requires checking the **Use gallery-dl API** option)_
 - Option to choose the media type to download: **All Media** (Image + GIF + Video) or just **Image/GIF/Video**
 - Download images and videos in original quality
   
 ## Screenshots
 
-![image](https://github.com/user-attachments/assets/085cdcee-5272-41bb-8612-06737c0ebe32)
+![image](https://github.com/user-attachments/assets/7c5ebdda-c558-49ed-9f16-a6060b52f6f8)
 
-![image](https://github.com/user-attachments/assets/3e71f14b-c4f0-4e86-87d5-9217d88cb0c2)
+![python_7NZpAQ8RQi](https://github.com/user-attachments/assets/9982e4f5-a4b2-4d1b-9481-7bf7db700663)
 
-![image](https://github.com/user-attachments/assets/c4e086c2-d4d5-4eee-8bab-dba8e5fdd90d)
+![cqJLyzA73B](https://github.com/user-attachments/assets/fe989cc5-c9ea-47fb-8949-c1359c6b7132)
 
-> Downloading from **Withheld Accounts**
+> Downloading from **Withheld Account**
 
-![image](https://github.com/user-attachments/assets/f5e301cf-9700-4986-a87d-8424be40db5c)
+![SJuftOm9IH](https://github.com/user-attachments/assets/340af434-5d8b-49f5-8af9-ff67a96ab879)
 
-![image](https://github.com/user-attachments/assets/92f814b1-069f-4605-b31f-8a5ff8dc0f17)
+![SkU5G28duo](https://github.com/user-attachments/assets/afb09d99-cbd0-465f-8ab2-7e15decaf0cf)
 
-![image](https://github.com/user-attachments/assets/c6e7dc0d-659d-456e-b30c-6cca66fe9359)
+![2nHsfyRdTN](https://github.com/user-attachments/assets/e628166b-072a-4956-ab36-b5b27cceb14b)
 
 ## How to Obtain Auth Token
 
@@ -55,4 +55,4 @@
 
 > Developer Tools
 
-![image](https://github.com/user-attachments/assets/50f819da-7490-4f3c-b130-c5a3ee482e2d)
+![image](https://github.com/user-attachments/assets/8e81dd8f-f8be-4254-9cf6-cacfa97743e9)
