@@ -3,7 +3,7 @@ import re
 import os
 from gallery_dl.extractor import twitter
 
-def get_metadata(username):
+def get_metadata(username, auth_token):
     url = f"https://x.com/{username}/timeline"
     
     match = re.match(twitter.TwitterTimelineExtractor.pattern, url)
@@ -14,7 +14,7 @@ def get_metadata(username):
     
     extractor.config = lambda key, default=None: {
         "cookies": {
-            "auth_token": ""
+            "auth_token": auth_token
         }
     }.get(key, default)
     
@@ -31,4 +31,5 @@ def get_metadata(username):
         json.dump(all_items, f, indent=2, default=str)
 
 username = ""
-get_metadata(username)
+auth_token = ""
+get_metadata(username, auth_token)

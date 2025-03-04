@@ -8,14 +8,14 @@
 
 ## Download
 
-- Download the latest version of [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v1.6/TwitterXMediaBatchDownloader.exe)
+- Download the latest version of [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v1.7/TwitterXMediaBatchDownloader.exe)
 - If you're familiar with **userscripts**, please install it [here](https://greasyfork.org/en/scripts/523157-twitter-x-media-batch-downloader)
 
 ## Features
 
 - Uses the powerful `gallery-dl` library, similar to `yt-dlp`
-- The ability to download media from **Withheld Accounts** _(requires unchecking the **Local** option)_
-- Option to choose the media type to download: **media** (image + GIF + video) or just **image/GIF/video**
+- The ability to download media from **Withheld Accounts** _(maybe requires checking the **Use gallery-dl API** option)_
+- Option to choose the media type to download: **All Media** (Image + GIF + Video) or just **Image/GIF/Video**
 - Download images and videos in original quality
   
 ## Screenshots

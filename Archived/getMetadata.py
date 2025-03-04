@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 from gallery_dl.extractor import twitter
 
-def get_metadata(username):
+def get_metadata(username, auth_token):
     url = f"https://x.com/{username}/timeline"
     
     match = re.match(twitter.TwitterTimelineExtractor.pattern, url)
@@ -15,7 +15,7 @@ def get_metadata(username):
     
     extractor.config = lambda key, default=None: {
         "cookies": {
-            "auth_token": ""
+            "auth_token": auth_token
         }
     }.get(key, default)
     
@@ -75,4 +75,5 @@ def get_metadata(username):
     return output
 
 username = ""
-get_metadata(username)
+auth_token = ""
+get_metadata(username, auth_token)
