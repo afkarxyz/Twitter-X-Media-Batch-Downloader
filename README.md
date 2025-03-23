@@ -30,6 +30,8 @@
 > - It is highly recommended to use the local `gallery-dl` **(by unchecking "Use API").** Use the API only for withheld accounts, as it has a 60-second timeout limit.
 > - Use **Batch** if the items to be downloaded are in the thousands.
 
+#
+
 ![image](https://github.com/user-attachments/assets/ba986e15-ffec-4cd4-900e-98bba0e513d6)
 
 ![image](https://github.com/user-attachments/assets/1ef4ec73-c77b-433a-ac79-f0df5be36bd1)
