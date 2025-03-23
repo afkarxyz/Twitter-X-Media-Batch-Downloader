@@ -8,7 +8,7 @@
 
 ## 📥 Download
 
-- Download the latest version of [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v1.8/TwitterXMediaBatchDownloader.exe)
+- Download the latest version of [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v1.9/TwitterXMediaBatchDownloader.exe)
 - If you're familiar with **userscripts**, please install it [here](https://greasyfork.org/en/scripts/523157-twitter-x-media-batch-downloader)
 
 ## ✨ Features
@@ -24,9 +24,10 @@
 
 ![python_7NZpAQ8RQi](https://github.com/user-attachments/assets/9982e4f5-a4b2-4d1b-9481-7bf7db700663)
 
-![image](https://github.com/user-attachments/assets/dcc78e59-b0fd-47bd-a263-4e343f027c58)
+![image](https://github.com/user-attachments/assets/cbaa514c-7734-45ac-a142-18829b4d1838)
 
-> Downloading from 🔐 **Withheld Account**
+> [!Important]
+> It is highly recommended to use the local `gallery-dl` **(by unchecking "Use API").** Use the API only for withheld accounts, as it has a 60-second timeout limit.
 
 ![image](https://github.com/user-attachments/assets/ba986e15-ffec-4cd4-900e-98bba0e513d6)
 
