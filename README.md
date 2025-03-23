@@ -24,11 +24,9 @@
 
 ![python_7NZpAQ8RQi](https://github.com/user-attachments/assets/9982e4f5-a4b2-4d1b-9481-7bf7db700663)
 
-![cqJLyzA73B](https://github.com/user-attachments/assets/fe989cc5-c9ea-47fb-8949-c1359c6b7132)
-
-> Downloading from **Withheld Account**
-
 ![image](https://github.com/user-attachments/assets/dcc78e59-b0fd-47bd-a263-4e343f027c58)
+
+> Downloading from 🔐 **Withheld Account**
 
 ![image](https://github.com/user-attachments/assets/ba986e15-ffec-4cd4-900e-98bba0e513d6)
 
