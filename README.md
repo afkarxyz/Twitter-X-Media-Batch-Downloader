@@ -8,13 +8,13 @@
 
 ## Download
 
-- Download the latest version of [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v1.7/TwitterXMediaBatchDownloader.exe)
+- Download the latest version of [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v1.8/TwitterXMediaBatchDownloader.exe)
 - If you're familiar with **userscripts**, please install it [here](https://greasyfork.org/en/scripts/523157-twitter-x-media-batch-downloader)
 
 ## Features
 
 - Uses the powerful `gallery-dl` library, similar to `yt-dlp`
-- The ability to download media from **Withheld Account** _(maybe requires checking the **Use gallery-dl API** option)_
+- The ability to download media from **Withheld Account**
 - Option to choose the media type to download: **All Media** (Image + GIF + Video) or just **Image/GIF/Video**
 - Download images and videos in original quality
   
@@ -28,11 +28,11 @@
 
 > Downloading from **Withheld Account**
 
-![SJuftOm9IH](https://github.com/user-attachments/assets/340af434-5d8b-49f5-8af9-ff67a96ab879)
+![image](https://github.com/user-attachments/assets/dcc78e59-b0fd-47bd-a263-4e343f027c58)
 
-![SkU5G28duo](https://github.com/user-attachments/assets/afb09d99-cbd0-465f-8ab2-7e15decaf0cf)
+![image](https://github.com/user-attachments/assets/ba986e15-ffec-4cd4-900e-98bba0e513d6)
 
-![2nHsfyRdTN](https://github.com/user-attachments/assets/e628166b-072a-4956-ab36-b5b27cceb14b)
+![image](https://github.com/user-attachments/assets/1ef4ec73-c77b-433a-ac79-f0df5be36bd1)
 
 ## How to Obtain Auth Token
 
