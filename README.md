@@ -26,7 +26,8 @@
 
 ![image](https://github.com/user-attachments/assets/dcc78e59-b0fd-47bd-a263-4e343f027c58)
 
-> Downloading from 🔐 **Withheld Account**
+> [!Important]
+> It is highly recommended to use the local `gallery-dl` **(by unchecking "Use API").** Use the API only for withheld accounts, as it has a 60-second timeout limit.
 
 ![image](https://github.com/user-attachments/assets/ba986e15-ffec-4cd4-900e-98bba0e513d6)
 
