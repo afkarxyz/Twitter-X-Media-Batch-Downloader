@@ -24,17 +24,13 @@
 
 ![python_7NZpAQ8RQi](https://github.com/user-attachments/assets/9982e4f5-a4b2-4d1b-9481-7bf7db700663)
 
+![image](https://github.com/user-attachments/assets/1ef4ec73-c77b-433a-ac79-f0df5be36bd1)
+
 ![image](https://github.com/user-attachments/assets/cbaa514c-7734-45ac-a142-18829b4d1838)
 
 > [!Important]
 > - It is highly recommended to use the local `gallery-dl` **(by unchecking "Use API").** Use the API only for withheld accounts, as it has a 60-second timeout limit.
 > - Use **Batch** if the items to be downloaded are in the thousands.
-
-#
-
-![image](https://github.com/user-attachments/assets/ba986e15-ffec-4cd4-900e-98bba0e513d6)
-
-![image](https://github.com/user-attachments/assets/1ef4ec73-c77b-433a-ac79-f0df5be36bd1)
 
 ## 🔑 How to Obtain Auth Token
 
