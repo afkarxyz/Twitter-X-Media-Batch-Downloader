@@ -302,7 +302,7 @@ class UpdateDialog(QDialog):
 class TwitterMediaDownloaderGUI(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.current_version = "1.9" 
+        self.current_version = "2.0" 
         self.setWindowTitle("Twitter/X Media Batch Downloader")
         
         self.settings = QSettings('TwitterMediaDownloader', 'Settings')
@@ -437,6 +437,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         
         self.batch_checkbox = QCheckBox("Batch")
         self.batch_checkbox.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.batch_checkbox.setToolTip("Enable for accounts with thousands of media")
         self.batch_checkbox.stateChanged.connect(self.handle_batch_checkbox)
         first_row_layout.addWidget(self.batch_checkbox)
         
@@ -470,12 +471,12 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         
         first_row_layout.addSpacing(5)
 
-        media_type_label = QLabel("Item Type:")
+        media_type_label = QLabel("Media Type:")
         self.media_type_combo = QComboBox()
         self.media_type_combo.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.media_type_combo.setFixedWidth(85)
         media_types = [
-            ('all', 'All Media'), 
+            ('all', 'All'), 
             ('image', 'Image'), 
             ('video', 'Video'), 
             ('gif', 'GIF')
@@ -960,6 +961,15 @@ class TwitterMediaDownloaderGUI(QMainWindow):
             if not info or not isinstance(info, dict):
                 raise ValueError("Invalid info data received")
 
+            if 'error' in info:
+                error_type = info['error']
+                if error_type == "withheld":
+                    self.status_label.setText("Please enable the 'Use API' option.")
+                else:
+                    self.status_label.setText("Please check the 'Auth Token' value. Your account may be suspended.")
+                self.fetch_button.setEnabled(True)
+                return
+
             account_info = info.get('account_info', {})
             if not account_info:
                 self.status_label.setText("Failed to fetch profile information")
@@ -1106,10 +1116,11 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.next_batch_button.setEnabled(True)
         
         error_str = str(error)
-        if "Local gallery-dl error: None" in error_str and not self.use_api_checkbox.isChecked():
-            self.status_label.setText("Please check the 'Use API' option to fetch metadata using the API method.")
+        
+        if '"error": "withheld"' in error_str or "withheld" in error_str:
+            self.status_label.setText("Please enable the 'Use API' option.")
         else:
-            self.status_label.setText(f"Error fetching profile info: {error}")
+            self.status_label.setText("Please check the 'Auth Token'.")
 
     def start_download(self):
         if not self.media_info:
