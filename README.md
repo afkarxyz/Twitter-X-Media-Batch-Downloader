@@ -26,7 +26,7 @@
 
 ![image](https://github.com/user-attachments/assets/1ef4ec73-c77b-433a-ac79-f0df5be36bd1)
 
-![image](https://github.com/user-attachments/assets/cbaa514c-7734-45ac-a142-18829b4d1838)
+![image](https://github.com/user-attachments/assets/bbc28a59-c734-4103-a7b8-05b3793f9da8)
 
 > [!Important]
 > - It is highly recommended to use the local `gallery-dl` **(by unchecking "Use API").** Use the API only for withheld accounts, as it has a 60-second timeout limit.
