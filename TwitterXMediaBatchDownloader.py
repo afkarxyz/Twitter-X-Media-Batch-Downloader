@@ -966,7 +966,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
                 if error_type == "withheld":
                     self.status_label.setText("Please enable the 'Use API' option.")
                 else:
-                    self.status_label.setText("Please check the 'Auth Token' value. Your account may be suspended.")
+                    self.status_label.setText("Please check the 'Auth Token' value. Your account may be logged out, locked, or suspended.")
                 self.fetch_button.setEnabled(True)
                 return
 
