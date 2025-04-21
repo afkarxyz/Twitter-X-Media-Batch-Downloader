@@ -8,8 +8,8 @@
 
 ## 📥 Download
 
-- Download the latest version of [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v2.0/TwitterXMediaBatchDownloader.exe)
-- If you're familiar with **userscripts**, please install it [here](https://greasyfork.org/en/scripts/523157-twitter-x-media-batch-downloader)
+- Download the latest version of [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v2.1/TwitterXMediaBatchDownloader.exe)
+- If you're familiar with **userscripts**, please install it [here](https://greasyfork.org/en/scripts/523157)
 
 ## ✨ Features
 
