@@ -68,9 +68,9 @@ class MetadataFetcher(QThread):
         try:
             async with aiohttp.ClientSession() as session:
                 if self.batch_mode:
-                    url = f"https://gallerydl.vercel.app/metadata/{self.timeline_type}/{self.batch_size}/{self.page}/{self.media_type}/{username}/{auth_token}"
+                    url = f"https://render.gallerydl.web.id/metadata/{self.timeline_type}/{self.batch_size}/{self.page}/{self.media_type}/{username}/{auth_token}"
                 else:
-                    url = f"https://gallerydl.vercel.app/metadata/{self.timeline_type}/{self.media_type}/{username}/{auth_token}"
+                    url = f"https://render.gallerydl.web.id/metadata/{self.timeline_type}/{self.media_type}/{username}/{auth_token}"
                 
                 async with session.get(url) as response:
                     if response.status == 200:
@@ -302,7 +302,7 @@ class UpdateDialog(QDialog):
 class TwitterMediaDownloaderGUI(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.current_version = "2.0" 
+        self.current_version = "2.1" 
         self.setWindowTitle("Twitter/X Media Batch Downloader")
         
         self.settings = QSettings('TwitterMediaDownloader', 'Settings')
