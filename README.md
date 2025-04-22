@@ -3,7 +3,7 @@
 ![TwitterXMediaBatchDownloader](https://github.com/user-attachments/assets/354d7470-c01c-4aa6-9da1-ea6c42d27330)
 
 <div align="center">
-<b>Twitter/X Media Batch Downloader</b> is a GUI tool that allows users to download all media, including images and videos, in their original quality from Twitter/X accounts, even withheld account, using <code>gallery-dl</code>
+<b>Twitter/X Media Batch Downloader</b> is a GUI tool that allows users to download all media, including images and videos, in their original quality from Twitter/X accounts using <code>gallery-dl</code>
 </div>
 
 ## 📥 Download
@@ -14,7 +14,6 @@
 ## ✨ Features
 
 - Powered by `gallery-dl`, similar to `yt-dlp` 
-- Supports downloading from **Withheld Accounts**
 - **Choose media type**: All (Image + GIF + Video) or specific (Image/GIF/Video)  
 - Downloads in original quality
   
@@ -24,13 +23,10 @@
 
 ![python_7NZpAQ8RQi](https://github.com/user-attachments/assets/9982e4f5-a4b2-4d1b-9481-7bf7db700663)
 
-![image](https://github.com/user-attachments/assets/1ef4ec73-c77b-433a-ac79-f0df5be36bd1)
-
-![image](https://github.com/user-attachments/assets/bbc28a59-c734-4103-a7b8-05b3793f9da8)
+![image](https://github.com/user-attachments/assets/6470665d-1836-491f-9449-217301010b53)
 
 > [!Important]
-> - It is highly recommended to use the local `gallery-dl` **(by unchecking "Use API").** Use the API only for withheld accounts, as it has a 60-second timeout limit.
-> - Use **Batch** if the items to be downloaded are in the thousands.
+> Use **Batch** if the items to be downloaded are in the thousands.
 
 ## 🔑 How to Obtain Auth Token
 
@@ -38,7 +34,7 @@
 > - I suggest not using the **main account** to obtain the token.
 > - You can use https://temp-mail.io to register a Twitter account.
 > - Using an auth token or cookies has the potential to get the **account suspended.**
-> - If too many media files are fetched, it will trigger a **rate limit**, and the media retrieval will fail.
+> - If too many media files are fetched, it may trigger a **rate limit**, and the media retrieval will fail.
 
 1. Go to [Twitter's website](https://www.x.com/)
 2. Log into your account
