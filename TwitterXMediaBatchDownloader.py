@@ -38,13 +38,12 @@ class MetadataFetcher(QThread):
     finished = pyqtSignal(dict)
     error = pyqtSignal(str)
 
-    def __init__(self, username, timeline_type='media', media_type='all', use_api=False, batch_mode=False, batch_size=100, page=0):
+    def __init__(self, username, timeline_type='media', media_type='all', batch_mode=False, batch_size=100, page=0):
         super().__init__()
         self.username = username
         self.auth_token = None
         self.timeline_type = timeline_type
         self.media_type = media_type
-        self.use_api = use_api
         self.batch_mode = batch_mode
         self.batch_size = batch_size
         self.page = page
@@ -64,34 +63,9 @@ class MetadataFetcher(QThread):
         username = username.strip()
         return username
 
-    async def fetch_from_api(self, username, auth_token):
-        try:
-            async with aiohttp.ClientSession() as session:
-                if self.batch_mode:
-                    url = f"https://render.gallerydl.web.id/metadata/{self.timeline_type}/{self.batch_size}/{self.page}/{self.media_type}/{username}/{auth_token}"
-                else:
-                    url = f"https://render.gallerydl.web.id/metadata/{self.timeline_type}/{self.media_type}/{username}/{auth_token}"
-                
-                async with session.get(url) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        return data
-                    else:
-                        raise ValueError(f"API request failed with status {response.status}")
-        except Exception as e:
-            raise ValueError(f"API request failed: {str(e)}")
-
     def run(self):
         try:
             normalized = self.normalize_url(self.username)
-            
-            if self.use_api:
-                try:
-                    data = asyncio.run(self.fetch_from_api(normalized, self.auth_token))
-                    self.finished.emit(data)
-                    return
-                except Exception as api_error:
-                    pass
             
             try:
                 batch_size = self.batch_size if self.batch_mode else 0
@@ -108,11 +82,7 @@ class MetadataFetcher(QThread):
                 error_message = str(local_error)
                 if not error_message or error_message == "None":
                     error_message = "Local gallery-dl error: None"
-                    
-                if self.use_api:
-                    raise ValueError(f"Both API and local methods failed.\nAPI error: {str(api_error)}\nLocal error: {error_message}")
-                else:
-                    raise ValueError(f"Local gallery-dl error: {error_message}")
+                raise ValueError(f"Local gallery-dl error: {error_message}")
                     
         except Exception as e:
             self.error.emit(str(e))
@@ -302,7 +272,7 @@ class UpdateDialog(QDialog):
 class TwitterMediaDownloaderGUI(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.current_version = "2.1" 
+        self.current_version = "2.2" 
         self.setWindowTitle("Twitter/X Media Batch Downloader")
         
         self.settings = QSettings('TwitterMediaDownloader', 'Settings')
@@ -429,11 +399,6 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         
         first_row_layout = QHBoxLayout()
         first_row_layout.setSpacing(5)
-
-        self.use_api_checkbox = QCheckBox("Use API")
-        self.use_api_checkbox.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.use_api_checkbox.setToolTip("Use API instead of local gallery-dl")
-        first_row_layout.addWidget(self.use_api_checkbox)
         
         self.batch_checkbox = QCheckBox("Batch")
         self.batch_checkbox.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
@@ -688,14 +653,12 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         
         timeline_type = self.timeline_type_combo.currentData()
         media_type = self.media_type_combo.currentData()
-        use_api = self.use_api_checkbox.isChecked()
         batch_size = int(self.batch_size_combo.currentText())
         
         self.fetcher = MetadataFetcher(
             username, 
             timeline_type, 
             media_type, 
-            use_api, 
             True,
             batch_size, 
             self.current_page
@@ -764,7 +727,6 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.format_username.toggled.connect(self.auto_save_settings)
         self.media_type_combo.currentTextChanged.connect(self.auto_save_settings)
         self.timeline_type_combo.currentTextChanged.connect(self.auto_save_settings)
-        self.use_api_checkbox.stateChanged.connect(self.auto_save_settings)
         self.batch_checkbox.stateChanged.connect(self.auto_save_settings)
         self.download_batch_combo.currentTextChanged.connect(self.auto_save_settings)
         self.batch_size_combo.currentTextChanged.connect(self.auto_save_settings)
@@ -778,7 +740,6 @@ class TwitterMediaDownloaderGUI(QMainWindow):
                                 'username_date' if self.format_username.isChecked() else 'date_username')
             self.settings.setValue('media_type', self.media_type_combo.currentData())
             self.settings.setValue('timeline_type', self.timeline_type_combo.currentData())
-            self.settings.setValue('use_api', self.use_api_checkbox.isChecked())
             
             batch_mode = self.batch_checkbox.isChecked()
             self.settings.setValue('batch_mode', batch_mode)
@@ -811,9 +772,6 @@ class TwitterMediaDownloaderGUI(QMainWindow):
                     self.timeline_type_combo.setCurrentIndex(i)
                     break
 
-            use_api = self.settings.value('use_api', False, type=bool)
-            self.use_api_checkbox.setChecked(use_api)
-            
             batch_mode = self.settings.value('batch_mode', False, type=bool)
             
             self.batch_checkbox.blockSignals(True)
@@ -871,7 +829,6 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         
         timeline_type = self.timeline_type_combo.currentData()
         media_type = self.media_type_combo.currentData()
-        use_api = self.use_api_checkbox.isChecked()
         batch_mode = self.batch_checkbox.isChecked()
         batch_size = int(self.batch_size_combo.currentText()) if batch_mode else 100
         
@@ -879,7 +836,6 @@ class TwitterMediaDownloaderGUI(QMainWindow):
             username, 
             timeline_type, 
             media_type, 
-            use_api, 
             batch_mode, 
             batch_size, 
             self.current_page
@@ -907,14 +863,12 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         
         timeline_type = self.timeline_type_combo.currentData()
         media_type = self.media_type_combo.currentData()
-        use_api = self.use_api_checkbox.isChecked()
         batch_size = int(self.batch_size_combo.currentText())
         
         self.fetcher = MetadataFetcher(
             username, 
             timeline_type, 
             media_type, 
-            use_api, 
             True,
             batch_size, 
             self.current_page
@@ -963,10 +917,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
 
             if 'error' in info:
                 error_type = info['error']
-                if error_type == "withheld":
-                    self.status_label.setText("Please enable the 'Use API' option.")
-                else:
-                    self.status_label.setText("Please check the 'Auth Token' value. Your account may be logged out, locked, or suspended.")
+                self.status_label.setText("Please check the 'Auth Token' value. Your account may be logged out, locked, or suspended.")
                 self.fetch_button.setEnabled(True)
                 return
 
@@ -979,10 +930,8 @@ class TwitterMediaDownloaderGUI(QMainWindow):
             self.media_info = info
             self.fetch_button.setEnabled(True)
             
-            is_withheld = not account_info.get('nick') and not account_info.get('profile_image')
-            
             name = account_info.get('name', 'Unknown')
-            nick = "Withheld Account" if is_withheld else account_info.get('nick', 'Unknown')
+            nick = account_info.get('nick', 'Unknown')
             date_str = account_info.get('date', '')
             followers = account_info.get('followers_count', 0)
             following = account_info.get('friends_count', 0)
@@ -1018,37 +967,14 @@ class TwitterMediaDownloaderGUI(QMainWindow):
                 self.status_label.setText(f"Error updating UI: {str(ui_error)}")
                 return
 
-            if is_withheld:
+            profile_image_url = account_info.get('profile_image', '')
+            if profile_image_url:
                 try:
-                    withheld_icon_path = os.path.join(os.path.dirname(__file__), "withheld.svg")
-                    if os.path.exists(withheld_icon_path):
-                        icon = QIcon(withheld_icon_path)
-                        pixmap = icon.pixmap(90, 90)
-                        
-                        painter = QPainter(pixmap)
-                        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
-                        painter.fillRect(pixmap.rect(), self.palette().text().color())
-                        painter.end()
-                        
-                        scaled_pixmap = pixmap.scaled(
-                            90, 90, 
-                            Qt.AspectRatioMode.KeepAspectRatio, 
-                            Qt.TransformationMode.SmoothTransformation
-                        )
-                        self.profile_image_label.setPixmap(scaled_pixmap)
-                    else:
-                        pass
-                except Exception as icon_error:
+                    self.image_downloader = ImageDownloader(profile_image_url)
+                    self.image_downloader.finished.connect(self.update_profile_image)
+                    self.image_downloader.start()
+                except Exception as img_error:
                     pass
-            else:
-                profile_image_url = account_info.get('profile_image', '')
-                if profile_image_url:
-                    try:
-                        self.image_downloader = ImageDownloader(profile_image_url)
-                        self.image_downloader.finished.connect(self.update_profile_image)
-                        self.image_downloader.start()
-                    except Exception as img_error:
-                        pass
             
             try:
                 username = self.url_input.text().strip()
@@ -1114,13 +1040,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
     def handle_fetch_error(self, error):
         self.fetch_button.setEnabled(True)
         self.next_batch_button.setEnabled(True)
-        
-        error_str = str(error)
-        
-        if '"error": "withheld"' in error_str or "withheld" in error_str:
-            self.status_label.setText("Please enable the 'Use API' option.")
-        else:
-            self.status_label.setText("Please check the 'Auth Token'.")
+        self.status_label.setText("Please check the 'Auth Token'.")
 
     def start_download(self):
         if not self.media_info:
