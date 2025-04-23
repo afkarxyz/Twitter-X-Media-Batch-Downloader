@@ -1073,7 +1073,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         error_str = str(error)
         
         if '"error": "withheld"' in error_str or "withheld" in error_str:
-            self.status_label.setText("please use userscripe version")
+            self.status_label.setText("Please use the Userscript version for withheld accounts.")
         else:
             self.status_label.setText("Please check the 'Auth Token'.")
 
