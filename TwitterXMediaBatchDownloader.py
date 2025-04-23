@@ -82,6 +82,7 @@ class MetadataFetcher(QThread):
                 error_message = str(local_error)
                 if not error_message or error_message == "None":
                     error_message = "Local gallery-dl error: None"
+                    
                 raise ValueError(f"Local gallery-dl error: {error_message}")
                     
         except Exception as e:
@@ -272,7 +273,7 @@ class UpdateDialog(QDialog):
 class TwitterMediaDownloaderGUI(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.current_version = "2.2" 
+        self.current_version = "2.3" 
         self.setWindowTitle("Twitter/X Media Batch Downloader")
         
         self.settings = QSettings('TwitterMediaDownloader', 'Settings')
@@ -399,7 +400,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         
         first_row_layout = QHBoxLayout()
         first_row_layout.setSpacing(5)
-        
+
         self.batch_checkbox = QCheckBox("Batch")
         self.batch_checkbox.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.batch_checkbox.setToolTip("Enable for accounts with thousands of media")
@@ -917,7 +918,10 @@ class TwitterMediaDownloaderGUI(QMainWindow):
 
             if 'error' in info:
                 error_type = info['error']
-                self.status_label.setText("Please check the 'Auth Token' value. Your account may be logged out, locked, or suspended.")
+                if error_type == "withheld":
+                    self.status_label.setText("Please use the Userscript version for withheld accounts.")
+                else:
+                    self.status_label.setText("Please check the 'Auth Token' value. Your account may be logged out, locked, or suspended.")
                 self.fetch_button.setEnabled(True)
                 return
 
@@ -930,8 +934,10 @@ class TwitterMediaDownloaderGUI(QMainWindow):
             self.media_info = info
             self.fetch_button.setEnabled(True)
             
+            is_withheld = not account_info.get('nick') and not account_info.get('profile_image')
+            
             name = account_info.get('name', 'Unknown')
-            nick = account_info.get('nick', 'Unknown')
+            nick = "Withheld Account" if is_withheld else account_info.get('nick', 'Unknown')
             date_str = account_info.get('date', '')
             followers = account_info.get('followers_count', 0)
             following = account_info.get('friends_count', 0)
@@ -967,14 +973,37 @@ class TwitterMediaDownloaderGUI(QMainWindow):
                 self.status_label.setText(f"Error updating UI: {str(ui_error)}")
                 return
 
-            profile_image_url = account_info.get('profile_image', '')
-            if profile_image_url:
+            if is_withheld:
                 try:
-                    self.image_downloader = ImageDownloader(profile_image_url)
-                    self.image_downloader.finished.connect(self.update_profile_image)
-                    self.image_downloader.start()
-                except Exception as img_error:
+                    withheld_icon_path = os.path.join(os.path.dirname(__file__), "withheld.svg")
+                    if os.path.exists(withheld_icon_path):
+                        icon = QIcon(withheld_icon_path)
+                        pixmap = icon.pixmap(90, 90)
+                        
+                        painter = QPainter(pixmap)
+                        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
+                        painter.fillRect(pixmap.rect(), self.palette().text().color())
+                        painter.end()
+                        
+                        scaled_pixmap = pixmap.scaled(
+                            90, 90, 
+                            Qt.AspectRatioMode.KeepAspectRatio, 
+                            Qt.TransformationMode.SmoothTransformation
+                        )
+                        self.profile_image_label.setPixmap(scaled_pixmap)
+                    else:
+                        pass
+                except Exception as icon_error:
                     pass
+            else:
+                profile_image_url = account_info.get('profile_image', '')
+                if profile_image_url:
+                    try:
+                        self.image_downloader = ImageDownloader(profile_image_url)
+                        self.image_downloader.finished.connect(self.update_profile_image)
+                        self.image_downloader.start()
+                    except Exception as img_error:
+                        pass
             
             try:
                 username = self.url_input.text().strip()
@@ -1040,7 +1069,13 @@ class TwitterMediaDownloaderGUI(QMainWindow):
     def handle_fetch_error(self, error):
         self.fetch_button.setEnabled(True)
         self.next_batch_button.setEnabled(True)
-        self.status_label.setText("Please check the 'Auth Token'.")
+        
+        error_str = str(error)
+        
+        if '"error": "withheld"' in error_str or "withheld" in error_str:
+            self.status_label.setText("please use userscripe version")
+        else:
+            self.status_label.setText("Please check the 'Auth Token'.")
 
     def start_download(self):
         if not self.media_info:
