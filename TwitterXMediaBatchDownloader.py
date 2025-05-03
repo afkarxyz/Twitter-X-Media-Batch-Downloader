@@ -273,7 +273,7 @@ class UpdateDialog(QDialog):
 class TwitterMediaDownloaderGUI(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.current_version = "2.3" 
+        self.current_version = "2.4" 
         self.setWindowTitle("Twitter/X Media Batch Downloader")
         
         self.settings = QSettings('TwitterMediaDownloader', 'Settings')
@@ -591,8 +591,18 @@ class TwitterMediaDownloaderGUI(QMainWindow):
 
         bottom_layout = QHBoxLayout()
         
+        status_container = QWidget()
+        status_layout = QHBoxLayout(status_container)
+        status_layout.setContentsMargins(0, 0, 0, 0)
+        status_layout.setSpacing(5)
+        
+        self.version_label = QLabel("v2.4 (gallery-dl v1.29.6)")
+        status_layout.addWidget(self.version_label)
+        
         self.status_label = QLabel("")
-        bottom_layout.addWidget(self.status_label, stretch=1)
+        status_layout.addWidget(self.status_label, stretch=1)
+        
+        bottom_layout.addWidget(status_container, stretch=1)
         
         self.update_button = QPushButton()
         icon_path = os.path.join(os.path.dirname(__file__), "update.svg")
@@ -630,14 +640,14 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.auto_batch_button.clicked.disconnect(self.stop_auto_batch)
         self.auto_batch_button.clicked.connect(self.start_auto_batch)
         self.next_batch_button.setEnabled(True)
-        self.status_label.setText(f"Auto batch stopped. Total: {len(self.media_info['timeline']):,} media items")
+        self.set_status_text(f"Auto batch stopped. Total: {len(self.media_info['timeline']):,} media items")
 
     def fetch_next_batch_auto(self):
         if not self.auto_batch_running:
             return
             
         if not self.media_info:
-            self.status_label.setText("No profile information available")
+            self.set_status_text("No profile information available")
             self.stop_auto_batch()
             return
                 
@@ -645,12 +655,12 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         auth_token = self.auth_input.text().strip()
         
         if not username or not auth_token:
-            self.status_label.setText("Username or auth token missing")
+            self.set_status_text("Username or auth token missing")
             self.stop_auto_batch()
             return
                 
         self.current_page += 1
-        self.status_label.setText(f"Auto fetching batch {self.current_page + 1}...")
+        self.set_status_text(f"Auto fetching batch {self.current_page + 1}...")
         
         timeline_type = self.timeline_type_combo.currentData()
         media_type = self.media_type_combo.currentData()
@@ -676,7 +686,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
                     
             timeline = info.get('timeline', [])
             if not timeline:
-                self.status_label.setText("No more media items found")
+                self.set_status_text("No more media items found")
                 self.stop_auto_batch()
                 self.next_batch_button.hide()
                 return
@@ -689,23 +699,23 @@ class TwitterMediaDownloaderGUI(QMainWindow):
             media_count = len(self.media_info['timeline'])
             new_items = len(timeline)
             
-            self.status_label.setText(f"Auto batch: Added {new_items:,} items. Total: {media_count:,} media items")
+            self.set_status_text(f"Auto batch: Added {new_items:,} items. Total: {media_count:,} media items")
             
             has_more = info.get('metadata', {}).get('has_more', False)
             if not has_more:
                 self.stop_auto_batch()
                 self.next_batch_button.hide()
-                self.status_label.setText(f"Auto batch complete! All {media_count:,} media items fetched. No more items available.")
+                self.set_status_text(f"Auto batch complete! All {media_count:,} media items fetched. No more items available.")
                 return
                 
             QTimer.singleShot(500, self.fetch_next_batch_auto)
                     
         except Exception as e:
-            self.status_label.setText(f"Error processing auto batch: {str(e)}")
+            self.set_status_text(f"Error processing auto batch: {str(e)}")
             self.stop_auto_batch()
 
     def handle_auto_batch_error(self, error):
-        self.status_label.setText(f"Auto batch error: {error}")
+        self.set_status_text(f"Auto batch error: {error}")
         self.stop_auto_batch()
 
     def handle_batch_checkbox(self, state):
@@ -813,20 +823,28 @@ class TwitterMediaDownloaderGUI(QMainWindow):
             else:
                 subprocess.run(['xdg-open', output_dir])
 
+    def set_status_text(self, text):
+        """Set status text and hide/show version label accordingly"""
+        self.status_label.setText(text)
+        if text:
+            self.version_label.hide()
+        else:
+            self.version_label.show()
+
     def fetch_metadata(self):
         self.current_page = 0
         username = self.url_input.text().strip()
         if not username:
-            self.status_label.setText("Please enter a username or URL")
+            self.set_status_text("Please enter a username or URL")
             return
 
         auth_token = self.auth_input.text().strip()
         if not auth_token:
-            self.status_label.setText("Please enter your auth token")
+            self.set_status_text("Please enter your auth token")
             return
 
         self.fetch_button.setEnabled(False)
-        self.status_label.setText("Fetching profile information...")
+        self.set_status_text("Fetching profile information...")
         
         timeline_type = self.timeline_type_combo.currentData()
         media_type = self.media_type_combo.currentData()
@@ -848,19 +866,19 @@ class TwitterMediaDownloaderGUI(QMainWindow):
 
     def fetch_next_batch(self):
         if not self.media_info:
-            self.status_label.setText("No profile information available")
+            self.set_status_text("No profile information available")
             return
             
         username = self.url_input.text().strip()
         auth_token = self.auth_input.text().strip()
         
         if not username or not auth_token:
-            self.status_label.setText("Username or auth token missing")
+            self.set_status_text("Username or auth token missing")
             return
             
         self.current_page += 1
         self.next_batch_button.setEnabled(False)
-        self.status_label.setText(f"Fetching batch {self.current_page + 1}...")
+        self.set_status_text(f"Fetching batch {self.current_page + 1}...")
         
         timeline_type = self.timeline_type_combo.currentData()
         media_type = self.media_type_combo.currentData()
@@ -886,7 +904,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
                 
             timeline = info.get('timeline', [])
             if not timeline:
-                self.status_label.setText("No more media items found")
+                self.set_status_text("No more media items found")
                 self.next_batch_button.setEnabled(True)
                 return
                 
@@ -898,17 +916,17 @@ class TwitterMediaDownloaderGUI(QMainWindow):
             media_count = len(self.media_info['timeline'])
             new_items = len(timeline)
             
-            self.status_label.setText(f"Added {new_items:,} items. Total: {media_count:,} media items")
+            self.set_status_text(f"Added {new_items:,} items. Total: {media_count:,} media items")
             self.next_batch_button.setEnabled(True)
             
             has_more = info.get('metadata', {}).get('has_more', False)
             if not has_more:
                 self.next_batch_button.hide()
                 self.auto_batch_button.hide()
-                self.status_label.setText(f"All {media_count:,} media items fetched. No more items available.")
+                self.set_status_text(f"All {media_count:,} media items fetched. No more items available.")
                 
         except Exception as e:
-            self.status_label.setText(f"Error processing batch: {str(e)}")
+            self.set_status_text(f"Error processing batch: {str(e)}")
             self.next_batch_button.setEnabled(True)
 
     def handle_profile_info(self, info):
@@ -919,15 +937,15 @@ class TwitterMediaDownloaderGUI(QMainWindow):
             if 'error' in info:
                 error_type = info['error']
                 if error_type == "withheld":
-                    self.status_label.setText("Please use the Userscript version for withheld accounts.")
+                    self.set_status_text("Please use the Userscript version for withheld accounts.")
                 else:
-                    self.status_label.setText("Please check the 'Auth Token' value. Your account may be logged out, locked, or suspended.")
+                    self.set_status_text("Please check the 'Auth Token' value. Your account may be logged out, locked, or suspended.")
                 self.fetch_button.setEnabled(True)
                 return
 
             account_info = info.get('account_info', {})
             if not account_info:
-                self.status_label.setText("Failed to fetch profile information")
+                self.set_status_text("Failed to fetch profile information")
                 self.fetch_button.setEnabled(True)
                 return
 
@@ -968,9 +986,9 @@ class TwitterMediaDownloaderGUI(QMainWindow):
                 elif media_type == "gif":
                     media_type_str = "GIF"
                 
-                self.status_label.setText(f"Successfully fetched {media_count:,} {media_type_str} items")
+                self.set_status_text(f"Successfully fetched {media_count:,} {media_type_str} items")
             except Exception as ui_error:
-                self.status_label.setText(f"Error updating UI: {str(ui_error)}")
+                self.set_status_text(f"Error updating UI: {str(ui_error)}")
                 return
 
             if is_withheld:
@@ -1036,11 +1054,11 @@ class TwitterMediaDownloaderGUI(QMainWindow):
                 self.user_output_dir = os.path.join(output_base, self.clean_username)
                 os.makedirs(self.user_output_dir, exist_ok=True)
             except Exception as dir_error:
-                self.status_label.setText(f"Error creating output directory: {str(dir_error)}")
+                self.set_status_text(f"Error creating output directory: {str(dir_error)}")
                 return
 
         except Exception as e:
-            self.status_label.setText(f"Error processing profile info: {str(e)}")
+            self.set_status_text(f"Error processing profile info: {str(e)}")
             self.fetch_button.setEnabled(True)
 
     def update_profile_image(self, image_data):
@@ -1073,18 +1091,18 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         error_str = str(error)
         
         if '"error": "withheld"' in error_str or "withheld" in error_str:
-            self.status_label.setText("Please use the Userscript version for withheld accounts.")
+            self.set_status_text("Please use the Userscript version for withheld accounts.")
         else:
-            self.status_label.setText("Please check the 'Auth Token'.")
+            self.set_status_text("Please check the 'Auth Token'.")
 
     def start_download(self):
         if not self.media_info:
-            self.status_label.setText("Please fetch profile information first")
+            self.set_status_text("Please fetch profile information first")
             return
 
         auth_token = self.auth_input.text().strip()
         if not auth_token:
-            self.status_label.setText("Please enter your auth token")
+            self.set_status_text("Please enter your auth token")
             return
 
         self.download_button.hide()
@@ -1093,7 +1111,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.cancel_button.show()
         self.progress_bar.show()
         self.progress_bar.setValue(0)
-        self.status_label.setText("Starting download...")
+        self.set_status_text("Starting download...")
 
         filename_format = "username_date" if self.format_username.isChecked() else "date_username"
         batch_size = int(self.download_batch_combo.currentText())
@@ -1110,7 +1128,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.worker.progress.connect(self.update_progress)
         self.worker.finished.connect(self.download_finished)
         self.worker.error.connect(self.download_error)
-        self.worker.status_update.connect(self.status_label.setText)
+        self.worker.status_update.connect(self.set_status_text)
         self.worker.start()
 
     def update_progress(self, value):
@@ -1118,7 +1136,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
 
     def download_finished(self, message):
         self.progress_bar.hide()
-        self.status_label.setText(message)
+        self.set_status_text(message)
         self.open_button.show()
         
         if self.batch_checkbox.isChecked() and self.media_info and self.media_info.get('metadata', {}).get('has_more', False):
@@ -1134,7 +1152,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
 
     def download_error(self, error_message):
         self.progress_bar.hide()
-        self.status_label.setText(f"Download error: {error_message}")
+        self.set_status_text(f"Download error: {error_message}")
         self.download_button.setText("Retry")
         self.download_button.show()
         self.cancel_button.show()
@@ -1146,7 +1164,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
     def cancel_clicked(self):
         if hasattr(self, 'worker') and self.worker.isRunning():
             self.worker.cancel()
-            self.status_label.setText("Cancelling download...")
+            self.set_status_text("Cancelling download...")
             return
         
         self.profile_widget.hide()
@@ -1158,7 +1176,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.cancel_button.hide()
         self.progress_bar.hide()
         self.progress_bar.setValue(0)
-        self.status_label.clear()
+        self.set_status_text("")
         self.media_info = None
         self.current_page = 0
         self.update_button.show()
