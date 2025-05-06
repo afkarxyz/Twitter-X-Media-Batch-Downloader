@@ -34,7 +34,7 @@
 > - I suggest not using the **main account** to obtain the token.
 > - You can use https://temp-mail.io to register a Twitter account.
 > - Using an auth token or cookies has the potential to get the **account suspended.**
-> - If too many media files are fetched, it may trigger a **rate limit**, and the media retrieval will fail.
+> - If too many media files are fetched, it may trigger a **rate limit**, and the media retrieval will fail, try enabling Batch mode.
 
 1. Go to [Twitter's website](https://www.x.com/)
 2. Log into your account
