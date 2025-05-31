@@ -19,11 +19,13 @@
   
 ## 🖼️ Screenshots
 
-![image](https://github.com/user-attachments/assets/718c5725-6323-4ece-8552-a467767de039)
+![image](https://github.com/user-attachments/assets/ca8b6019-505e-4fb0-b1c5-52b7bcc892b4)
 
-![python_7NZpAQ8RQi](https://github.com/user-attachments/assets/9982e4f5-a4b2-4d1b-9481-7bf7db700663)
+![image](https://github.com/user-attachments/assets/8297f150-d581-4bb0-b80e-98d44aec18b5)
 
-![image](https://github.com/user-attachments/assets/e8960328-f38d-4944-91a4-31b792ce47e3)
+![image](https://github.com/user-attachments/assets/1f310499-0b03-4daf-ad83-e38cee22ce0c)
+
+![image](https://github.com/user-attachments/assets/e30f4c74-988c-4cd2-a1b2-2b72add1ac6e)
 
 > [!Important]
 > Use **Batch** if the items to be downloaded are in the thousands.
