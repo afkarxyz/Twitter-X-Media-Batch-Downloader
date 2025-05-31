@@ -341,8 +341,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.tab_widget.addTab(self.main_tab, "Main")
         self.tab_widget.addTab(self.settings_tab, "Settings")
         
-        self.main_layout.addWidget(self.tab_widget)
-
+        self.main_layout.addWidget(self.tab_widget)        
         self.input_widget = QWidget()
         input_layout = QVBoxLayout(self.input_widget)
         input_layout.setSpacing(10)
@@ -407,8 +406,8 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.batch_checkbox.stateChanged.connect(self.handle_batch_checkbox)
         first_row_layout.addWidget(self.batch_checkbox)
         
-        size_label = QLabel("Size:")
-        first_row_layout.addWidget(size_label)
+        self.size_label = QLabel("Size:")
+        first_row_layout.addWidget(self.size_label)
         
         self.batch_size_combo = QComboBox()
         self.batch_size_combo.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
@@ -417,6 +416,9 @@ class TwitterMediaDownloaderGUI(QMainWindow):
             self.batch_size_combo.addItem(str(size))
         self.batch_size_combo.setCurrentIndex(1)
         first_row_layout.addWidget(self.batch_size_combo)
+        
+        self.size_label.hide()
+        self.batch_size_combo.hide()
         
         first_row_layout.addSpacing(5)
 
@@ -459,7 +461,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.settings_tab_layout.addWidget(download_settings_label)
         
         batch_download_item_layout = QHBoxLayout()
-        batch_download_label = QLabel("Batch Download Items:")
+        batch_download_label = QLabel("Batch Size:")
         self.download_batch_combo = QComboBox()
         self.download_batch_combo.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.download_batch_combo.setFixedWidth(80)
@@ -475,8 +477,8 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         
         filename_layout = QHBoxLayout()
         filename_label = QLabel("Filename Format:")
-        self.format_username = QRadioButton("Username - Post Date")
-        self.format_date = QRadioButton("Post Date - Username")
+        self.format_username = QRadioButton("Username - Date")
+        self.format_date = QRadioButton("Date - Username")
         self.format_username.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.format_date.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         filename_layout.addWidget(filename_label)
@@ -596,7 +598,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         status_layout.setContentsMargins(0, 0, 0, 0)
         status_layout.setSpacing(5)
         
-        self.version_label = QLabel("v2.5 (gallery-dl v1.29.6)")
+        self.version_label = QLabel("v2.6 (gallery-dl v1.29.7)")
         status_layout.addWidget(self.version_label)
         
         self.status_label = QLabel("")
@@ -650,7 +652,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
             self.set_status_text("No profile information available")
             self.stop_auto_batch()
             return
-                
+        
         username = self.url_input.text().strip()
         auth_token = self.auth_input.text().strip()
         
@@ -707,9 +709,8 @@ class TwitterMediaDownloaderGUI(QMainWindow):
                 self.next_batch_button.hide()
                 self.set_status_text(f"Auto batch complete! All {media_count:,} media items fetched. No more items available.")
                 return
-                
+            
             QTimer.singleShot(500, self.fetch_next_batch_auto)
-                    
         except Exception as e:
             self.set_status_text(f"Error processing auto batch: {str(e)}")
             self.stop_auto_batch()
@@ -719,8 +720,15 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.stop_auto_batch()
 
     def handle_batch_checkbox(self, state):
+        if self.batch_checkbox.isChecked():
+            self.size_label.show()
+            self.batch_size_combo.show()
+        else:
+            self.size_label.hide()
+            self.batch_size_combo.hide()
+        
         if hasattr(self, 'media_info') and self.media_info:
-            if state == Qt.CheckState.Checked and self.media_info.get('metadata', {}).get('has_more', False):
+            if self.batch_checkbox.isChecked() and self.media_info.get('metadata', {}).get('has_more', False):
                 self.next_batch_button.show()
                 self.auto_batch_button.show()
             else:
@@ -789,11 +797,23 @@ class TwitterMediaDownloaderGUI(QMainWindow):
             self.batch_checkbox.setChecked(batch_mode)
             self.batch_checkbox.blockSignals(False)
             
+            # Set visibility of batch size elements based on saved batch mode
+            if batch_mode:
+                self.size_label.show()
+                self.batch_size_combo.show()
+                self.download_size_label.show()
+                self.download_batch_combo.show()
+            else:
+                self.size_label.hide()
+                self.batch_size_combo.hide()
+                self.download_size_label.hide()
+                self.download_batch_combo.hide()
+            
             fetch_batch_size = str(self.settings.value('fetch_batch_size', '100'))
             index = self.batch_size_combo.findText(fetch_batch_size)
             if index >= 0:
                 self.batch_size_combo.setCurrentIndex(index)
-            
+                
             download_batch_size = str(self.settings.value('download_batch_size', '25'))
             index = self.download_batch_combo.findText(download_batch_size)
             if index >= 0:
@@ -824,7 +844,6 @@ class TwitterMediaDownloaderGUI(QMainWindow):
                 subprocess.run(['xdg-open', output_dir])
 
     def set_status_text(self, text):
-        """Set status text and hide/show version label accordingly"""
         self.status_label.setText(text)
         if text:
             self.version_label.hide()
