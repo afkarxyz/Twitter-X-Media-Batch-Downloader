@@ -273,7 +273,7 @@ class UpdateDialog(QDialog):
 class TwitterMediaDownloaderGUI(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.current_version = "2.5" 
+        self.current_version = "2.6" 
         self.setWindowTitle("Twitter/X Media Batch Downloader")
         
         self.settings = QSettings('TwitterMediaDownloader', 'Settings')
