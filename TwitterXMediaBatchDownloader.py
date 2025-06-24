@@ -4,6 +4,7 @@ import asyncio
 import aiohttp
 import requests
 import subprocess
+import imageio_ffmpeg
 from datetime import datetime
 from pathlib import Path
 from packaging import version
@@ -94,7 +95,7 @@ class MediaDownloader(QThread):
     error = pyqtSignal(str)
     status_update = pyqtSignal(str)
 
-    def __init__(self, media_list, output_dir, filename_format, username, media_type='all', batch_size=10):
+    def __init__(self, media_list, output_dir, filename_format, username, media_type='all', batch_size=10, convert_gif=False):
         super().__init__()
         self.media_list = media_list
         self.output_dir = output_dir
@@ -102,8 +103,10 @@ class MediaDownloader(QThread):
         self.filename_format = filename_format
         self.media_type = media_type
         self.batch_size = batch_size
+        self.convert_gif = convert_gif
         self._is_cancelled = False
         self._download_lock = asyncio.Lock()
+        self.filepath_map = []
 
     def cancel(self):
         self._is_cancelled = True
@@ -112,7 +115,6 @@ class MediaDownloader(QThread):
         try:
             if os.path.exists(filepath):
                 return True, True
-            
             if self._is_cancelled:
                 return False, False
             
@@ -154,7 +156,28 @@ class MediaDownloader(QThread):
                     formatted_date = date.strftime("%Y%m%d_%H%M%S")
                     tweet_id = str(item.get('tweet_id', ''))
                     
-                    extension = 'mp4' if 'video.twimg.com' in url else 'jpg'
+                    item_type = item.get('type', '')
+                    if item_type == 'animated_gif':
+                        media_type_folder = 'gif'
+                        extension = 'mp4'
+                    elif item_type == 'video' or 'video.twimg.com' in url:
+                        media_type_folder = 'video'
+                        extension = 'mp4'
+                    else:
+                        media_type_folder = 'image'
+                        extension = 'jpg'
+                    
+                    if self.media_type == "all":
+                        media_output_dir = os.path.join(self.output_dir, media_type_folder)
+                    else:
+                        if self.media_type == "image":
+                            media_output_dir = os.path.join(self.output_dir, "image")
+                        elif self.media_type == "video":
+                            media_output_dir = os.path.join(self.output_dir, "video")
+                        elif self.media_type == "gif":
+                            media_output_dir = os.path.join(self.output_dir, "gif")
+                        else:
+                            media_output_dir = self.output_dir
                     
                     if self.filename_format == "username_date":
                         base_filename = f"{self.username}_{formatted_date}_{tweet_id}"
@@ -168,8 +191,8 @@ class MediaDownloader(QThread):
                         counter += 1
                     
                     used_filenames.add(filename)
-                    filepath = os.path.join(self.output_dir, filename)
-                    
+                    filepath = os.path.join(media_output_dir, filename)
+                    self.filepath_map.append((item, filepath))
                     task = asyncio.create_task(self.download_file(session, url, filepath))
                     tasks.append(task)
                 
@@ -214,6 +237,30 @@ class MediaDownloader(QThread):
     def run(self):
         try:
             completed, skipped, failed = asyncio.run(self.download_all())
+            
+            if getattr(self, 'convert_gif', False):
+                try:
+                    ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+                    gif_items = [(item, fp) for item, fp in self.filepath_map if item.get('type') == 'animated_gif']
+                    total_gifs = len(gif_items)
+                    if total_gifs > 0:
+                        creationflags = subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0
+                        self.progress.emit(0)
+                        self.status_update.emit("Starting GIF conversion...")
+                        for idx, (item, fp) in enumerate(gif_items, start=1):
+                            gif_fp = fp.rsplit('.', 1)[0] + '.gif'
+                            result = subprocess.run([ffmpeg_exe, '-i', fp, gif_fp], capture_output=True, creationflags=creationflags)
+                            if result.returncode == 0 and os.path.exists(gif_fp):
+                                try:
+                                    os.remove(fp)
+                                except Exception:
+                                    pass
+                            conv_progress = int((idx / total_gifs) * 100)
+                            self.progress.emit(conv_progress)
+                            self.status_update.emit(f"Converting GIF {idx}/{total_gifs}...")
+                        self.status_update.emit("GIF conversion completed")
+                except Exception as conv_e:
+                    self.status_update.emit(f"GIF conversion error: {conv_e}")
             
             if self._is_cancelled:
                 self.status_update.emit("Download cancelled")
@@ -273,7 +320,7 @@ class UpdateDialog(QDialog):
 class TwitterMediaDownloaderGUI(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.current_version = "2.6" 
+        self.current_version = "2.7"
         self.setWindowTitle("Twitter/X Media Batch Downloader")
         
         self.settings = QSettings('TwitterMediaDownloader', 'Settings')
@@ -295,6 +342,10 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         
         self.media_info = None
         self.init_ui()
+        if not self.settings.contains('download_batch_size'):
+            index = self.download_batch_combo.findText("25")
+            if index >= 0:
+                self.download_batch_combo.setCurrentIndex(index)
         self.load_settings()
         self.setup_auto_save()
         self.clean_username = None
@@ -417,6 +468,10 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.batch_size_combo.setCurrentIndex(1)
         first_row_layout.addWidget(self.batch_size_combo)
         
+        self.convert_gif_checkbox = QCheckBox("Convert GIF")
+        self.convert_gif_checkbox.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        first_row_layout.addWidget(self.convert_gif_checkbox)
+        
         self.size_label.hide()
         self.batch_size_combo.hide()
         
@@ -467,11 +522,9 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.download_batch_combo.setFixedWidth(80)
         for size in range(5, 101, 5):
             self.download_batch_combo.addItem(str(size))
-        index = self.download_batch_combo.findText("25")
-        if index >= 0:
-            self.download_batch_combo.setCurrentIndex(index)
         batch_download_item_layout.addWidget(batch_download_label)
         batch_download_item_layout.addWidget(self.download_batch_combo)
+        batch_download_item_layout.addWidget(self.convert_gif_checkbox)
         batch_download_item_layout.addStretch()
         self.settings_tab_layout.addLayout(batch_download_item_layout)
         
@@ -598,7 +651,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         status_layout.setContentsMargins(0, 0, 0, 0)
         status_layout.setSpacing(5)
         
-        self.version_label = QLabel("v2.6 (gallery-dl v1.29.7)")
+        self.version_label = QLabel("v2.7 (gallery-dl v1.30.0)")
         status_layout.addWidget(self.version_label)
         
         self.status_label = QLabel("")
@@ -749,6 +802,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         self.batch_checkbox.stateChanged.connect(self.auto_save_settings)
         self.download_batch_combo.currentTextChanged.connect(self.auto_save_settings)
         self.batch_size_combo.currentTextChanged.connect(self.auto_save_settings)
+        self.convert_gif_checkbox.stateChanged.connect(self.auto_save_settings)
 
     def auto_save_settings(self):
         try:
@@ -765,6 +819,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
             
             self.settings.setValue('download_batch_size', self.download_batch_combo.currentText())
             self.settings.setValue('fetch_batch_size', self.batch_size_combo.currentText())
+            self.settings.setValue('convert_gif', self.convert_gif_checkbox.isChecked())
             self.settings.sync()
         except Exception as e:
             pass
@@ -797,17 +852,12 @@ class TwitterMediaDownloaderGUI(QMainWindow):
             self.batch_checkbox.setChecked(batch_mode)
             self.batch_checkbox.blockSignals(False)
             
-            # Set visibility of batch size elements based on saved batch mode
             if batch_mode:
                 self.size_label.show()
                 self.batch_size_combo.show()
-                self.download_size_label.show()
-                self.download_batch_combo.show()
             else:
                 self.size_label.hide()
                 self.batch_size_combo.hide()
-                self.download_size_label.hide()
-                self.download_batch_combo.hide()
             
             fetch_batch_size = str(self.settings.value('fetch_batch_size', '100'))
             index = self.batch_size_combo.findText(fetch_batch_size)
@@ -819,11 +869,12 @@ class TwitterMediaDownloaderGUI(QMainWindow):
             if index >= 0:
                 self.download_batch_combo.setCurrentIndex(index)
             else:
-                index = self.download_batch_combo.findText("25")
-                if index >= 0:
-                    self.download_batch_combo.setCurrentIndex(index)
-                else:
-                    self.download_batch_combo.setCurrentIndex(0)
+                self.download_batch_combo.setCurrentIndex(0)
+
+            convert_gif = self.settings.value('convert_gif', False, type=bool)
+            self.convert_gif_checkbox.blockSignals(True)
+            self.convert_gif_checkbox.setChecked(convert_gif)
+            self.convert_gif_checkbox.blockSignals(False)
         except Exception as e:
             pass
 
@@ -1135,6 +1186,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         filename_format = "username_date" if self.format_username.isChecked() else "date_username"
         batch_size = int(self.download_batch_combo.currentText())
         media_type = self.media_type_combo.currentData()
+        convert_gif = self.convert_gif_checkbox.isChecked()
 
         self.worker = MediaDownloader(
             self.media_info['timeline'],
@@ -1142,7 +1194,8 @@ class TwitterMediaDownloaderGUI(QMainWindow):
             filename_format,
             self.clean_username,
             media_type,
-            batch_size
+            batch_size,
+            convert_gif
         )
         self.worker.progress.connect(self.update_progress)
         self.worker.finished.connect(self.download_finished)
