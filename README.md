@@ -25,7 +25,7 @@
 
 ![image](https://github.com/user-attachments/assets/1f310499-0b03-4daf-ad83-e38cee22ce0c)
 
-![image](https://github.com/user-attachments/assets/e30f4c74-988c-4cd2-a1b2-2b72add1ac6e)
+![image](https://github.com/user-attachments/assets/ee2b94c5-2370-48e6-9201-dc54b09968c9)
 
 > [!Important]
 > Use **Batch** if the items to be downloaded are in the thousands.
