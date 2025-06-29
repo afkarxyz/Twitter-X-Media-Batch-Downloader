@@ -30,7 +30,7 @@
 > [!Important]
 > Use **Batch** if the items to be downloaded are in the thousands.
 
-## 🔑 How to Obtain Auth Token
+## 🔑 How to Obtain Auth Token 👉 [Video Tutorial](https://www.patreon.com/posts/how-to-obtain-127206894)
 
 > [!Warning]
 > - I suggest not using the **main account** to obtain the token.
