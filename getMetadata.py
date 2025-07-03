@@ -149,11 +149,11 @@ def get_metadata(username, auth_token, timeline_type="timeline", batch_size=0, p
     except Exception as e:
         error_msg = str(e).lower()
         if "withheld" in error_msg or e.__class__.__name__ == "ValueError" and str(e) == "withheld":
-            return {"error": "withheld"}
+            return {"error": "To download withheld accounts, use this userscript version: https://www.patreon.com/exyezed"}
         else:
             error_str = str(e)
             if error_str == "None":
-                return {"error": "null"}
+                return {"error": "Failed to authenticate. Please verify your auth token is valid and not expired."}
             else:
                 return {"error": error_str}
 
@@ -178,7 +178,7 @@ def main():
     except Exception as e:
         error_str = str(e)
         if error_str == "None":
-            print(json.dumps({"error": "null"}, ensure_ascii=False))
+            print(json.dumps({"error": "Failed to authenticate. Please verify your auth token is valid and not expired."}, ensure_ascii=False))
         else:
             print(json.dumps({"error": error_str}, ensure_ascii=False))
 

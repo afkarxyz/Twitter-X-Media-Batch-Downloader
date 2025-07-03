@@ -5,49 +5,43 @@ import aiohttp
 import requests
 import subprocess
 import imageio_ffmpeg
+import json
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from packaging import version
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
-                        QHBoxLayout, QLabel, QLineEdit, QPushButton, 
-                        QProgressBar, QFileDialog, QRadioButton, QComboBox,
-                        QCheckBox, QDialog, QDialogButtonBox, QTabWidget)
-from PyQt6.QtCore import QThread, pyqtSignal, Qt, QSettings, QTimer, QUrl
-from PyQt6.QtGui import QIcon, QPixmap, QCursor, QPainter, QPainterPath, QDesktopServices
+from dataclasses import dataclass
+from PyQt6.QtWidgets import (
+    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit,
+    QLabel, QFileDialog, QListWidget, QTextEdit, QTabWidget, QAbstractItemView, QSpacerItem, QSizePolicy, QProgressBar, QCheckBox, QDialog,
+    QDialogButtonBox, QComboBox
+)
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QUrl, QTimer, QTime, QSettings
+from PyQt6.QtGui import QIcon, QTextCursor, QDesktopServices
 from getMetadata import get_metadata
 
-class ImageDownloader(QThread):
-    finished = pyqtSignal(bytes)
+@dataclass
+class Account:
+    username: str
+    nick: str
+    followers: int
+    following: int
+    posts: int
+    media_type: str
+    media_list: list = None
 
-    def __init__(self, url):
-        super().__init__()
-        self.url = url
-        
-    async def download_image(self):
-        async with aiohttp.ClientSession() as session:
-            async with session.get(self.url) as response:
-                if response.status == 200:
-                    return await response.read()
-        return None
-        
-    def run(self):
-        image_data = asyncio.run(self.download_image())
-        if image_data:
-            self.finished.emit(image_data)
-
-class MetadataFetcher(QThread):
+class MetadataFetchWorker(QThread):
     finished = pyqtSignal(dict)
     error = pyqtSignal(str)
-
-    def __init__(self, username, timeline_type='media', media_type='all', batch_mode=False, batch_size=100, page=0):
+    
+    def __init__(self, username, media_type='all', batch_mode=False, batch_size=0, page=0):
         super().__init__()
         self.username = username
-        self.auth_token = None
-        self.timeline_type = timeline_type
         self.media_type = media_type
         self.batch_mode = batch_mode
         self.batch_size = batch_size
         self.page = page
+        self.auth_token = None
         
     def normalize_url(self, url_or_username):
         url_or_username = url_or_username.strip()
@@ -63,59 +57,46 @@ class MetadataFetcher(QThread):
         
         username = username.strip()
         return username
-
+        
     def run(self):
         try:
             normalized = self.normalize_url(self.username)
-            
-            try:
-                batch_size = self.batch_size if self.batch_mode else 0
-                data = get_metadata(
-                    username=normalized,
-                    auth_token=self.auth_token,
-                    timeline_type=self.timeline_type,
-                    batch_size=batch_size,
-                    page=self.page,
-                    media_type=self.media_type
-                )
-                self.finished.emit(data)
-            except Exception as local_error:
-                error_message = str(local_error)
-                if not error_message or error_message == "None":
-                    error_message = "Local gallery-dl error: None"
-                    
-                raise ValueError(f"Local gallery-dl error: {error_message}")
-                    
+            data = get_metadata(
+                username=normalized,
+                auth_token=self.auth_token,
+                timeline_type='media',
+                batch_size=self.batch_size if self.batch_mode else 0,
+                page=self.page,
+                media_type=self.media_type
+            )
+            self.finished.emit(data)
         except Exception as e:
             self.error.emit(str(e))
 
-class MediaDownloader(QThread):
-    progress = pyqtSignal(int)
-    finished = pyqtSignal(str)
-    error = pyqtSignal(str)
-    status_update = pyqtSignal(str)
-
-    def __init__(self, media_list, output_dir, filename_format, username, media_type='all', batch_size=10, convert_gif=False):
+class DownloadWorker(QThread):
+    finished = pyqtSignal(bool, str)
+    progress = pyqtSignal(str, int)
+    conversion_progress = pyqtSignal(str, int)
+    download_progress = pyqtSignal(str, int)
+    
+    def __init__(self, accounts, outpath, auth_token, filename_format='username_date', 
+                 download_batch_size=25, convert_gif=False):
         super().__init__()
-        self.media_list = media_list
-        self.output_dir = output_dir
-        self.username = username
+        self.accounts = accounts
+        self.outpath = outpath
+        self.auth_token = auth_token
         self.filename_format = filename_format
-        self.media_type = media_type
-        self.batch_size = batch_size
+        self.download_batch_size = download_batch_size
         self.convert_gif = convert_gif
-        self._is_cancelled = False
-        self._download_lock = asyncio.Lock()
+        self.is_paused = False
+        self.is_stopped = False
         self.filepath_map = []
-
-    def cancel(self):
-        self._is_cancelled = True
 
     async def download_file(self, session, url, filepath):
         try:
             if os.path.exists(filepath):
                 return True, True
-            if self._is_cancelled:
+            if self.is_stopped:
                 return False, False
             
             os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -129,25 +110,33 @@ class MediaDownloader(QThread):
         except Exception as e:
             return False, False
 
-    async def download_all(self):
-        os.makedirs(self.output_dir, exist_ok=True)
-        
+    async def download_account_media(self, account):
+        if not account.media_list:
+            return 0, 0, 0
+            
+        account_output_dir = os.path.join(self.outpath, account.username)
+        os.makedirs(account_output_dir, exist_ok=True)        
         timeout = aiohttp.ClientTimeout(total=30)
-        connector = aiohttp.TCPConnector(limit=self.batch_size)
+        connector = aiohttp.TCPConnector(limit=self.download_batch_size)
         
-        async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
-            total = len(self.media_list)
+        async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:            
+            total = len(account.media_list)
             completed = 0
             skipped = 0
             failed = 0
             
             used_filenames = set()
             
-            for i in range(0, total, self.batch_size):
-                if self._is_cancelled:
+            for i in range(0, total, self.download_batch_size):
+                if self.is_stopped:
                     break
+                    
+                while self.is_paused:
+                    if self.is_stopped:
+                        return completed, skipped, failed
+                    await asyncio.sleep(0.1)
                 
-                batch = self.media_list[i:i + self.batch_size]
+                batch = account.media_list[i:i + self.download_batch_size]
                 tasks = []
                 
                 for item in batch:
@@ -166,23 +155,12 @@ class MediaDownloader(QThread):
                     else:
                         media_type_folder = 'image'
                         extension = 'jpg'
-                    
-                    if self.media_type == "all":
-                        media_output_dir = os.path.join(self.output_dir, media_type_folder)
-                    else:
-                        if self.media_type == "image":
-                            media_output_dir = os.path.join(self.output_dir, "image")
-                        elif self.media_type == "video":
-                            media_output_dir = os.path.join(self.output_dir, "video")
-                        elif self.media_type == "gif":
-                            media_output_dir = os.path.join(self.output_dir, "gif")
-                        else:
-                            media_output_dir = self.output_dir
+                    media_output_dir = os.path.join(account_output_dir, media_type_folder)
                     
                     if self.filename_format == "username_date":
-                        base_filename = f"{self.username}_{formatted_date}_{tweet_id}"
+                        base_filename = f"{account.username}_{formatted_date}_{tweet_id}"
                     else:
-                        base_filename = f"{formatted_date}_{self.username}_{tweet_id}"
+                        base_filename = f"{formatted_date}_{account.username}_{tweet_id}"
                     
                     filename = f"{base_filename}.{extension}"
                     counter = 1
@@ -195,9 +173,7 @@ class MediaDownloader(QThread):
                     self.filepath_map.append((item, filepath))
                     task = asyncio.create_task(self.download_file(session, url, filepath))
                     tasks.append(task)
-                
                 results = await asyncio.gather(*tasks, return_exceptions=True)
-                
                 for result in results:
                     if isinstance(result, tuple):
                         success, was_skipped = result
@@ -209,26 +185,10 @@ class MediaDownloader(QThread):
                             failed += 1
                     else:
                         failed += 1
-                
-                progress = int((completed / total) * 100)
-                self.progress.emit(progress)
-                
-                completed_str = f"{completed:,}" if completed >= 1000 else str(completed)
-                total_str = f"{total:,}" if total >= 1000 else str(total)
-                skipped_str = f" ({skipped:,} skipped)" if skipped > 0 else ""
-                failed_str = f" ({failed:,} failed)" if failed > 0 else ""
-                
-                media_type_str = "files"
-                if self.media_type == "image":
-                    media_type_str = "images"
-                elif self.media_type == "video":
-                    media_type_str = "videos"
-                elif self.media_type == "gif":
-                    media_type_str = "GIFs"
-                
-                self.status_update.emit(
-                    f"Downloaded {completed_str} of {total_str} {media_type_str}{skipped_str}{failed_str}..."
-                )
+                    
+                    progress_percent = int((completed + failed) / total * 100)
+                    media_type_display = account.media_type if account.media_type != 'all' else 'media'
+                    self.download_progress.emit(f"Downloading {account.username}'s {media_type_display}: {completed + failed}/{total}", progress_percent)
                 
                 await asyncio.sleep(0.1)
             
@@ -236,53 +196,75 @@ class MediaDownloader(QThread):
 
     def run(self):
         try:
-            completed, skipped, failed = asyncio.run(self.download_all())
+            total_accounts = len(self.accounts)
+            overall_completed = 0
+            overall_skipped = 0
+            overall_failed = 0
             
-            if getattr(self, 'convert_gif', False):
-                try:
-                    ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
-                    gif_items = [(item, fp) for item, fp in self.filepath_map if item.get('type') == 'animated_gif']
-                    total_gifs = len(gif_items)
-                    if total_gifs > 0:
-                        creationflags = subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0
-                        self.progress.emit(0)
-                        self.status_update.emit("Starting GIF conversion...")
-                        for idx, (item, fp) in enumerate(gif_items, start=1):
-                            gif_fp = fp.rsplit('.', 1)[0] + '.gif'
-                            result = subprocess.run([ffmpeg_exe, '-i', fp, gif_fp], capture_output=True, creationflags=creationflags)
-                            if result.returncode == 0 and os.path.exists(gif_fp):
-                                try:
-                                    os.remove(fp)
-                                except Exception:
-                                    pass
-                            conv_progress = int((idx / total_gifs) * 100)
-                            self.progress.emit(conv_progress)
-                            self.status_update.emit(f"Converting GIF {idx}/{total_gifs}...")
-                        self.status_update.emit("GIF conversion completed")
-                except Exception as conv_e:
-                    self.status_update.emit(f"GIF conversion error: {conv_e}")
-            
-            if self._is_cancelled:
-                self.status_update.emit("Download cancelled")
-                return
+            for i, account in enumerate(self.accounts):
+                if self.is_stopped:
+                    break
+                    
+                while self.is_paused:
+                    if self.is_stopped:
+                        return
+                    self.msleep(100)
+                media_type_display = account.media_type if account.media_type != 'all' else 'media'
+                self.progress.emit(f"Downloading from account: {account.username} ({media_type_display}) - ({i+1}/{total_accounts})", 
+                                int((i) / total_accounts * 100))
                 
-            completed_str = f"{completed:,}" if completed >= 1000 else str(completed)
-            skipped_str = f" ({skipped:,} skipped)" if skipped > 0 else ""
-            failed_str = f" ({failed:,} failed)" if failed > 0 else ""
-            
-            media_type_str = "files"
-            if self.media_type == "image":
-                media_type_str = "images"
-            elif self.media_type == "video":
-                media_type_str = "videos"
-            elif self.media_type == "gif":
-                media_type_str = "GIFs"
-            
-            self.finished.emit(
-                f"Downloaded {completed_str} {media_type_str}{skipped_str}{failed_str} successfully!"
-            )
+                completed, skipped, failed = asyncio.run(self.download_account_media(account))
+                overall_completed += completed
+                overall_skipped += skipped
+                overall_failed += failed
+                self.progress.emit(f"Account {account.username} ({media_type_display}): {completed} downloaded, {skipped} skipped, {failed} failed", 
+                                int((i + 1) / total_accounts * 100))
+
+            if not self.is_stopped:
+                if self.convert_gif:
+                    try:
+                        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+                        gif_items = [(item, fp) for item, fp in self.filepath_map if item.get('type') == 'animated_gif']
+                        total_gifs = len(gif_items)
+                        if total_gifs > 0:
+                            creationflags = subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0
+                            self.progress.emit("Starting GIF conversion...", 0)
+                            for idx, (item, fp) in enumerate(gif_items, start=1):
+                                if self.is_stopped:
+                                    break
+                                gif_fp = fp.rsplit('.', 1)[0] + '.gif'
+                                result = subprocess.run([ffmpeg_exe, '-i', fp, gif_fp], capture_output=True, creationflags=creationflags)
+                                if result.returncode == 0 and os.path.exists(gif_fp):
+                                    try:
+                                        os.remove(fp)
+                                    except Exception:
+                                        pass
+                                
+                                conv_progress = int((idx / total_gifs) * 100)
+                                self.conversion_progress.emit(f"Converting GIF {idx}/{total_gifs}", conv_progress)
+                            self.progress.emit("GIF conversion completed", 100)
+                    except Exception as conv_e:
+                        self.progress.emit(f"GIF conversion error: {conv_e}", 0)
+                
+                success_message = f"Download completed! {overall_completed} files downloaded"
+                if overall_skipped > 0:
+                    success_message += f", {overall_skipped} skipped"
+                if overall_failed > 0:
+                    success_message += f", {overall_failed} failed"
+                self.finished.emit(True, success_message)
+                
         except Exception as e:
-            self.error.emit(str(e))
+            self.finished.emit(False, str(e))
+
+    def pause(self):
+        self.is_paused = True
+
+    def resume(self):
+        self.is_paused = False
+
+    def stop(self): 
+        self.is_stopped = True
+        self.is_paused = False
 
 class UpdateDialog(QDialog):
     def __init__(self, current_version, new_version, parent=None):
@@ -293,7 +275,9 @@ class UpdateDialog(QDialog):
 
         layout = QVBoxLayout()
 
-        message = QLabel(f"A new version of Twitter/X Media Batch Downloader is available!\n\nCurrent version: v{current_version}\nNew version: v{new_version}")
+        message = QLabel(f"A new version of Twitter/X Media Batch Downloader is available!\n\n"
+                        f"Current version: v{current_version}\n"
+                        f"New version: v{new_version}")
         message.setWordWrap(True)
         layout.addWidget(message)
 
@@ -316,41 +300,38 @@ class UpdateDialog(QDialog):
 
         self.update_button.clicked.connect(self.accept)
         self.cancel_button.clicked.connect(self.reject)
-    
-class TwitterMediaDownloaderGUI(QMainWindow):
+        
+class TwitterMediaDownloaderGUI(QWidget):
     def __init__(self):
         super().__init__()
-        self.current_version = "2.7"
-        self.setWindowTitle("Twitter/X Media Batch Downloader")
+        self.current_version = "2.8"
+        self.accounts = []
+        self.temp_dir = os.path.join(tempfile.gettempdir(), "twitterxmediabatchdownloader")
+        os.makedirs(self.temp_dir, exist_ok=True)
+        self.reset_state()
         
         self.settings = QSettings('TwitterMediaDownloader', 'Settings')
-        self.settings.setDefaultFormat(QSettings.Format.IniFormat)
-        
-        self.config_dir = os.path.join(os.path.expanduser("~"), ".twitter_media_downloader")
-        os.makedirs(self.config_dir, exist_ok=True)
-        
+        self.last_output_path = self.settings.value('output_path', str(Path.home() / "Pictures"))
+        self.last_url = self.settings.value('twitter_url', '')
+        self.last_auth_token = self.settings.value('auth_token', '')
+        self.filename_format = self.settings.value('filename_format', 'username_date')
+        self.download_batch_size = self.settings.value('download_batch_size', 25, type=int)
+        self.batch_mode = self.settings.value('batch_mode', False, type=bool)
+        self.batch_size = self.settings.value('batch_size', 100, type=int)
+        self.timeline_type = self.settings.value('timeline_type', 'media')
+        self.media_type = self.settings.value('media_type', 'all')
+        self.convert_gif = self.settings.value('convert_gif', False, type=bool)
         self.check_for_updates = self.settings.value('check_for_updates', True, type=bool)
         
-        icon_path = os.path.join(os.path.dirname(__file__), "icon.svg")
-        if os.path.exists(icon_path):
-            self.setWindowIcon(QIcon(icon_path))
-                
-        self.setFixedWidth(600)
-        
-        self.default_pictures_dir = str(Path.home() / "Pictures")
-        os.makedirs(self.default_pictures_dir, exist_ok=True)
-        
-        self.media_info = None
-        self.init_ui()
-        if not self.settings.contains('download_batch_size'):
-            index = self.download_batch_combo.findText("25")
-            if index >= 0:
-                self.download_batch_combo.setCurrentIndex(index)
-        self.load_settings()
-        self.setup_auto_save()
-        self.clean_username = None
         self.current_page = 0
-        self.auto_batch_running = False
+        self.media_info = None
+        
+        self.elapsed_time = QTime(0, 0, 0)
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_timer)
+        self.initUI()
+        self.load_settings()
+        self.load_all_cached_accounts()
         
         if self.check_for_updates:
             QTimer.singleShot(0, self.check_updates)
@@ -374,102 +355,230 @@ class TwitterMediaDownloaderGUI(QMainWindow):
                         QDesktopServices.openUrl(QUrl("https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases"))
                         
         except Exception as e:
-            pass
+            print(f"Error checking for updates: {e}")
 
-    def init_ui(self):
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        self.main_layout = QVBoxLayout(central_widget)
-        self.main_layout.setContentsMargins(10, 10, 10, 10)
+    def reset_state(self):
+        self.accounts.clear()
 
+    def reset_ui(self):
+        self.account_list.clear()
+        self.log_output.clear()
+        self.progress_bar.setValue(0)
+        self.progress_bar.hide()
+        self.stop_btn.hide()
+        self.pause_resume_btn.hide()
+        self.pause_resume_btn.setText('Pause')
+        self.hide_account_buttons()
+
+    def initUI(self):
+        self.setWindowTitle('Twitter/X Media Batch Downloader')
+        self.setFixedWidth(650)
+        self.setFixedHeight(350)
+        
+        icon_path = os.path.join(os.path.dirname(__file__), "icon.svg")
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
+            
+        self.main_layout = QVBoxLayout()
+        
+        self.setup_twitter_section()
+        self.setup_tabs()
+        
+        self.setLayout(self.main_layout)
+        
+    def setup_twitter_section(self):
+        twitter_layout = QHBoxLayout()
+        twitter_label = QLabel('Username/URL:')
+        twitter_label.setFixedWidth(100)
+        
+        self.twitter_url = QLineEdit()
+        self.twitter_url.setPlaceholderText("e.g. Takomayuyi or https://x.com/Takomayuyi")
+        self.twitter_url.setClearButtonEnabled(True)
+        self.twitter_url.setText(self.last_url)
+        self.twitter_url.textChanged.connect(self.save_url)        
+        self.fetch_btn = QPushButton('Fetch')
+        self.fetch_btn.setFixedWidth(100)
+        self.fetch_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.fetch_btn.clicked.connect(self.fetch_account)
+        
+        twitter_layout.addWidget(twitter_label)
+        twitter_layout.addWidget(self.twitter_url)
+        twitter_layout.addWidget(self.fetch_btn)
+        self.main_layout.addLayout(twitter_layout)
+
+    def setup_tabs(self):
         self.tab_widget = QTabWidget()
-        self.main_tab = QWidget()
-        self.settings_tab = QWidget()
-        
-        self.main_tab_layout = QVBoxLayout(self.main_tab)
-        self.settings_tab_layout = QVBoxLayout(self.settings_tab)
-        
-        self.tab_widget.addTab(self.main_tab, "Main")
-        self.tab_widget.addTab(self.settings_tab, "Settings")
-        
-        self.main_layout.addWidget(self.tab_widget)        
-        self.input_widget = QWidget()
-        input_layout = QVBoxLayout(self.input_widget)
-        input_layout.setSpacing(10)
+        self.main_layout.addWidget(self.tab_widget)
 
-        url_layout = QHBoxLayout()
-        url_label = QLabel("Username/URL:")
-        url_label.setFixedWidth(100)
-        
-        self.url_input = QLineEdit()
-        self.url_input.setPlaceholderText("e.g. Takomayuyi or https://x.com/Takomayuyi")
-        self.url_input.setClearButtonEnabled(True)
-        
-        self.fetch_button = QPushButton("Fetch")
-        self.fetch_button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.fetch_button.setFixedWidth(100)
-        self.fetch_button.clicked.connect(self.fetch_metadata)
-        
-        url_layout.addWidget(url_label)
-        url_layout.addWidget(self.url_input)
-        url_layout.addWidget(self.fetch_button)
-        input_layout.addLayout(url_layout)
+        self.setup_dashboard_tab()
+        self.setup_process_tab()
+        self.setup_settings_tab()
+        self.setup_about_tab()
 
-        dir_layout = QHBoxLayout()
-        dir_label = QLabel("Output Directory:")
-        dir_label.setFixedWidth(100)
-        
-        self.dir_input = QLineEdit(self.default_pictures_dir)
-        
-        self.dir_button = QPushButton("Browse")
-        self.dir_button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.dir_button.setFixedWidth(100)
-        self.dir_button.clicked.connect(self.select_directory)
-        
-        dir_layout.addWidget(dir_label)
-        dir_layout.addWidget(self.dir_input)
-        dir_layout.addWidget(self.dir_button)
-        input_layout.addLayout(dir_layout)
+    def setup_dashboard_tab(self):
+        dashboard_tab = QWidget()
+        dashboard_layout = QVBoxLayout()
 
-        auth_layout = QHBoxLayout()
-        auth_label = QLabel("Auth Token:")
-        auth_label.setFixedWidth(100)
+        self.account_list = QListWidget()
+        self.account_list.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.account_list.itemSelectionChanged.connect(self.update_button_states)
+        dashboard_layout.addWidget(self.account_list)
         
-        self.auth_input = QLineEdit()
-        self.auth_input.setPlaceholderText("Enter your Twitter/X auth_token")
-        self.auth_input.setClearButtonEnabled(True)
+        self.setup_account_buttons()
+        dashboard_layout.addLayout(self.btn_layout)
+        dashboard_tab.setLayout(dashboard_layout)
+        self.tab_widget.addTab(dashboard_tab, "Dashboard")
+
+        self.hide_account_buttons()
+            
+    def setup_account_buttons(self):
+        self.btn_layout = QHBoxLayout()
+        self.download_selected_btn = QPushButton('Download Selected')
+        self.download_all_btn = QPushButton('Download All')
+        self.remove_btn = QPushButton('Remove Selected')
+        self.clear_btn = QPushButton('Clear')
         
+        for btn in [self.download_selected_btn, self.download_all_btn, self.remove_btn, self.clear_btn]:
+            btn.setFixedWidth(150)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            
+        self.download_selected_btn.clicked.connect(self.download_selected)
+        self.download_all_btn.clicked.connect(self.download_all)
+        self.remove_btn.clicked.connect(self.remove_selected_accounts)
+        self.clear_btn.clicked.connect(self.clear_accounts)
+        
+        self.btn_layout.addStretch()
+        for btn in [self.download_selected_btn, self.download_all_btn, self.remove_btn, self.clear_btn]:
+            self.btn_layout.addWidget(btn)
+        self.btn_layout.addStretch()
+
+    def setup_process_tab(self):
+        self.process_tab = QWidget()
+        process_layout = QVBoxLayout()
+        process_layout.setSpacing(5)
+        
+        self.log_output = QTextEdit()
+        self.log_output.setReadOnly(True)
+        process_layout.addWidget(self.log_output)
+        
+        progress_time_layout = QVBoxLayout()
+        progress_time_layout.setSpacing(2)
+        
+        self.progress_bar = QProgressBar()
+        progress_time_layout.addWidget(self.progress_bar)
+        
+        self.time_label = QLabel("00:00:00")
+        self.time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        progress_time_layout.addWidget(self.time_label)
+        
+        process_layout.addLayout(progress_time_layout)
+        
+        control_layout = QHBoxLayout()
+        self.stop_btn = QPushButton('Stop')
+        self.pause_resume_btn = QPushButton('Pause')
+        
+        self.stop_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.pause_resume_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        
+        self.stop_btn.clicked.connect(self.stop_download)
+        self.pause_resume_btn.clicked.connect(self.toggle_pause_resume)
+        control_layout.addWidget(self.stop_btn)
+        control_layout.addWidget(self.pause_resume_btn)
+        process_layout.addLayout(control_layout)
+        
+        self.process_tab.setLayout(process_layout)
+        
+        self.tab_widget.addTab(self.process_tab, "Process")
+        
+        self.progress_bar.hide()
+        self.time_label.hide()
+        self.stop_btn.hide()
+        self.pause_resume_btn.hide()
+
+    def setup_settings_tab(self):
+        settings_tab = QWidget()
+        settings_layout = QVBoxLayout()
+        settings_layout.setSpacing(0)
+        settings_layout.setContentsMargins(9, 9, 9, 9)
+
+        output_group = QWidget()
+        output_layout = QVBoxLayout(output_group)
+        output_layout.setSpacing(5)
+        
+        output_label = QLabel('Output Directory')
+        output_label.setStyleSheet("font-weight: bold;")
+        output_layout.addWidget(output_label)
+        
+        output_dir_layout = QHBoxLayout()
+        self.output_dir = QLineEdit()
+        self.output_dir.setText(self.last_output_path)
+        self.output_dir.textChanged.connect(self.save_settings)
+        self.output_browse = QPushButton('Browse')
+        self.output_browse.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.output_browse.clicked.connect(self.browse_output)
+        
+        output_dir_layout.addWidget(self.output_dir)
+        output_dir_layout.addWidget(self.output_browse)
+        output_layout.addLayout(output_dir_layout)
+        
+        settings_layout.addWidget(output_group)
+
+        auth_group = QWidget()
+        auth_layout = QVBoxLayout(auth_group)
+        auth_layout.setSpacing(5)
+        
+        auth_label = QLabel('Authentication')
+        auth_label.setStyleSheet("font-weight: bold;")
         auth_layout.addWidget(auth_label)
-        auth_layout.addWidget(self.auth_input)
-        input_layout.addLayout(auth_layout)
+        
+        auth_token_layout = QHBoxLayout()
+        auth_token_label = QLabel('Auth Token:')
+        
+        self.auth_token_input = QLineEdit()
+        self.auth_token_input.setPlaceholderText("Enter your Twitter/X auth_token")
+        self.auth_token_input.setText(self.last_auth_token)
+        self.auth_token_input.textChanged.connect(self.save_settings)
+        self.auth_token_input.setClearButtonEnabled(True)
+        
+        auth_token_layout.addWidget(auth_token_label)
+        auth_token_layout.addWidget(self.auth_token_input)
+        auth_layout.addLayout(auth_token_layout)
+        
+        settings_layout.addWidget(auth_group)
 
-        self.main_tab_layout.addWidget(self.input_widget)
-
-        gallery_dl_settings_label = QLabel("<b>gallery-dl Settings</b>")
-        self.settings_tab_layout.addWidget(gallery_dl_settings_label)
+        gallery_dl_group = QWidget()
+        gallery_dl_layout = QVBoxLayout(gallery_dl_group)
+        gallery_dl_layout.setSpacing(5)
+        
+        gallery_dl_label = QLabel('gallery-dl Settings')
+        gallery_dl_label.setStyleSheet("font-weight: bold;")
+        gallery_dl_layout.addWidget(gallery_dl_label)
         
         first_row_layout = QHBoxLayout()
         first_row_layout.setSpacing(5)
 
         self.batch_checkbox = QCheckBox("Batch")
-        self.batch_checkbox.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.batch_checkbox.setCursor(Qt.CursorShape.PointingHandCursor)
         self.batch_checkbox.setToolTip("Enable for accounts with thousands of media")
         self.batch_checkbox.stateChanged.connect(self.handle_batch_checkbox)
+        self.batch_checkbox.setChecked(self.batch_mode)
         first_row_layout.addWidget(self.batch_checkbox)
         
         self.size_label = QLabel("Size:")
         first_row_layout.addWidget(self.size_label)
-        
         self.batch_size_combo = QComboBox()
-        self.batch_size_combo.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.batch_size_combo.setCursor(Qt.CursorShape.PointingHandCursor)
         self.batch_size_combo.setFixedWidth(60)
         for size in [50, 100, 150, 200]:
             self.batch_size_combo.addItem(str(size))
         self.batch_size_combo.setCurrentIndex(1)
+        self.batch_size_combo.currentTextChanged.connect(self.save_batch_size)
         first_row_layout.addWidget(self.batch_size_combo)
         
         self.convert_gif_checkbox = QCheckBox("Convert GIF")
-        self.convert_gif_checkbox.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.convert_gif_checkbox.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.convert_gif_checkbox.setChecked(self.convert_gif)
+        self.convert_gif_checkbox.toggled.connect(self.save_settings)
         first_row_layout.addWidget(self.convert_gif_checkbox)
         
         self.size_label.hide()
@@ -479,7 +588,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
 
         timeline_label = QLabel("Timeline Type:")
         self.timeline_type_combo = QComboBox()
-        self.timeline_type_combo.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.timeline_type_combo.setCursor(Qt.CursorShape.PointingHandCursor)
         self.timeline_type_combo.setFixedWidth(75)
         timeline_types = [
             ('media', 'Media'), 
@@ -489,6 +598,7 @@ class TwitterMediaDownloaderGUI(QMainWindow):
         ]
         for value, display in timeline_types:
             self.timeline_type_combo.addItem(display, value)
+        self.timeline_type_combo.currentTextChanged.connect(self.save_settings)
         first_row_layout.addWidget(timeline_label)
         first_row_layout.addWidget(self.timeline_type_combo)
         
@@ -496,356 +606,131 @@ class TwitterMediaDownloaderGUI(QMainWindow):
 
         media_type_label = QLabel("Media Type:")
         self.media_type_combo = QComboBox()
-        self.media_type_combo.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.media_type_combo.setCursor(Qt.CursorShape.PointingHandCursor)
         self.media_type_combo.setFixedWidth(85)
-        media_types = [
-            ('all', 'All'), 
-            ('image', 'Image'), 
-            ('video', 'Video'), 
-            ('gif', 'GIF')
-        ]
+        media_types = [('all', 'All'), ('image', 'Image'), ('video', 'Video'), ('gif', 'GIF')]
         for value, display in media_types:
             self.media_type_combo.addItem(display, value)
+        self.media_type_combo.currentTextChanged.connect(self.save_settings)
         first_row_layout.addWidget(media_type_label)
         first_row_layout.addWidget(self.media_type_combo)
         
         first_row_layout.addStretch()
-        self.settings_tab_layout.addLayout(first_row_layout)
-
-        download_settings_label = QLabel("<b>Download Settings</b>")
-        self.settings_tab_layout.addWidget(download_settings_label)
+        gallery_dl_layout.addLayout(first_row_layout)
         
-        batch_download_item_layout = QHBoxLayout()
-        batch_download_label = QLabel("Batch Size:")
+        settings_layout.addWidget(gallery_dl_group)
+
+        download_group = QWidget()
+        download_layout = QVBoxLayout(download_group)
+        download_layout.setSpacing(5)
+        
+        download_label = QLabel('Download Settings')
+        download_label.setStyleSheet("font-weight: bold;")
+        download_layout.addWidget(download_label)
+        
+        batch_layout = QHBoxLayout()
+        batch_label = QLabel('Batch Size:')
+        
         self.download_batch_combo = QComboBox()
-        self.download_batch_combo.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.download_batch_combo.setCursor(Qt.CursorShape.PointingHandCursor)
         self.download_batch_combo.setFixedWidth(80)
         for size in range(5, 101, 5):
             self.download_batch_combo.addItem(str(size))
-        batch_download_item_layout.addWidget(batch_download_label)
-        batch_download_item_layout.addWidget(self.download_batch_combo)
-        batch_download_item_layout.addWidget(self.convert_gif_checkbox)
-        batch_download_item_layout.addStretch()
-        self.settings_tab_layout.addLayout(batch_download_item_layout)
+        self.download_batch_combo.setCurrentText(str(self.download_batch_size))
+        self.download_batch_combo.currentTextChanged.connect(self.save_settings)
         
-        filename_layout = QHBoxLayout()
-        filename_label = QLabel("Filename Format:")
-        self.format_username = QRadioButton("Username - Date")
-        self.format_date = QRadioButton("Date - Username")
-        self.format_username.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.format_date.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        filename_layout.addWidget(filename_label)
-        filename_layout.addWidget(self.format_username)
-        filename_layout.addWidget(self.format_date)
-        filename_layout.addStretch()
-        self.settings_tab_layout.addLayout(filename_layout)
+        batch_layout.addWidget(batch_label)
+        batch_layout.addWidget(self.download_batch_combo)
+        batch_layout.addWidget(self.convert_gif_checkbox)
+        batch_layout.addStretch()
+        download_layout.addLayout(batch_layout)
         
-        self.settings_tab_layout.addStretch()
-
-        self.profile_widget = QWidget()
-        self.profile_widget.hide()
-        profile_layout = QHBoxLayout(self.profile_widget)
-        profile_layout.setContentsMargins(0, 0, 0, 0)
-        profile_layout.setSpacing(10)
-
-        profile_container = QWidget()
-        profile_image_layout = QVBoxLayout(profile_container)
-        profile_image_layout.setContentsMargins(0, 0, 0, 0)
-        profile_image_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        settings_layout.addWidget(download_group)
+        settings_layout.addStretch()
         
-        self.profile_image_label = QLabel()
-        self.profile_image_label.setFixedSize(100, 100)
-        self.profile_image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        profile_image_layout.addWidget(self.profile_image_label)
-        profile_layout.addWidget(profile_container)
-
-        profile_details_container = QWidget()
-        profile_details_layout = QVBoxLayout(profile_details_container)
-        profile_details_layout.setContentsMargins(0, 0, 0, 0)
-        profile_details_layout.setSpacing(2)
-        profile_details_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-
-        self.name_label = QLabel()
-        self.name_label.setStyleSheet("font-size: 14px;")
-        self.name_label.setWordWrap(True)
-        self.name_label.setMinimumWidth(400)
+        settings_tab.setLayout(settings_layout)
+        self.tab_widget.addTab(settings_tab, "Settings")
         
-        self.join_date_label = QLabel()
-        self.join_date_label.setStyleSheet("font-size: 12px;")
-        self.join_date_label.setWordWrap(True)
-        self.join_date_label.setMinimumWidth(400)
+    def setup_about_tab(self):
+        about_tab = QWidget()
+        about_layout = QVBoxLayout()
+        about_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        about_layout.setSpacing(3)
+
+        sections = [
+            ("Check for Updates", "https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases"),
+            ("Report an Issue", "https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/issues"),
+            ("gallery-dl Repository", "https://github.com/mikf/gallery-dl")
+        ]
+
+        for title, url in sections:
+            section_widget = QWidget()
+            section_layout = QVBoxLayout(section_widget)
+            section_layout.setSpacing(10)
+            section_layout.setContentsMargins(0, 0, 0, 0)
+
+            label = QLabel(title)
+            label.setStyleSheet("color: palette(text); font-weight: bold;")
+            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            section_layout.addWidget(label)
+
+            button = QPushButton("Click Here!")
+            button.setFixedWidth(150)
+            button.setStyleSheet("""
+                QPushButton {
+                    background-color: palette(button);
+                    color: palette(button-text);
+                    border: 1px solid palette(mid);
+                    padding: 6px;
+                    border-radius: 15px;
+                }
+                QPushButton:hover {
+                    background-color: palette(light);
+                }
+                QPushButton:pressed {
+                    background-color: palette(midlight);
+                }            
+                """)
+            button.setCursor(Qt.CursorShape.PointingHandCursor)
+            button.clicked.connect(lambda _, url=url: QDesktopServices.openUrl(QUrl(url if url.startswith(('http://', 'https://')) else f'https://{url}')))
+            section_layout.addWidget(button, alignment=Qt.AlignmentFlag.AlignCenter)            
+            about_layout.addWidget(section_widget)
+            if sections.index((title, url)) < len(sections) - 1:
+                spacer = QSpacerItem(20, 6, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+                about_layout.addItem(spacer)
+
+        footer_label = QLabel("v2.8 | gallery-dl v1.30.0 | July 2025")
+        footer_label.setStyleSheet("font-size: 12px; margin-top: 10px;")
+        about_layout.addWidget(footer_label, alignment=Qt.AlignmentFlag.AlignCenter)
         
-        self.followers_label = QLabel()
-        self.followers_label.setStyleSheet("font-size: 12px;")
-        self.followers_label.setWordWrap(True)
-        self.followers_label.setMinimumWidth(400)
+        about_tab.setLayout(about_layout)
+        self.tab_widget.addTab(about_tab, "About")
 
-        self.following_label = QLabel()
-        self.following_label.setStyleSheet("font-size: 12px;")
-        self.following_label.setWordWrap(True)
-        self.following_label.setMinimumWidth(400)
+    def save_url(self):
+        self.settings.setValue('twitter_url', self.twitter_url.text().strip())
+        self.settings.sync()
 
-        self.posts_label = QLabel()
-        self.posts_label.setStyleSheet("font-size: 12px;")
-        self.posts_label.setWordWrap(True)
-        self.posts_label.setMinimumWidth(400)
-
-        profile_details_layout.addWidget(self.name_label)
-        profile_details_layout.addWidget(self.join_date_label)
-        profile_details_layout.addWidget(self.followers_label)
-        profile_details_layout.addWidget(self.following_label)
-        profile_details_layout.addWidget(self.posts_label)
-        profile_layout.addWidget(profile_details_container, stretch=1)
-        profile_layout.addStretch()
-
-        self.main_tab_layout.addWidget(self.profile_widget)
-
-        self.next_batch_button = QPushButton("Next Batch")
-        self.next_batch_button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.next_batch_button.setFixedWidth(100)
-        self.next_batch_button.clicked.connect(self.fetch_next_batch)
-        self.next_batch_button.hide()
+    def save_batch_size(self):
+        self.batch_size = int(self.batch_size_combo.currentText())
+        self.settings.setValue('batch_size', self.batch_size)
+        self.settings.sync()
         
-        self.auto_batch_button = QPushButton("Auto Batch")
-        self.auto_batch_button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.auto_batch_button.setFixedWidth(100)
-        self.auto_batch_button.clicked.connect(self.start_auto_batch)
-        self.auto_batch_button.hide()
-
-        self.download_button = QPushButton("Download")
-        self.download_button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.download_button.setFixedWidth(100)
-        self.download_button.clicked.connect(self.start_download)
-        self.download_button.hide()
-
-        self.cancel_button = QPushButton("Cancel")
-        self.cancel_button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.cancel_button.setFixedWidth(100)
-        self.cancel_button.clicked.connect(self.cancel_clicked)
-        self.cancel_button.hide()
-
-        self.open_button = QPushButton("Open")
-        self.open_button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.open_button.setFixedWidth(100)
-        self.open_button.clicked.connect(self.open_output_directory)
-        self.open_button.hide()
-
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-        button_layout.addWidget(self.open_button)
-        button_layout.addWidget(self.next_batch_button)
-        button_layout.addWidget(self.auto_batch_button)
-        button_layout.addWidget(self.download_button)
-        button_layout.addWidget(self.cancel_button)
-        button_layout.addStretch()
-        self.main_tab_layout.addLayout(button_layout)
-
-        self.progress_bar = QProgressBar()
-        self.progress_bar.hide()
-        self.main_tab_layout.addWidget(self.progress_bar)
-
-        bottom_layout = QHBoxLayout()
+    def save_settings(self):
+        self.settings.setValue('output_path', self.output_dir.text().strip())
+        self.settings.setValue('auth_token', self.auth_token_input.text().strip())
+        self.settings.setValue('media_type', self.media_type_combo.currentData())
+        self.settings.setValue('download_batch_size', int(self.download_batch_combo.currentText()))
         
-        status_container = QWidget()
-        status_layout = QHBoxLayout(status_container)
-        status_layout.setContentsMargins(0, 0, 0, 0)
-        status_layout.setSpacing(5)
-        
-        self.version_label = QLabel("v2.7 (gallery-dl v1.30.0)")
-        status_layout.addWidget(self.version_label)
-        
-        self.status_label = QLabel("")
-        status_layout.addWidget(self.status_label, stretch=1)
-        
-        bottom_layout.addWidget(status_container, stretch=1)
-        
-        self.update_button = QPushButton()
-        icon_path = os.path.join(os.path.dirname(__file__), "update.svg")
-        if os.path.exists(icon_path):
-            self.update_button.setIcon(QIcon(icon_path))
-        self.update_button.setFixedSize(16, 16)
-        self.update_button.setStyleSheet("""
-            QPushButton {
-                border: none;
-                background: transparent;
-            }
-            QPushButton:hover {
-                background: transparent;
-            }
-        """)
-        self.update_button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.update_button.setToolTip("Check for Updates")
-        self.update_button.clicked.connect(self.open_update_page)
-        
-        bottom_layout.addWidget(self.update_button)
-        
-        self.main_layout.addLayout(bottom_layout)
-
-    def start_auto_batch(self):
-        self.auto_batch_running = True
-        self.next_batch_button.setEnabled(False)
-        self.auto_batch_button.setText("Stop Auto")
-        self.auto_batch_button.clicked.disconnect(self.start_auto_batch)
-        self.auto_batch_button.clicked.connect(self.stop_auto_batch)
-        self.fetch_next_batch_auto()
-
-    def stop_auto_batch(self):
-        self.auto_batch_running = False
-        self.auto_batch_button.setText("Auto Batch")
-        self.auto_batch_button.clicked.disconnect(self.stop_auto_batch)
-        self.auto_batch_button.clicked.connect(self.start_auto_batch)
-        self.next_batch_button.setEnabled(True)
-        self.set_status_text(f"Auto batch stopped. Total: {len(self.media_info['timeline']):,} media items")
-
-    def fetch_next_batch_auto(self):
-        if not self.auto_batch_running:
-            return
-            
-        if not self.media_info:
-            self.set_status_text("No profile information available")
-            self.stop_auto_batch()
-            return
-        
-        username = self.url_input.text().strip()
-        auth_token = self.auth_input.text().strip()
-        
-        if not username or not auth_token:
-            self.set_status_text("Username or auth token missing")
-            self.stop_auto_batch()
-            return
-                
-        self.current_page += 1
-        self.set_status_text(f"Auto fetching batch {self.current_page + 1}...")
-        
-        timeline_type = self.timeline_type_combo.currentData()
-        media_type = self.media_type_combo.currentData()
-        batch_size = int(self.batch_size_combo.currentText())
-        
-        self.fetcher = MetadataFetcher(
-            username, 
-            timeline_type, 
-            media_type, 
-            True,
-            batch_size, 
-            self.current_page
-        )
-        self.fetcher.auth_token = auth_token
-        self.fetcher.finished.connect(self.handle_auto_batch_result)
-        self.fetcher.error.connect(self.handle_auto_batch_error)
-        self.fetcher.start()
-
-    def handle_auto_batch_result(self, info):
-        try:
-            if not info or not isinstance(info, dict):
-                raise ValueError("Invalid info data received")
-                    
-            timeline = info.get('timeline', [])
-            if not timeline:
-                self.set_status_text("No more media items found")
-                self.stop_auto_batch()
-                self.next_batch_button.hide()
-                return
-                    
-            self.media_info['timeline'].extend(timeline)
-            
-            if 'metadata' in info:
-                self.media_info['metadata'] = info['metadata']
-                    
-            media_count = len(self.media_info['timeline'])
-            new_items = len(timeline)
-            
-            self.set_status_text(f"Auto batch: Added {new_items:,} items. Total: {media_count:,} media items")
-            
-            has_more = info.get('metadata', {}).get('has_more', False)
-            if not has_more:
-                self.stop_auto_batch()
-                self.next_batch_button.hide()
-                self.set_status_text(f"Auto batch complete! All {media_count:,} media items fetched. No more items available.")
-                return
-            
-            QTimer.singleShot(500, self.fetch_next_batch_auto)
-        except Exception as e:
-            self.set_status_text(f"Error processing auto batch: {str(e)}")
-            self.stop_auto_batch()
-
-    def handle_auto_batch_error(self, error):
-        self.set_status_text(f"Auto batch error: {error}")
-        self.stop_auto_batch()
-
-    def handle_batch_checkbox(self, state):
-        if self.batch_checkbox.isChecked():
-            self.size_label.show()
-            self.batch_size_combo.show()
-        else:
-            self.size_label.hide()
-            self.batch_size_combo.hide()
-        
-        if hasattr(self, 'media_info') and self.media_info:
-            if self.batch_checkbox.isChecked() and self.media_info.get('metadata', {}).get('has_more', False):
-                self.next_batch_button.show()
-                self.auto_batch_button.show()
-            else:
-                self.next_batch_button.hide()
-                self.auto_batch_button.hide()
-
-    def open_update_page(self):
-        import webbrowser
-        webbrowser.open('https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases')
-    
-    def setup_auto_save(self):
-        self.url_input.textChanged.connect(self.auto_save_settings)
-        self.auth_input.textChanged.connect(self.auto_save_settings)
-        self.dir_input.textChanged.connect(self.auto_save_settings)
-        self.format_username.toggled.connect(self.auto_save_settings)
-        self.media_type_combo.currentTextChanged.connect(self.auto_save_settings)
-        self.timeline_type_combo.currentTextChanged.connect(self.auto_save_settings)
-        self.batch_checkbox.stateChanged.connect(self.auto_save_settings)
-        self.download_batch_combo.currentTextChanged.connect(self.auto_save_settings)
-        self.batch_size_combo.currentTextChanged.connect(self.auto_save_settings)
-        self.convert_gif_checkbox.stateChanged.connect(self.auto_save_settings)
-
-    def auto_save_settings(self):
-        try:
-            self.settings.setValue('url_input', self.url_input.text())
-            self.settings.setValue('auth_token', self.auth_input.text())
-            self.settings.setValue('output_dir', self.dir_input.text())
-            self.settings.setValue('filename_format', 
-                                'username_date' if self.format_username.isChecked() else 'date_username')
-            self.settings.setValue('media_type', self.media_type_combo.currentData())
-            self.settings.setValue('timeline_type', self.timeline_type_combo.currentData())
-            
-            batch_mode = self.batch_checkbox.isChecked()
-            self.settings.setValue('batch_mode', batch_mode)
-            
-            self.settings.setValue('download_batch_size', self.download_batch_combo.currentText())
-            self.settings.setValue('fetch_batch_size', self.batch_size_combo.currentText())
+        if hasattr(self, 'convert_gif_checkbox'):
             self.settings.setValue('convert_gif', self.convert_gif_checkbox.isChecked())
-            self.settings.sync()
-        except Exception as e:
-            pass
+            self.convert_gif = self.convert_gif_checkbox.isChecked()
+        self.settings.sync()
 
     def load_settings(self):
         try:
-            self.url_input.setText(self.settings.value('url_input', '', str))
-            self.auth_input.setText(self.settings.value('auth_token', '', str))
-            self.dir_input.setText(self.settings.value('output_dir', self.default_pictures_dir, str))
-            
-            format_setting = self.settings.value('filename_format', 'username_date')
-            self.format_username.setChecked(format_setting == 'username_date')
-            self.format_date.setChecked(format_setting == 'date_username')
-            
-            media_type = self.settings.value('media_type', 'all')
-            for i in range(self.media_type_combo.count()):
-                if self.media_type_combo.itemData(i) == media_type:
-                    self.media_type_combo.setCurrentIndex(i)
-                    break
-                    
-            timeline_type = self.settings.value('timeline_type', 'media')
-            for i in range(self.timeline_type_combo.count()):
-                if self.timeline_type_combo.itemData(i) == timeline_type:
-                    self.timeline_type_combo.setCurrentIndex(i)
-                    break
-
+            if not hasattr(self, 'batch_checkbox') or not hasattr(self, 'size_label') or not hasattr(self, 'batch_size_combo'):
+                return
+                
             batch_mode = self.settings.value('batch_mode', False, type=bool)
             
             self.batch_checkbox.blockSignals(True)
@@ -855,408 +740,565 @@ class TwitterMediaDownloaderGUI(QMainWindow):
             if batch_mode:
                 self.size_label.show()
                 self.batch_size_combo.show()
+                self.fetch_btn.setText('Fetch Batch')
             else:
                 self.size_label.hide()
                 self.batch_size_combo.hide()
+                self.fetch_btn.setText('Fetch')
             
-            fetch_batch_size = str(self.settings.value('fetch_batch_size', '100'))
+            fetch_batch_size = str(self.settings.value('batch_size', 100))
             index = self.batch_size_combo.findText(fetch_batch_size)
             if index >= 0:
                 self.batch_size_combo.setCurrentIndex(index)
+            else:
+                self.batch_size_combo.setCurrentIndex(1)
                 
-            download_batch_size = str(self.settings.value('download_batch_size', '25'))
+            download_batch_size = str(self.settings.value('download_batch_size', 25))
             index = self.download_batch_combo.findText(download_batch_size)
             if index >= 0:
                 self.download_batch_combo.setCurrentIndex(index)
             else:
                 self.download_batch_combo.setCurrentIndex(0)
-
+            
+            media_type = self.settings.value('media_type', 'all')
+            for i in range(self.media_type_combo.count()):
+                if self.media_type_combo.itemData(i) == media_type:
+                    self.media_type_combo.setCurrentIndex(i)
+                    break
             convert_gif = self.settings.value('convert_gif', False, type=bool)
-            self.convert_gif_checkbox.blockSignals(True)
-            self.convert_gif_checkbox.setChecked(convert_gif)
-            self.convert_gif_checkbox.blockSignals(False)
+            if hasattr(self, 'convert_gif_checkbox'):
+                self.convert_gif_checkbox.blockSignals(True)
+                self.convert_gif_checkbox.setChecked(convert_gif)
+                self.convert_gif_checkbox.blockSignals(False)
+            
+            last_username_url = self.settings.value('twitter_url', '')
+            if last_username_url and hasattr(self, 'twitter_url'):
+                self.twitter_url.setText(last_username_url)
+                
+        except Exception as e:
+            print(f"Error loading settings: {e}")
+
+    def handle_batch_checkbox(self, state):
+        if not hasattr(self, 'size_label') or not hasattr(self, 'batch_size_combo'):
+            return
+            
+        self.batch_mode = self.batch_checkbox.isChecked()
+        self.settings.setValue('batch_mode', self.batch_mode)
+        
+        if self.batch_checkbox.isChecked():
+            self.size_label.show()
+            self.batch_size_combo.show()
+            self.fetch_btn.setText('Fetch Batch')
+        else:
+            self.size_label.hide()
+            self.batch_size_combo.hide()
+            self.fetch_btn.setText('Fetch')
+        
+        self.update_button_states()
+
+    def browse_output(self):
+        directory = QFileDialog.getExistingDirectory(self, "Select Output Directory")
+        if directory:
+            self.output_dir.setText(directory)
+            self.save_settings()
+
+    def get_cache_file_path(self, username, media_type, is_batch=None):
+        timeline_type = self.timeline_type_combo.currentData() or 'media'
+        
+        filename = f"{username}_{timeline_type}_{media_type}.json"
+        return os.path.join(self.temp_dir, filename)
+
+    def load_cached_data(self, username, media_type, is_batch=None):
+        cache_path = self.get_cache_file_path(username, media_type, is_batch)
+        if os.path.exists(cache_path):
+            try:
+                with open(cache_path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except:
+                pass
+        return None
+
+    def save_cached_data(self, username, media_type, data, is_batch=None):
+        cache_path = self.get_cache_file_path(username, media_type, is_batch)
+        try:
+            os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+            with open(cache_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        except:
+            pass
+
+    def is_batch_account(self, username, media_type):
+        cache_path = self.get_cache_file_path(username, media_type)
+        return os.path.exists(cache_path) and self.batch_mode
+
+    def load_all_cached_accounts(self):
+        try:
+            if not os.path.exists(self.temp_dir):
+                return
+                
+            cache_files = [f for f in os.listdir(self.temp_dir) if f.endswith('.json')]
+            
+            if not cache_files:
+                return
+                
+            loaded_count = 0
+            
+            for cache_file in cache_files:
+                try:
+                    filename_parts = cache_file.replace('.json', '').split('_')
+                    
+                    if len(filename_parts) >= 3:
+                        media_type = filename_parts[-1]
+                        
+                        if len(filename_parts) == 4 and filename_parts[1] == 'batch':
+                            username = filename_parts[0]
+                            timeline_type = filename_parts[2]
+                            is_batch_file = True
+                        elif len(filename_parts) == 3:
+                            username = filename_parts[0]
+                            timeline_type = filename_parts[1]
+                            is_batch_file = False
+                        else:
+                            username = '_'.join(filename_parts[:-2])
+                            timeline_type = filename_parts[-2]
+                            is_batch_file = False
+                        
+                        already_exists = any(
+                            acc.username == username and acc.media_type == media_type 
+                            for acc in self.accounts
+                        )
+                        if not already_exists:
+                            cached_data = self.load_cached_data(username, media_type, is_batch=is_batch_file)
+                            if cached_data:
+                                account_info = cached_data.get('account_info', {})
+                                timeline = cached_data.get('timeline', [])
+                                
+                                if account_info and timeline:
+                                    followers = account_info.get('followers_count', 0)
+                                    following = account_info.get('friends_count', 0)
+                                    posts = account_info.get('statuses_count', 0)
+                                    nick = account_info.get('nick', account_info.get('name', ''))
+                                    
+                                    account = Account(
+                                        username=username,
+                                        nick=nick,
+                                        followers=followers,
+                                        following=following,
+                                        posts=posts,
+                                        media_type=media_type,
+                                        media_list=timeline
+                                    )
+                                    
+                                    self.accounts.append(account)
+                                    loaded_count += 1
+                except Exception as e:
+                    continue
+                    
+            if self.accounts:
+                self.update_account_list()
+                
         except Exception as e:
             pass
 
-    def select_directory(self):
-        directory = QFileDialog.getExistingDirectory(self, "Select Output Directory")
-        if directory:
-            os.makedirs(directory, exist_ok=True)
-            self.dir_input.setText(directory)
-
-    def open_output_directory(self):
-        output_dir = self.dir_input.text().strip() or self.default_pictures_dir
-        if os.path.exists(output_dir):
-            if sys.platform == 'win32':
-                os.startfile(output_dir)
-            elif sys.platform == 'darwin':
-                subprocess.run(['open', output_dir])
-            else:
-                subprocess.run(['xdg-open', output_dir])
-
-    def set_status_text(self, text):
-        self.status_label.setText(text)
-        if text:
-            self.version_label.hide()
-        else:
-            self.version_label.show()
-
-    def fetch_metadata(self):
-        self.current_page = 0
-        username = self.url_input.text().strip()
-        if not username:
-            self.set_status_text("Please enter a username or URL")
-            return
-
-        auth_token = self.auth_input.text().strip()
-        if not auth_token:
-            self.set_status_text("Please enter your auth token")
-            return
-
-        self.fetch_button.setEnabled(False)
-        self.set_status_text("Fetching profile information...")
+    def fetch_account(self):
+        url = self.twitter_url.text().strip()
         
-        timeline_type = self.timeline_type_combo.currentData()
+        if not url:
+            self.log_output.append('Warning: Please enter a Twitter username/URL.')
+            return
+
+        if not self.auth_token_input.text().strip():
+            self.log_output.append('Warning: Please enter your auth token.')
+            return
+
+        username = url
+        if "x.com/" in url or "twitter.com/" in url:
+            parts = url.split('/')
+            for i, part in enumerate(parts):
+                if part in ['x.com', 'twitter.com'] and i + 1 < len(parts):
+                    username = parts[i + 1]
+                    username = username.split('/')[0]
+                    break
+        username = username.strip()
+
         media_type = self.media_type_combo.currentData()
-        batch_mode = self.batch_checkbox.isChecked()
-        batch_size = int(self.batch_size_combo.currentText()) if batch_mode else 100
         
-        self.fetcher = MetadataFetcher(
-            username, 
-            timeline_type, 
-            media_type, 
-            batch_mode, 
-            batch_size, 
-            self.current_page
-        )
-        self.fetcher.auth_token = auth_token
-        self.fetcher.finished.connect(self.handle_profile_info)
-        self.fetcher.error.connect(self.handle_fetch_error)
-        self.fetcher.start()
+        for account in self.accounts:
+            if account.username == username and account.media_type == media_type:
+                self.log_output.append(f'Account {username} with {media_type} media type already in list.')
+                return
 
-    def fetch_next_batch(self):
-        if not self.media_info:
-            self.set_status_text("No profile information available")
-            return
-            
-        username = self.url_input.text().strip()
-        auth_token = self.auth_input.text().strip()
-        
-        if not username or not auth_token:
-            self.set_status_text("Username or auth token missing")
-            return
-            
-        self.current_page += 1
-        self.next_batch_button.setEnabled(False)
-        self.set_status_text(f"Fetching batch {self.current_page + 1}...")
-        
-        timeline_type = self.timeline_type_combo.currentData()
-        media_type = self.media_type_combo.currentData()
-        batch_size = int(self.batch_size_combo.currentText())
-        
-        self.fetcher = MetadataFetcher(
-            username, 
-            timeline_type, 
-            media_type, 
-            True,
-            batch_size, 
-            self.current_page
-        )
-        self.fetcher.auth_token = auth_token
-        self.fetcher.finished.connect(self.handle_next_batch)
-        self.fetcher.error.connect(self.handle_fetch_error)
-        self.fetcher.start()
+        cached_data = self.load_cached_data(username, media_type, is_batch=self.batch_mode)
+        if cached_data:
+            try:
+                account_info = cached_data.get('account_info', {})
+                timeline = cached_data.get('timeline', [])
+                if account_info and timeline:
+                    followers = account_info.get('followers_count', 0)
+                    following = account_info.get('friends_count', 0)
+                    posts = account_info.get('statuses_count', 0)
+                    nick = account_info.get('nick', account_info.get('name', ''))
+                    
+                    account = Account(
+                        username=username,
+                        nick=nick,
+                        followers=followers,
+                        following=following,
+                        posts=posts,
+                        media_type=media_type,
+                        media_list=timeline
+                    )
+                    
+                    self.accounts.append(account)
+                    self.update_account_list()
+                    self.log_output.append(f'Loaded from cache: {username} - Followers: {followers:,} - Posts: {posts:,} • {media_type.title()}')
+                    self.twitter_url.clear()
+                    return
+            except:
+                pass
 
-    def handle_next_batch(self, info):
         try:
-            if not info or not isinstance(info, dict):
-                raise ValueError("Invalid info data received")
-                
-            timeline = info.get('timeline', [])
-            if not timeline:
-                self.set_status_text("No more media items found")
-                self.next_batch_button.setEnabled(True)
-                return
-                
-            self.media_info['timeline'].extend(timeline)
+            self.reset_ui()
             
-            if 'metadata' in info:
-                self.media_info['metadata'] = info['metadata']
-                
-            media_count = len(self.media_info['timeline'])
-            new_items = len(timeline)
+            self.log_output.append(f'Fetching metadata for {username}...')
+            self.tab_widget.setCurrentWidget(self.process_tab)
             
-            self.set_status_text(f"Added {new_items:,} items. Total: {media_count:,} media items")
-            self.next_batch_button.setEnabled(True)
+            self.metadata_worker = MetadataFetchWorker(
+                username, 
+                media_type, 
+                batch_mode=self.batch_mode,
+                batch_size=self.batch_size if self.batch_mode else 0,
+                page=0
+            )
+            self.metadata_worker.auth_token = self.auth_token_input.text().strip()
+            self.metadata_worker.finished.connect(lambda data: self.on_metadata_fetched(data, username, media_type))
+            self.metadata_worker.error.connect(self.on_metadata_error)            
+            self.metadata_worker.start()
             
-            has_more = info.get('metadata', {}).get('has_more', False)
-            if not has_more:
-                self.next_batch_button.hide()
-                self.auto_batch_button.hide()
-                self.set_status_text(f"All {media_count:,} media items fetched. No more items available.")
-                
-        except Exception as e:
-            self.set_status_text(f"Error processing batch: {str(e)}")
-            self.next_batch_button.setEnabled(True)
-
-    def handle_profile_info(self, info):
+        except Exception as e:            
+            self.log_output.append(f'Error: Failed to start metadata fetch: {str(e)}')
+            self.update_account_list()
+    
+    def on_metadata_fetched(self, data, username, media_type):
         try:
-            if not info or not isinstance(info, dict):
-                raise ValueError("Invalid info data received")
-
-            if 'error' in info:
-                error_type = info['error']
-                if error_type == "withheld":
-                    self.set_status_text("Please use the Userscript version for withheld accounts.")
-                else:
-                    self.set_status_text("Please check the 'Auth Token' value. Your account may be logged out, locked, or suspended.")
-                self.fetch_button.setEnabled(True)
+            if 'error' in data:
+                self.log_output.append(f'Error: {data["error"]}')
+                self.update_account_list()
                 return
-
-            account_info = info.get('account_info', {})
-            if not account_info:
-                self.set_status_text("Failed to fetch profile information")
-                self.fetch_button.setEnabled(True)
-                return
-
-            self.media_info = info
-            self.fetch_button.setEnabled(True)
-            
-            is_withheld = not account_info.get('nick') and not account_info.get('profile_image')
-            
-            name = account_info.get('name', 'Unknown')
-            nick = "Withheld Account" if is_withheld else account_info.get('nick', 'Unknown')
-            date_str = account_info.get('date', '')
-            followers = account_info.get('followers_count', 0)
-            following = account_info.get('friends_count', 0)
-            posts = account_info.get('statuses_count', 0)
-            
-            try:
-                join_date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
-                join_date_str = join_date.strftime("%A, %d %B %Y - %H:%M")
-            except (ValueError, TypeError):
-                join_date_str = "Unknown Date"
-            
-            try:
-                self.name_label.setText(f"<b>{name}</b> ({nick})")
-                self.join_date_label.setText(f"<b>Join Date:</b> {join_date_str}")
-                self.followers_label.setText(f"<b>Followers:</b> {followers:,}")
-                self.following_label.setText(f"<b>Following:</b> {following:,}")
-                self.posts_label.setText(f"<b>Posts:</b> {posts:,}")
-
-                timeline = info.get('timeline', [])
-                media_count = len(timeline) if isinstance(timeline, list) else 0
                 
-                media_type = self.media_type_combo.currentData()
-                media_type_str = "media"
-                if media_type == "image":
-                    media_type_str = "image"
-                elif media_type == "video":
-                    media_type_str = "video"
-                elif media_type == "gif":
-                    media_type_str = "GIF"
+            account_info = data.get('account_info', {})
+            timeline = data.get('timeline', [])
+            metadata = data.get('metadata', {})
+            if not account_info or not timeline:
+                self.log_output.append('Error: Invalid data received')
+                self.update_account_list()
+                return
+            existing_account = None
+            for account in self.accounts:
+                if account.username == username and account.media_type == media_type:
+                    existing_account = account
+                    break
+            
+            if existing_account:
+                existing_account.media_list.extend(timeline)
+                new_items = len(timeline)
+                total_items = len(existing_account.media_list)
+                self.log_output.append(f'Added {new_items:,} items. Total: {total_items:,} media items for {username}')
+            else:
+                followers = account_info.get('followers_count', 0)
+                following = account_info.get('friends_count', 0)
+                posts = account_info.get('statuses_count', 0)
+                nick = account_info.get('nick', account_info.get('name', ''))
                 
-                self.set_status_text(f"Successfully fetched {media_count:,} {media_type_str} items")
-            except Exception as ui_error:
-                self.set_status_text(f"Error updating UI: {str(ui_error)}")
-                return
-
-            if is_withheld:
-                try:
-                    withheld_icon_path = os.path.join(os.path.dirname(__file__), "withheld.svg")
-                    if os.path.exists(withheld_icon_path):
-                        icon = QIcon(withheld_icon_path)
-                        pixmap = icon.pixmap(90, 90)
-                        
-                        painter = QPainter(pixmap)
-                        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
-                        painter.fillRect(pixmap.rect(), self.palette().text().color())
-                        painter.end()
-                        
-                        scaled_pixmap = pixmap.scaled(
-                            90, 90, 
-                            Qt.AspectRatioMode.KeepAspectRatio, 
-                            Qt.TransformationMode.SmoothTransformation
-                        )
-                        self.profile_image_label.setPixmap(scaled_pixmap)
-                    else:
-                        pass
-                except Exception as icon_error:
-                    pass
+                account = Account(
+                    username=username,
+                    nick=nick,
+                    followers=followers,
+                    following=following,
+                    posts=posts,
+                    media_type=media_type,
+                    media_list=timeline
+                )
+                
+                self.accounts.append(account)
+                self.log_output.append(f'Successfully fetched: {username} - Followers: {followers:,} - Posts: {posts:,} • {media_type.title()}')
+                existing_account = account
+            
+            updated_data = {
+                'account_info': account_info,
+                'timeline': existing_account.media_list,
+                'metadata': metadata
+            }
+            self.save_cached_data(username, media_type, updated_data, is_batch=self.batch_mode)
+            
+            self.update_account_list()
+            
+            if self.batch_mode and metadata.get('has_more', False):
+                current_page = metadata.get('page', 0)
+                next_page = current_page + 1
+                
+                self.log_output.append(f'Auto-fetching batch {next_page + 1} for {username}...')
+                
+                self.metadata_worker = MetadataFetchWorker(
+                    username, 
+                    media_type, 
+                    batch_mode=True,
+                    batch_size=self.batch_size,
+                    page=next_page
+                )
+                self.metadata_worker.auth_token = self.auth_token_input.text().strip()
+                self.metadata_worker.finished.connect(lambda data: self.on_metadata_fetched(data, username, media_type))
+                self.metadata_worker.error.connect(self.on_metadata_error)
+                self.metadata_worker.start()
             else:
-                profile_image_url = account_info.get('profile_image', '')
-                if profile_image_url:
-                    try:
-                        self.image_downloader = ImageDownloader(profile_image_url)
-                        self.image_downloader.finished.connect(self.update_profile_image)
-                        self.image_downloader.start()
-                    except Exception as img_error:
-                        pass
-            
-            try:
-                username = self.url_input.text().strip()
-                if "x.com/" in username or "twitter.com/" in username:
-                    parts = username.split('/')
-                    for i, part in enumerate(parts):
-                        if part in ['x.com', 'twitter.com'] and i + 1 < len(parts):
-                            username = parts[i + 1]
-                            username = username.split('/')[0]
-                            break
-                self.clean_username = username.strip()
-            except Exception as username_error:
-                self.clean_username = "unknown_user"
-
-            self.input_widget.hide()
-            self.profile_widget.show()
-            self.download_button.show()
-            self.cancel_button.show()
-            self.update_button.hide()
-            
-            if self.batch_checkbox.isChecked() and info.get('metadata', {}).get('has_more', False):
-                self.next_batch_button.show()
-                self.auto_batch_button.show()
-            else:
-                self.next_batch_button.hide()
-                self.auto_batch_button.hide()
-            
-            try:
-                output_base = self.dir_input.text().strip() or self.default_pictures_dir
-                self.user_output_dir = os.path.join(output_base, self.clean_username)
-                os.makedirs(self.user_output_dir, exist_ok=True)
-            except Exception as dir_error:
-                self.set_status_text(f"Error creating output directory: {str(dir_error)}")
-                return
-
+                if self.batch_mode:
+                    total_items = len(existing_account.media_list)
+                    self.log_output.append(f'Auto-fetch complete! Total: {total_items:,} media items for {username}')                
+                self.twitter_url.clear()
+                self.tab_widget.setCurrentIndex(0)            
         except Exception as e:
-            self.set_status_text(f"Error processing profile info: {str(e)}")
-            self.fetch_button.setEnabled(True)
+            self.log_output.append(f'Error: {str(e)}')
+            self.update_account_list()
+    def on_metadata_error(self, error_message):
+        self.log_output.append(f'Error: {error_message}')
+        
+        self.update_account_list()
 
-    def update_profile_image(self, image_data):
-        original_pixmap = QPixmap()
-        original_pixmap.loadFromData(image_data)
+    def update_account_list(self):
+        self.account_list.clear()
+        for i, account in enumerate(self.accounts, 1):
+            media_count = len(account.media_list) if account.media_list else 0
+            media_type_display = "GIF" if account.media_type.lower() == "gif" else account.media_type.title()
+            display_text = f"{i}. {account.username} ({account.nick}) - Followers: {account.followers:,} - Following: {account.following:,} - Posts: {account.posts:,} • {media_type_display} - {media_count:,} Items"
+            self.account_list.addItem(display_text)
         
-        scaled_pixmap = original_pixmap.scaled(100, 100, 
-                                             Qt.AspectRatioMode.KeepAspectRatio, 
-                                             Qt.TransformationMode.SmoothTransformation)
-        
-        rounded_pixmap = QPixmap(scaled_pixmap.size())
-        rounded_pixmap.fill(Qt.GlobalColor.transparent)
-        
-        painter = QPainter(rounded_pixmap)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        
-        path = QPainterPath()
-        path.addRoundedRect(0, 0, scaled_pixmap.width(), scaled_pixmap.height(), 10, 10)
-        
-        painter.setClipPath(path)
-        painter.drawPixmap(0, 0, scaled_pixmap)
-        painter.end()
-        
-        self.profile_image_label.setPixmap(rounded_pixmap)
+        self.update_button_states()
 
-    def handle_fetch_error(self, error):
-        self.fetch_button.setEnabled(True)
-        self.next_batch_button.setEnabled(True)
+    def update_button_states(self):
+        has_accounts = len(self.accounts) > 0
         
-        error_str = str(error)
+        self.download_selected_btn.setEnabled(has_accounts)
+        self.download_all_btn.setEnabled(has_accounts)
+        self.remove_btn.setEnabled(has_accounts)
+        self.clear_btn.setEnabled(has_accounts)
         
-        if '"error": "withheld"' in error_str or "withheld" in error_str:
-            self.set_status_text("Please use the Userscript version for withheld accounts.")
-        else:
-            self.set_status_text("Please check the 'Auth Token'.")
+        if has_accounts:
+            self.download_selected_btn.show()
+            self.download_all_btn.show()
+            self.remove_btn.show()
+            self.clear_btn.show()
+        else:            
+            self.hide_account_buttons()
+    
+    def hide_account_buttons(self):
+        buttons = [
+            self.download_selected_btn,
+            self.download_all_btn,
+            self.remove_btn,
+            self.clear_btn
+        ]
+        for btn in buttons:
+            btn.hide()
 
-    def start_download(self):
-        if not self.media_info:
-            self.set_status_text("Please fetch profile information first")
+    def download_selected(self):
+        selected_items = self.account_list.selectedItems()
+        if not selected_items:
+            self.log_output.append('Warning: Please select accounts to download.')
+            return
+        self.download_accounts([self.account_list.row(item) for item in selected_items])
+
+    def download_all(self):
+        self.download_accounts(range(len(self.accounts)))
+
+    def download_accounts(self, indices):
+        self.log_output.clear()
+        outpath = self.output_dir.text()
+        if not os.path.exists(outpath):
+            self.log_output.append('Warning: Invalid output directory.')
             return
 
-        auth_token = self.auth_input.text().strip()
-        if not auth_token:
-            self.set_status_text("Please enter your auth token")
+        if not self.auth_token_input.text().strip():
+            self.log_output.append("Error: Please enter your auth token")
             return
 
-        self.download_button.hide()
-        self.next_batch_button.hide()
-        self.auto_batch_button.hide()
-        self.cancel_button.show()
+        accounts_to_download = [self.accounts[i] for i in indices]
+
+        try:
+            self.start_download_worker(accounts_to_download, outpath)
+        except Exception as e:
+            self.log_output.append(f"Error: An error occurred while starting the download: {str(e)}")
+
+    def start_download_worker(self, accounts_to_download, outpath):
+        self.worker = DownloadWorker(
+            accounts_to_download, 
+            outpath, 
+            self.auth_token_input.text().strip(),
+            self.filename_format,
+            self.download_batch_size,
+            self.convert_gif
+        )
+        self.worker.finished.connect(self.on_download_finished)
+        self.worker.progress.connect(self.update_progress)
+        self.worker.conversion_progress.connect(self.update_conversion_progress)
+        self.worker.download_progress.connect(self.update_download_progress)
+        self.worker.start()
+        self.start_timer()
+        self.update_ui_for_download_start(len(accounts_to_download))
+
+    def update_ui_for_download_start(self, account_count):
+        self.download_selected_btn.setEnabled(False)
+        self.download_all_btn.setEnabled(False)
+        self.stop_btn.show()
+        self.pause_resume_btn.show()
+        
         self.progress_bar.show()
         self.progress_bar.setValue(0)
-        self.set_status_text("Starting download...")
-
-        filename_format = "username_date" if self.format_username.isChecked() else "date_username"
-        batch_size = int(self.download_batch_combo.currentText())
-        media_type = self.media_type_combo.currentData()
-        convert_gif = self.convert_gif_checkbox.isChecked()
-
-        self.worker = MediaDownloader(
-            self.media_info['timeline'],
-            self.user_output_dir,
-            filename_format,
-            self.clean_username,
-            media_type,
-            batch_size,
-            convert_gif
-        )
-        self.worker.progress.connect(self.update_progress)
-        self.worker.finished.connect(self.download_finished)
-        self.worker.error.connect(self.download_error)
-        self.worker.status_update.connect(self.set_status_text)
-        self.worker.start()
-
-    def update_progress(self, value):
-        self.progress_bar.setValue(value)
-
-    def download_finished(self, message):
-        self.progress_bar.hide()
-        self.set_status_text(message)
-        self.open_button.show()
         
-        if self.batch_checkbox.isChecked() and self.media_info and self.media_info.get('metadata', {}).get('has_more', False):
-            self.next_batch_button.show()
-            self.auto_batch_button.show()
-            self.download_button.show()
-            self.cancel_button.show()
+        self.tab_widget.setCurrentWidget(self.process_tab)
+
+    def update_progress(self, message, percentage):
+        cursor = self.log_output.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        cursor.select(QTextCursor.SelectionType.LineUnderCursor)
+        current_text = cursor.selectedText()
+        progress_indicators = [
+            "Downloading",
+            "Account",
+            "files downloaded"
+        ]
+        
+        should_replace = False
+        for indicator in progress_indicators:
+            if indicator in current_text and indicator in message:
+                should_replace = True
+                break
+        if should_replace and current_text.strip():
+            cursor.removeSelectedText()
+            cursor.deletePreviousChar()
+        
+        self.log_output.append(message)
+        self.log_output.moveCursor(QTextCursor.MoveOperation.End)
+        
+        if percentage > 0:
+            self.progress_bar.setValue(percentage)    
+    def update_conversion_progress(self, message, percentage):
+        cursor = self.log_output.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        cursor.select(QTextCursor.SelectionType.LineUnderCursor)
+        current_text = cursor.selectedText()
+        if "Converting GIF" in current_text:
+            cursor.removeSelectedText()
+            cursor.deletePreviousChar()
+        
+        self.log_output.append(message)
+        self.log_output.moveCursor(QTextCursor.MoveOperation.End)
+        
+        if percentage > 0:
+            self.progress_bar.setValue(percentage)
+
+    def update_download_progress(self, message, percentage):
+        cursor = self.log_output.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        cursor.select(QTextCursor.SelectionType.LineUnderCursor)
+        
+        current_text = cursor.selectedText()
+        if "Downloading" in current_text and ":" in current_text and "/" in current_text:
+            cursor.removeSelectedText()
+            cursor.deletePreviousChar()
+        
+        self.log_output.append(message)
+        self.log_output.moveCursor(QTextCursor.MoveOperation.End)
+        
+        if percentage > 0:
+            self.progress_bar.setValue(percentage)
+
+    def stop_download(self):
+        if hasattr(self, 'worker'):
+            self.worker.stop()
+        self.stop_timer()
+        self.on_download_finished(True, "Download stopped by user.")
+        
+    def on_download_finished(self, success, message):
+        self.progress_bar.hide()
+        self.stop_btn.hide()
+        self.pause_resume_btn.hide()
+        self.pause_resume_btn.setText('Pause')
+        self.stop_timer()
+        
+        self.download_selected_btn.setEnabled(True)
+        self.download_all_btn.setEnabled(True)
+        
+        if success:
+            self.log_output.append(f"\nStatus: {message}")
         else:
-            self.next_batch_button.hide()
-            self.auto_batch_button.hide()
-            self.download_button.hide()
-            self.cancel_button.show()
+            self.log_output.append(f"Error: {message}")
 
-    def download_error(self, error_message):
-        self.progress_bar.hide()
-        self.set_status_text(f"Download error: {error_message}")
-        self.download_button.setText("Retry")
-        self.download_button.show()
-        self.cancel_button.show()
+        self.tab_widget.setCurrentWidget(self.process_tab)
+    
+    def toggle_pause_resume(self):
+        if hasattr(self, 'worker'):
+            if self.worker.is_paused:
+                self.worker.resume()
+                self.pause_resume_btn.setText('Pause')
+                self.timer.start(1000)
+            else:
+                self.worker.pause()
+                self.pause_resume_btn.setText('Resume')
+
+    def remove_selected_accounts(self):
+        selected_indices = sorted([self.account_list.row(item) for item in self.account_list.selectedItems()], reverse=True)
         
-        if self.batch_checkbox.isChecked() and self.media_info and self.media_info.get('metadata', {}).get('has_more', False):
-            self.next_batch_button.show()
-            self.auto_batch_button.show()
-
-    def cancel_clicked(self):
-        if hasattr(self, 'worker') and self.worker.isRunning():
-            self.worker.cancel()
-            self.set_status_text("Cancelling download...")
+        if not selected_indices:
             return
         
-        self.profile_widget.hide()
-        self.input_widget.show()
-        self.download_button.hide()
-        self.next_batch_button.hide()
-        self.auto_batch_button.hide()
-        self.open_button.hide()
-        self.cancel_button.hide()
-        self.progress_bar.hide()
-        self.progress_bar.setValue(0)
-        self.set_status_text("")
-        self.media_info = None
-        self.current_page = 0
-        self.update_button.show()
-        self.fetch_button.setEnabled(True)
-        self.download_button.setText("Download")
+        for index in selected_indices:
+            account = self.accounts[index]
+            username = account.username
+            if username:
+                for is_batch in [True, False]:
+                    cache_file = self.get_cache_file_path(username, account.media_type, is_batch=is_batch)
+                    try:
+                        if os.path.exists(cache_file):
+                            os.remove(cache_file)
+                            self.log_output.append(f'Removed temp file: {os.path.basename(cache_file)}')
+                    except Exception as e:
+                        self.log_output.append(f'Warning: Could not remove temp file {os.path.basename(cache_file)}: {str(e)}')
+            
+            self.accounts.pop(index)
         
-        if hasattr(self, 'auto_batch_running') and self.auto_batch_running:
-            self.stop_auto_batch()
+        self.update_account_list()
+        self.update_button_states()
+
+    def clear_accounts(self):
+        for account in self.accounts:
+            username = account.username
+            if username:
+                for is_batch in [True, False]:
+                    cache_file = self.get_cache_file_path(username, account.media_type, is_batch=is_batch)
+                    try:
+                        if os.path.exists(cache_file):
+                            os.remove(cache_file)
+                            self.log_output.append(f'Removed temp file: {os.path.basename(cache_file)}')
+                    except Exception as e:
+                        self.log_output.append(f'Warning: Could not remove temp file {os.path.basename(cache_file)}: {str(e)}')
+        
+        self.reset_state()
+        self.reset_ui()
+        self.tab_widget.setCurrentIndex(0)
+
+    def update_timer(self):
+        self.elapsed_time = self.elapsed_time.addSecs(1)
+        self.time_label.setText(self.elapsed_time.toString("hh:mm:ss"))
+    
+    def start_timer(self):
+        self.elapsed_time = QTime(0, 0, 0)
+        self.time_label.setText("00:00:00")
+        self.time_label.show()
+        self.timer.start(1000)
+    
+    def stop_timer(self):
+        self.timer.stop()
+        self.time_label.hide()
 
 def main():
     if getattr(sys, 'frozen', False):
