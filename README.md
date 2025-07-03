@@ -13,24 +13,24 @@
 
 ## ✨ Features
 
-- Powered by `gallery-dl`, similar to `yt-dlp` 
-- **Choose media type**: All (Image + GIF + Video) or specific (Image/GIF/Video)  
-- Downloads in original quality
+- Powered by `gallery-dl`, similar to `yt-dlp`
+- **Bulk download**: Download multiple items at once
+- Media-type selection: All (Images + GIFs + Videos) or specific (Images / GIFs / Videos)
+- **MP4 → GIF conversion:** Convert downloaded MP4 videos into GIF format
+- Downloads at original quality
   
 ## 🖼️ Screenshots
 
-![image](https://github.com/user-attachments/assets/ca8b6019-505e-4fb0-b1c5-52b7bcc892b4)
+![image](https://github.com/user-attachments/assets/c08d913d-6e1c-4401-9336-7d9642a6a609)
 
-![image](https://github.com/user-attachments/assets/8297f150-d581-4bb0-b80e-98d44aec18b5)
+![image](https://github.com/user-attachments/assets/79fb6281-03c1-4629-9db2-c1f8990ca8b8)
 
-![image](https://github.com/user-attachments/assets/1f310499-0b03-4daf-ad83-e38cee22ce0c)
-
-![image](https://github.com/user-attachments/assets/ee2b94c5-2370-48e6-9201-dc54b09968c9)
+![image](https://github.com/user-attachments/assets/b20b3431-f64c-4c18-8946-99ce52018caa)
 
 > [!Important]
-> Use **Batch** if the items to be downloaded are in the thousands.
+> Please enable **Batch** if the media to be downloaded is thousands.
 
-## 🔑 How to Obtain Auth Token 👉 [Video Tutorial](https://www.patreon.com/posts/how-to-obtain-127206894)
+## 🔑 How to Obtain Auth Token 👉 [Video](https://www.patreon.com/posts/how-to-obtain-127206894)
 
 > [!Warning]
 > - I suggest not using the **main account** to obtain the token.
