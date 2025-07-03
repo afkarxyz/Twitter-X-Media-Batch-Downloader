@@ -21,22 +21,21 @@
   
 ## 🖼️ Screenshots
 
-![image](https://github.com/user-attachments/assets/c08d913d-6e1c-4401-9336-7d9642a6a609)
+![image](https://github.com/user-attachments/assets/7295213a-d9ba-4d75-8359-d43907b74aef)
 
 ![image](https://github.com/user-attachments/assets/79fb6281-03c1-4629-9db2-c1f8990ca8b8)
 
 ![image](https://github.com/user-attachments/assets/b20b3431-f64c-4c18-8946-99ce52018caa)
 
-> [!Important]
-> Please enable **Batch** if the media to be downloaded is thousands.
-
-## 🔑 How to Obtain Auth Token 👉 [Video](https://www.patreon.com/posts/how-to-obtain-127206894)
+## 🔑 How to Obtain Auth Token
 
 > [!Warning]
 > - I suggest not using the **main account** to obtain the token.
 > - You can use https://temp-mail.io to register a Twitter account.
 > - Using an auth token or cookies has the potential to get the **account suspended.**
 > - If too many media files are fetched, it may trigger a **rate limit**, and the media retrieval will fail, try enabling Batch mode.
+
+### [Video Tutorial](https://www.patreon.com/posts/how-to-obtain-127206894)
 
 1. Go to [Twitter's website](https://www.x.com/)
 2. Log into your account
