@@ -23,9 +23,9 @@
 
 ![image](https://github.com/user-attachments/assets/7295213a-d9ba-4d75-8359-d43907b74aef)
 
-![image](https://github.com/user-attachments/assets/79fb6281-03c1-4629-9db2-c1f8990ca8b8)
+![image](https://github.com/user-attachments/assets/67bb51ef-0051-4470-b89b-66f653093543)
 
-![image](https://github.com/user-attachments/assets/b20b3431-f64c-4c18-8946-99ce52018caa)
+![image](https://github.com/user-attachments/assets/27138746-cd60-41bf-abc1-c4340d72edb5)
 
 ## 🔑 How to Obtain Auth Token
 
