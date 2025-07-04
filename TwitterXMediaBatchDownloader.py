@@ -14,10 +14,11 @@ from dataclasses import dataclass
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit,
     QLabel, QFileDialog, QListWidget, QTextEdit, QTabWidget, QAbstractItemView, QSpacerItem, QSizePolicy, QProgressBar, QCheckBox, QDialog,
-    QDialogButtonBox, QComboBox
+    QDialogButtonBox, QComboBox, QListWidgetItem
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QUrl, QTimer, QTime, QSettings
-from PyQt6.QtGui import QIcon, QTextCursor, QDesktopServices
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QUrl, QTimer, QTime, QSettings, QSize
+from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkRequest
+from PyQt6.QtGui import QIcon, QTextCursor, QDesktopServices, QPixmap, QPainter, QPainterPath
 from getMetadata import get_metadata
 
 @dataclass
@@ -28,6 +29,7 @@ class Account:
     following: int
     posts: int
     media_type: str
+    profile_image: str = None
     media_list: list = None
 
 class MetadataFetchWorker(QThread):
@@ -304,7 +306,7 @@ class UpdateDialog(QDialog):
 class TwitterMediaDownloaderGUI(QWidget):
     def __init__(self):
         super().__init__()
-        self.current_version = "2.8"
+        self.current_version = "2.9"
         self.accounts = []
         self.temp_dir = os.path.join(tempfile.gettempdir(), "twitterxmediabatchdownloader")
         os.makedirs(self.temp_dir, exist_ok=True)
@@ -325,6 +327,10 @@ class TwitterMediaDownloaderGUI(QWidget):
         
         self.current_page = 0
         self.media_info = None
+        
+        self.profile_image_cache = {}
+        self.pending_downloads = {}
+        self.network_manager = QNetworkAccessManager()
         
         self.elapsed_time = QTime(0, 0, 0)
         self.timer = QTimer(self)
@@ -422,6 +428,36 @@ class TwitterMediaDownloaderGUI(QWidget):
         self.account_list = QListWidget()
         self.account_list.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.account_list.itemSelectionChanged.connect(self.update_button_states)
+        self.account_list.setIconSize(QSize(36, 36))
+        self.account_list.setStyleSheet("""
+            QListWidget {
+                background-color: palette(base);
+                border: 1px solid palette(mid);
+                border-radius: 4px;
+                padding: 0px;
+                outline: none;
+            }
+            QListWidget::item {
+                padding: 8px 12px;
+                margin: 2px 0px;
+                border: none;
+                border-radius: 4px;
+                outline: none;
+            }
+            QListWidget::item:selected {
+                background-color: palette(highlight);
+                border: none;
+                outline: none;
+            }
+            QListWidget::item:focus {
+                border: none;
+                outline: none;
+            }
+            QListWidget::item:hover {
+                background-color: palette(midlight);
+            }
+        """)
+        
         dashboard_layout.addWidget(self.account_list)
         
         self.setup_account_buttons()
@@ -699,7 +735,7 @@ class TwitterMediaDownloaderGUI(QWidget):
                 spacer = QSpacerItem(20, 6, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
                 about_layout.addItem(spacer)
 
-        footer_label = QLabel("v2.8 | gallery-dl v1.30.0 | July 2025")
+        footer_label = QLabel("v2.9 | gallery-dl v1.30.0 | July 2025")
         footer_label.setStyleSheet("font-size: 12px; margin-top: 10px;")
         about_layout.addWidget(footer_label, alignment=Qt.AlignmentFlag.AlignCenter)
         
@@ -827,10 +863,6 @@ class TwitterMediaDownloaderGUI(QWidget):
         except:
             pass
 
-    def is_batch_account(self, username, media_type):
-        cache_path = self.get_cache_file_path(username, media_type)
-        return os.path.exists(cache_path) and self.batch_mode
-
     def load_all_cached_accounts(self):
         try:
             if not os.path.exists(self.temp_dir):
@@ -878,6 +910,7 @@ class TwitterMediaDownloaderGUI(QWidget):
                                     following = account_info.get('friends_count', 0)
                                     posts = account_info.get('statuses_count', 0)
                                     nick = account_info.get('nick', account_info.get('name', ''))
+                                    profile_image_url = account_info.get('profile_image', '')
                                     
                                     account = Account(
                                         username=username,
@@ -886,8 +919,9 @@ class TwitterMediaDownloaderGUI(QWidget):
                                         following=following,
                                         posts=posts,
                                         media_type=media_type,
-                                        media_list=timeline
-                                    )
+                                        profile_image=profile_image_url,
+                                        media_list=timeline                                    
+                                        )
                                     
                                     self.accounts.append(account)
                                     loaded_count += 1
@@ -1009,6 +1043,7 @@ class TwitterMediaDownloaderGUI(QWidget):
                 following = account_info.get('friends_count', 0)
                 posts = account_info.get('statuses_count', 0)
                 nick = account_info.get('nick', account_info.get('name', ''))
+                profile_image_url = account_info.get('profile_image', '')
                 
                 account = Account(
                     username=username,
@@ -1017,6 +1052,7 @@ class TwitterMediaDownloaderGUI(QWidget):
                     following=following,
                     posts=posts,
                     media_type=media_type,
+                    profile_image=profile_image_url,
                     media_list=timeline
                 )
                 
@@ -1053,12 +1089,13 @@ class TwitterMediaDownloaderGUI(QWidget):
             else:
                 if self.batch_mode:
                     total_items = len(existing_account.media_list)
-                    self.log_output.append(f'Auto-fetch complete! Total: {total_items:,} media items for {username}')                
+                    self.log_output.append(f'Auto-fetch complete! Total: {total_items:,} media items for {username}')
                 self.twitter_url.clear()
-                self.tab_widget.setCurrentIndex(0)            
+                self.tab_widget.setCurrentIndex(0)
         except Exception as e:
             self.log_output.append(f'Error: {str(e)}')
             self.update_account_list()
+            
     def on_metadata_error(self, error_message):
         self.log_output.append(f'Error: {error_message}')
         
@@ -1069,10 +1106,110 @@ class TwitterMediaDownloaderGUI(QWidget):
         for i, account in enumerate(self.accounts, 1):
             media_count = len(account.media_list) if account.media_list else 0
             media_type_display = "GIF" if account.media_type.lower() == "gif" else account.media_type.title()
-            display_text = f"{i}. {account.username} ({account.nick}) - Followers: {account.followers:,} - Following: {account.following:,} - Posts: {account.posts:,} • {media_type_display} - {media_count:,} Items"
-            self.account_list.addItem(display_text)
+            
+            line1 = f"{i}. {account.username} ({account.nick})"
+            line2 = f"Followers: {account.followers:,} • Following: {account.following:,} • Posts: {account.posts:,} • {media_type_display}: {media_count:,}"
+            display_text = f"{line1}\n{line2}"
+            item = QListWidgetItem()
+            item.setText(display_text)
+            item.setSizeHint(QSize(0, 52))
+            
+            if account.profile_image:
+                if account.profile_image in self.profile_image_cache:
+                    item.setIcon(QIcon(self.profile_image_cache[account.profile_image]))
+                else:
+                    self.download_profile_image(account.profile_image)
+                    placeholder = self.create_placeholder_icon(52)
+                    if placeholder:
+                        item.setIcon(QIcon(placeholder))
+            else:
+                placeholder = self.create_placeholder_icon(52)
+                if placeholder:
+                    item.setIcon(QIcon(placeholder))
+            
+            self.account_list.addItem(item)
         
         self.update_button_states()
+
+    def create_placeholder_icon(self, size=36):
+        pixmap = QPixmap(size, size)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        painter.setBrush(Qt.GlobalColor.gray)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawRoundedRect(0, 0, size, size, 8, 8)
+        
+        painter.setPen(Qt.GlobalColor.white)
+        font_size = int(size * 0.4)
+        painter.setFont(painter.font())
+        painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, "👤")
+        
+        painter.end()
+        return pixmap
+
+    def create_square_pixmap(self, original_pixmap, size=36):
+        if original_pixmap.isNull():
+            return self.create_placeholder_icon(size)
+        
+        square_pixmap = QPixmap(size, size)
+        square_pixmap.fill(Qt.GlobalColor.transparent)
+        
+        painter = QPainter(square_pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        path = QPainterPath()
+        path.addRoundedRect(0, 0, size, size, 8, 8)
+        painter.setClipPath(path)
+        
+        scaled_pixmap = original_pixmap.scaled(
+            size, size, 
+            Qt.AspectRatioMode.KeepAspectRatioByExpanding, 
+            Qt.TransformationMode.SmoothTransformation
+        )
+        
+        x = (size - scaled_pixmap.width()) // 2
+        y = (size - scaled_pixmap.height()) // 2
+        painter.drawPixmap(x, y, scaled_pixmap)
+        
+        painter.end()
+        return square_pixmap
+
+    def download_profile_image(self, url):
+        if not url or url in self.profile_image_cache or url in self.pending_downloads:
+            return
+        
+        try:
+            request = QNetworkRequest(QUrl(url))
+            request.setHeader(QNetworkRequest.KnownHeaders.UserAgentHeader, 
+                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            
+            reply = self.network_manager.get(request)
+            self.pending_downloads[url] = reply
+            reply.finished.connect(lambda: self.on_profile_image_downloaded(reply, url))
+        except Exception as e:
+            print(f"Error downloading profile image: {e}")
+
+    def on_profile_image_downloaded(self, reply, image_url):
+        try:
+            if reply.error() == reply.NetworkError.NoError:
+                data = reply.readAll()
+                pixmap = QPixmap()
+                if pixmap.loadFromData(data):
+                    square_pixmap = self.create_square_pixmap(pixmap, 52)
+                    self.profile_image_cache[image_url] = square_pixmap
+                    
+                    self.update_account_list()
+            
+            if image_url in self.pending_downloads:
+                del self.pending_downloads[image_url]
+                
+        except Exception as e:
+            print(f"Error processing profile image: {e}")
+        finally:
+            reply.deleteLater()
 
     def update_button_states(self):
         has_accounts = len(self.accounts) > 0
@@ -1180,7 +1317,8 @@ class TwitterMediaDownloaderGUI(QWidget):
         self.log_output.moveCursor(QTextCursor.MoveOperation.End)
         
         if percentage > 0:
-            self.progress_bar.setValue(percentage)    
+            self.progress_bar.setValue(percentage)
+                
     def update_conversion_progress(self, message, percentage):
         cursor = self.log_output.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
@@ -1299,6 +1437,12 @@ class TwitterMediaDownloaderGUI(QWidget):
     def stop_timer(self):
         self.timer.stop()
         self.time_label.hide()
+
+    def show_account_buttons(self):
+        self.download_selected_btn.show()
+        self.download_all_btn.show()
+        self.remove_btn.show()
+        self.clear_btn.show()
 
 def main():
     if getattr(sys, 'frozen', False):
