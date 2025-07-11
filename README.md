@@ -8,7 +8,8 @@
 
 ## 📥 Download
 
-- Download the latest version of [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.0/TwitterXMediaBatchDownloader.exe)
+- **Windows**: Download the latest version of [TwitterXMediaBatchDownloader.exe](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.0/TwitterXMediaBatchDownloader.exe)
+- **Linux**: Download the latest version of [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.0/TwitterXMediaBatchDownloader)
 - If you're familiar with **userscripts**, please install it [here](https://greasyfork.org/en/scripts/523157)
 
 ## ✨ Features
@@ -26,6 +27,42 @@
 ![image](https://github.com/user-attachments/assets/67bb51ef-0051-4470-b89b-66f653093543)
 
 ![image](https://github.com/user-attachments/assets/9ccc945c-7318-4232-8ba3-9fbb636fa065)
+
+##  compiling from source
+
+If you want to compile the application from source, you can follow these steps:
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader.git
+```
+
+2. Create a virtual environment and activate it:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+3. Install the dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+4. Run the application:
+
+```bash
+python TwitterXMediaBatchDownloader.py
+```
+
+5. To create an executable, use pyinstaller:
+
+```bash
+pip install pyinstaller
+pyinstaller --onefile --windowed --icon=Archived/icon.svg TwitterXMediaBatchDownloader.py
+```
 
 ## 🔑 How to Obtain Auth Token
 

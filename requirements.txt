@@ -1,0 +1,6 @@
+PyQt6
+requests
+aiohttp
+imageio-ffmpeg
+packaging
+gallery-dl
