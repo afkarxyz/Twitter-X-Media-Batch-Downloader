@@ -30,8 +30,6 @@
 
 ## 🛠️ Compiling from Source (Ubuntu/Linux)
 
-Follow these steps to compile and run the application from source:
-
 ### 1. Install Required Packages
 
 ```bash
@@ -75,8 +73,6 @@ The compiled binary will be located in the `dist/` folder:
 
 ### ❓ The downloaded file won't run?
 
-If the binary file you downloaded doesn’t run (e.g., double-clicking does nothing or you get a “permission denied” error), it’s likely missing the executable permission.
-
 ✅ **Solution**: Open your terminal and run:
 
 ```bash
@@ -84,7 +80,7 @@ chmod +x TwitterXMediaBatchDownloader
 ./TwitterXMediaBatchDownloader
 ```
 
-This will give the file permission to run on your system.
+https://github.com/user-attachments/assets/2048555f-393e-469d-a8bd-4275e33a81bd
 
 ## 🔑 How to Obtain Auth Token
 
