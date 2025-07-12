@@ -8,7 +8,7 @@
 
 ## 📥 Download
 
-- **Windows**: Download the latest version of [TwitterXMediaBatchDownloader.exe](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.0/TwitterXMediaBatchDownloader.exe)
+- **Windows**: Download the latest version of [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.0/TwitterXMediaBatchDownloader.exe)
 - **Linux**: Download the latest version of [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.0/TwitterXMediaBatchDownloader)
 - If you're familiar with **userscripts**, please install it [here](https://greasyfork.org/en/scripts/523157)
 
@@ -28,41 +28,63 @@
 
 ![image](https://github.com/user-attachments/assets/9ccc945c-7318-4232-8ba3-9fbb636fa065)
 
-##  compiling from source
+## 🛠️ Compiling from Source (Ubuntu/Linux)
 
-If you want to compile the application from source, you can follow these steps:
+Follow these steps to compile and run the application from source:
 
-1. Clone the repository:
+### 1. Install Required Packages
+
+```bash
+sudo apt install git python3-pip python3-venv
+```
+
+### 2. Clone the Repository
 
 ```bash
 git clone https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader.git
+cd Twitter-X-Media-Batch-Downloader
 ```
 
-2. Create a virtual environment and activate it:
+### 3. Create and Activate a Virtual Environment
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-3. Install the dependencies:
+### 4. Install Python Dependencies
 
 ```bash
 pip install -r requirements.txt
-```
-
-4. Run the application:
-
-```bash
-python TwitterXMediaBatchDownloader.py
-```
-
-5. To create an executable, use pyinstaller:
-
-```bash
 pip install pyinstaller
-pyinstaller --onefile --windowed --icon=Archived/icon.svg TwitterXMediaBatchDownloader.py
 ```
+
+### 5. Build the Executable
+
+```bash
+pyinstaller --onefile --windowed TwitterXMediaBatchDownloader.py
+```
+
+### 6. Run the Application
+
+The compiled binary will be located in the `dist/` folder:
+
+```bash
+./dist/TwitterXMediaBatchDownloader
+```
+
+### ❓ The downloaded file won't run?
+
+If the binary file you downloaded doesn’t run (e.g., double-clicking does nothing or you get a “permission denied” error), it’s likely missing the executable permission.
+
+✅ **Solution**: Open your terminal and run:
+
+```bash
+chmod +x TwitterXMediaBatchDownloader
+./TwitterXMediaBatchDownloader
+```
+
+This will give the file permission to run on your system.
 
 ## 🔑 How to Obtain Auth Token
 
