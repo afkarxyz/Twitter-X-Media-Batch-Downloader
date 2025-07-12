@@ -28,7 +28,7 @@
 
 ![image](https://github.com/user-attachments/assets/9ccc945c-7318-4232-8ba3-9fbb636fa065)
 
-## 🛠️ Compiling from Source (Ubuntu/Linux)
+## 🛠️ Build Yourself (Ubuntu/Linux)
 
 ### 1. Install Required Packages
 
@@ -71,7 +71,7 @@ The compiled binary will be located in the `dist/` folder:
 ./dist/TwitterXMediaBatchDownloader
 ```
 
-### ❓ The downloaded file won't run?
+### The downloaded file won't run❓
 
 ✅ **Solution**: Open your terminal and run:
 
