@@ -137,6 +137,8 @@ The `.app` bundle will be generated inside the `dist/` folder.
 xattr -rd com.apple.quarantine ~/Downloads/TwitterXMediaBatchDownloader.app
 ```
 
+https://github.com/user-attachments/assets/f0fcd2ba-e1dd-4205-bda7-2b4154b982ee
+
 ## 🔑 How to Obtain Auth Token
 
 > [!Warning]
