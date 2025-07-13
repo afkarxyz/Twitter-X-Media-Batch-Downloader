@@ -8,8 +8,9 @@
 
 ## 📥 Download
 
-- **Windows**: Download the latest version of [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.0/TwitterXMediaBatchDownloader.exe)
-- **Linux**: Download the latest version of [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.0/TwitterXMediaBatchDownloader)
+- **Windows**: [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.0/TwitterXMediaBatchDownloader.exe)
+- **Linux**: [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.0/TwitterXMediaBatchDownloader)
+- **Mac**: [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.0/TwitterXMediaBatchDownloader.app.zip)
 - If you're familiar with **userscripts**, please install it [here](https://greasyfork.org/en/scripts/523157)
 
 ## ✨ Features
@@ -28,7 +29,7 @@
 
 ![image](https://github.com/user-attachments/assets/9ccc945c-7318-4232-8ba3-9fbb636fa065)
 
-## 🛠️ Build Yourself (Ubuntu/Linux)
+## 🐧 Build Yourself (Ubuntu/Linux)
 
 ### 1. Install Required Packages
 
@@ -81,6 +82,60 @@ chmod +x TwitterXMediaBatchDownloader
 ```
 
 https://github.com/user-attachments/assets/2048555f-393e-469d-a8bd-4275e33a81bd
+
+---
+
+## 🍎 Build Yourself (macOS)
+
+### 1. Install Homebrew (if not already installed)
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+### 2. Install Git and Python
+
+```bash
+brew install git python
+```
+
+### 3. Go to Downloads and Clone the Repository
+
+```bash
+cd ~/Downloads
+git clone https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader.git
+cd Twitter-X-Media-Batch-Downloader
+```
+
+### 4. Create and Activate a Virtual Environment
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+### 5. Install Python Dependencies
+
+```bash
+pip install -r requirements.txt
+pip install pyinstaller
+```
+
+### 6. Build the Application
+
+```bash
+pyinstaller --onefile --windowed --icon=Archived/icon.icns TwitterXMediaBatchDownloader.py
+```
+
+The `.app` bundle will be generated inside the `dist/` folder.
+
+### The downloaded application won't open❓
+
+✅ **Solution**: Open your terminal and run:
+
+```bash
+xattr -rd com.apple.quarantine ~/Downloads/TwitterXMediaBatchDownloader.app
+```
 
 ## 🔑 How to Obtain Auth Token
 
