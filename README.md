@@ -72,7 +72,7 @@ The compiled binary will be located in the `dist/` folder:
 ./dist/TwitterXMediaBatchDownloader
 ```
 
-### The downloaded file won't run❓
+### The downloaded application won't run❓
 
 ✅ **Solution**: Open your terminal and run:
 
