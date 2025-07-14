@@ -129,7 +129,7 @@ pyinstaller --onefile --windowed --icon=Archived/icon.icns TwitterXMediaBatchDow
 
 The `.app` bundle will be generated inside the `dist/` folder.
 
-### The downloaded application won't open❓
+### The downloaded application won't run❓
 
 ✅ **Solution**: Open your terminal and run:
 
