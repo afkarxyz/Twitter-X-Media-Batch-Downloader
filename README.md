@@ -13,6 +13,25 @@
 - **Mac**: [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.0/TwitterXMediaBatchDownloader.app.zip)
 - If you're familiar with **userscripts**, please install it [here](https://greasyfork.org/en/scripts/523157)
 
+### The downloaded application won't run❓
+
+🐧 **Solution (Ubuntu/Linux)**: Open your terminal and run:
+
+```bash
+chmod +x TwitterXMediaBatchDownloader
+./TwitterXMediaBatchDownloader
+```
+
+https://github.com/user-attachments/assets/2048555f-393e-469d-a8bd-4275e33a81bd
+
+🍎 **Solution (macOS)**: Open your terminal and run:
+
+```bash
+xattr -rd com.apple.quarantine ~/Downloads/TwitterXMediaBatchDownloader.app
+```
+
+https://github.com/user-attachments/assets/f0fcd2ba-e1dd-4205-bda7-2b4154b982ee
+
 ## ✨ Features
 
 - Powered by `gallery-dl`, similar to `yt-dlp`
@@ -72,19 +91,6 @@ The compiled binary will be located in the `dist/` folder:
 ./dist/TwitterXMediaBatchDownloader
 ```
 
-### The downloaded application won't run❓
-
-✅ **Solution**: Open your terminal and run:
-
-```bash
-chmod +x TwitterXMediaBatchDownloader
-./TwitterXMediaBatchDownloader
-```
-
-https://github.com/user-attachments/assets/2048555f-393e-469d-a8bd-4275e33a81bd
-
----
-
 ## 🍎 Build Yourself (macOS)
 
 ### 1. Install Homebrew (if not already installed)
@@ -128,16 +134,6 @@ pyinstaller --onefile --windowed --icon=Archived/icon.icns TwitterXMediaBatchDow
 ```
 
 The `.app` bundle will be generated inside the `dist/` folder.
-
-### The downloaded application won't run❓
-
-✅ **Solution**: Open your terminal and run:
-
-```bash
-xattr -rd com.apple.quarantine ~/Downloads/TwitterXMediaBatchDownloader.app
-```
-
-https://github.com/user-attachments/assets/f0fcd2ba-e1dd-4205-bda7-2b4154b982ee
 
 ## 🔑 How to Obtain Auth Token
 
