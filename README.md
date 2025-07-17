@@ -77,7 +77,7 @@ pip install -r requirements.txt
 pip install pyinstaller
 ```
 
-### 5. Build the Executable
+### 5. Build the Application
 
 ```bash
 pyinstaller --onefile --windowed TwitterXMediaBatchDownloader.py
