@@ -409,7 +409,7 @@ class TwitterMediaDownloaderGUI(QWidget):
                         QDesktopServices.openUrl(QUrl("https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases"))
                         
         except Exception as e:
-            print(f"Error checking for updates: {e}")
+            pass
 
     def reset_state(self):
         self.accounts.clear()
@@ -936,7 +936,7 @@ class TwitterMediaDownloaderGUI(QWidget):
                 self.twitter_url.setText(last_username_url)
                 
         except Exception as e:
-            print(f"Error loading settings: {e}")
+            pass
 
     def handle_batch_checkbox(self, state):
         if not hasattr(self, 'size_label') or not hasattr(self, 'batch_size_combo'):
@@ -1372,7 +1372,7 @@ class TwitterMediaDownloaderGUI(QWidget):
             self.pending_downloads[url] = reply
             reply.finished.connect(lambda: self.on_profile_image_downloaded(reply, url))
         except Exception as e:
-            print(f"Error downloading profile image: {e}")
+            pass
 
     def on_profile_image_downloaded(self, reply, image_url):
         try:
@@ -1389,7 +1389,7 @@ class TwitterMediaDownloaderGUI(QWidget):
                 del self.pending_downloads[image_url]
                 
         except Exception as e:
-            print(f"Error processing profile image: {e}")
+            pass
         finally:
             reply.deleteLater()
 
