@@ -1,0 +1,161 @@
+[![GitHub All Releases](https://img.shields.io/github/downloads/afkarxyz/Twitter-X-Media-Batch-Downloader/total?style=for-the-badge)](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases)
+
+![TwitterXMediaBatchDownloader](https://github.com/user-attachments/assets/354d7470-c01c-4aa6-9da1-ea6c42d27330)
+
+<div align="center">
+<b>Twitter/X Media Batch Downloader</b> is a GUI tool that allows users to download all media, including images and videos, in their original quality from Twitter/X accounts using <code>gallery-dl</code>
+</div>
+
+## 📥 Download
+
+- **Windows**: [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.1/TwitterXMediaBatchDownloader.exe)
+- **Linux**: [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.1/TwitterXMediaBatchDownloader)
+- **Mac**: [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.1/TwitterXMediaBatchDownloader.app.zip)
+- If you're familiar with **userscripts**, please install it [here](https://greasyfork.org/en/scripts/523157)
+
+### The downloaded application won't run❓
+
+🐧 **Solution (Ubuntu/Linux)**: Open your terminal and run:
+
+```bash
+chmod +x TwitterXMediaBatchDownloader
+./TwitterXMediaBatchDownloader
+```
+
+https://github.com/user-attachments/assets/2048555f-393e-469d-a8bd-4275e33a81bd
+
+🍎 **Solution (macOS)**: Open your terminal and run:
+
+```bash
+xattr -rd com.apple.quarantine ~/Downloads/TwitterXMediaBatchDownloader.app
+```
+
+https://github.com/user-attachments/assets/f0fcd2ba-e1dd-4205-bda7-2b4154b982ee
+
+## ✨ Features
+
+- Powered by `gallery-dl`, similar to `yt-dlp`
+- **Bulk download**: Download multiple items at once
+- Media-type selection: All (Images + GIFs + Videos) or specific (Images / GIFs / Videos)
+- **MP4 → GIF conversion:** Convert downloaded MP4 videos into GIF format
+- Downloads at original quality
+  
+## 🖼️ Screenshots
+
+![image](https://github.com/user-attachments/assets/7295213a-d9ba-4d75-8359-d43907b74aef)
+
+![image](https://github.com/user-attachments/assets/67bb51ef-0051-4470-b89b-66f653093543)
+
+![image](https://github.com/user-attachments/assets/9ccc945c-7318-4232-8ba3-9fbb636fa065)
+
+## 🐧 Build Yourself (Ubuntu/Linux)
+
+### 1. Install Required Packages
+
+```bash
+sudo apt install git python3-pip python3-venv
+```
+
+### 2. Clone the Repository
+
+```bash
+git clone https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader.git
+cd Twitter-X-Media-Batch-Downloader
+```
+
+### 3. Create and Activate a Virtual Environment
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+### 4. Install Python Dependencies
+
+```bash
+pip install -r requirements.txt
+pip install pyinstaller
+```
+
+### 5. Build the Application
+
+```bash
+pyinstaller --onefile --windowed TwitterXMediaBatchDownloader.py
+```
+
+### 6. Run the Application
+
+The compiled binary will be located in the `dist/` folder:
+
+```bash
+./dist/TwitterXMediaBatchDownloader
+```
+
+## 🍎 Build Yourself (macOS)
+
+### 1. Install Homebrew (if not already installed)
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+### 2. Install Git and Python
+
+```bash
+brew install git python
+```
+
+### 3. Go to Downloads and Clone the Repository
+
+```bash
+cd ~/Downloads
+git clone https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader.git
+cd Twitter-X-Media-Batch-Downloader
+```
+
+### 4. Create and Activate a Virtual Environment
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+### 5. Install Python Dependencies
+
+```bash
+pip install -r requirements.txt
+pip install pyinstaller
+```
+
+### 6. Build the Application
+
+```bash
+pyinstaller --onefile --windowed --icon=Archived/icon.icns TwitterXMediaBatchDownloader.py
+```
+
+The `.app` bundle will be generated inside the `dist/` folder.
+
+## 🔑 How to Obtain Auth Token
+
+> [!Warning]
+> - I suggest not using the **main account** to obtain the token.
+> - You can use https://temp-mail.io to register a Twitter account.
+> - Using an auth token or cookies has the potential to get the **account suspended.**
+> - If too many media files are fetched, it may trigger a **rate limit**, and the media retrieval will fail, try enabling Batch mode.
+
+### [Video Tutorial](https://www.patreon.com/posts/how-to-obtain-127206894)
+
+1. Go to [Twitter's website](https://www.x.com/)
+2. Log into your account
+3. Open the Developer Tools by pressing `F12`
+4. Navigate to the **Application** tab, then select **Storage → Cookies**
+5. Find and copy the `auth_token` value or use the browser extension [X.com Auth Token Grabber](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v1.0/X.com.Auth.Token.Grabber.zip)
+6. Do not log out of your account, as a new `auth_token` will be generated by Twitter
+
+> X.com Auth Token Grabber
+
+![image](https://github.com/user-attachments/assets/4bf5f787-d34f-4259-837c-07a6432c4360)
+
+> Developer Tools
+
+![image](https://github.com/user-attachments/assets/8e81dd8f-f8be-4254-9cf6-cacfa97743e9)
