@@ -82,13 +82,7 @@ pip install pyinstaller
 pyinstaller --onefile --windowed TwitterXMediaBatchDownloader.py
 ```
 
-### 6. Run the Application
-
-The compiled binary will be located in the `dist/` folder:
-
-```bash
-./dist/TwitterXMediaBatchDownloader
-```
+The compiled binary will be located in the `dist/` folder.
 
 ## 🍎 Build Yourself (macOS)
 
