@@ -191,7 +191,7 @@ class DownloadWorker(QThread):
                     
                     progress_percent = int((completed + failed) / total * 100)
                     media_type_display = account.media_type if account.media_type != 'all' else 'media'
-                    self.download_progress.emit(f"Downloading {account.username}'s {media_type_display}: {completed + failed}/{total}", progress_percent)
+                    self.download_progress.emit(f"Downloading {account.username}'s {media_type_display}: {completed + failed:,}/{total:,}", progress_percent)
                 
                 await asyncio.sleep(0.1)
             
@@ -220,7 +220,7 @@ class DownloadWorker(QThread):
                 overall_completed += completed
                 overall_skipped += skipped
                 overall_failed += failed
-                self.progress.emit(f"Account {account.username} ({media_type_display}): {completed} downloaded, {skipped} skipped, {failed} failed", 
+                self.progress.emit(f"Account {account.username} ({media_type_display}): {completed:,} downloaded, {skipped:,} skipped, {failed:,} failed", 
                                 int((i + 1) / total_accounts * 100))
 
             if not self.is_stopped:
@@ -231,11 +231,34 @@ class DownloadWorker(QThread):
                         total_gifs = len(gif_items)
                         if total_gifs > 0:
                             creationflags = subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0
+                            converted_count = 0
+                            skipped_count = 0
                             self.progress.emit("Starting GIF conversion...", 0)
+                            
                             for idx, (item, fp) in enumerate(gif_items, start=1):
                                 if self.is_stopped:
                                     break
+                                    
+                                while self.is_paused:
+                                    if self.is_stopped:
+                                        break
+                                    self.msleep(100)
+                                
+                                if self.is_stopped:
+                                    break
+                                    
                                 gif_fp = fp.rsplit('.', 1)[0] + '.gif'
+                                
+                                if os.path.exists(gif_fp):
+                                    try:
+                                        os.remove(fp)
+                                        skipped_count += 1
+                                        conv_progress = int((idx / total_gifs) * 100)
+                                        self.conversion_progress.emit(f"Converting GIF {idx:,}/{total_gifs:,} ({self.gif_resolution}) - Skipped (exists)", conv_progress)
+                                        continue
+                                    except Exception:
+                                        pass
+                                
                                 if self.gif_resolution == 'high':
                                     ffmpeg_args = [ffmpeg_exe, '-i', fp, '-vf', 'scale=800:-1:flags=lanczos', '-r', '15', gif_fp]
                                 elif self.gif_resolution == 'medium':
@@ -249,19 +272,29 @@ class DownloadWorker(QThread):
                                 if result.returncode == 0 and os.path.exists(gif_fp):
                                     try:
                                         os.remove(fp)
+                                        converted_count += 1
                                     except Exception:
                                         pass
+                                else:
+                                    pass
+                                    
                                 conv_progress = int((idx / total_gifs) * 100)
-                                self.conversion_progress.emit(f"Converting GIF {idx}/{total_gifs} ({self.gif_resolution})", conv_progress)
-                            self.progress.emit("GIF conversion completed", 100)
+                                self.conversion_progress.emit(f"Converting GIF {idx:,}/{total_gifs:,} ({self.gif_resolution})", conv_progress)
+                            if converted_count > 0 or skipped_count > 0:
+                                completion_msg = f"GIF conversion completed: {converted_count:,} converted"
+                                if skipped_count > 0:
+                                    completion_msg += f", {skipped_count:,} skipped (already exists)"
+                                self.progress.emit(completion_msg, 100)
+                            else:
+                                self.progress.emit("GIF conversion completed", 100)
                     except Exception as conv_e:
                         self.progress.emit(f"GIF conversion error: {conv_e}", 0)
                 
-                success_message = f"Download completed! {overall_completed} files downloaded"
+                success_message = f"Download completed! {overall_completed:,} files downloaded"
                 if overall_skipped > 0:
-                    success_message += f", {overall_skipped} skipped"
+                    success_message += f", {overall_skipped:,} skipped"
                 if overall_failed > 0:
-                    success_message += f", {overall_failed} failed"
+                    success_message += f", {overall_failed:,} failed"
                 self.finished.emit(True, success_message)
                 
         except Exception as e:
@@ -315,7 +348,7 @@ class UpdateDialog(QDialog):
 class TwitterMediaDownloaderGUI(QWidget):
     def __init__(self):
         super().__init__()
-        self.current_version = "3.0"
+        self.current_version = "3.1"
         self.accounts = []
         self.temp_dir = os.path.join(tempfile.gettempdir(), "twitterxmediabatchdownloader")
         os.makedirs(self.temp_dir, exist_ok=True)
@@ -337,6 +370,11 @@ class TwitterMediaDownloaderGUI(QWidget):
         
         self.current_page = 0
         self.media_info = None
+        
+        self.is_auto_fetching = False
+        self.current_fetch_username = None
+        self.current_fetch_media_type = None
+        self.current_fetch_metadata = None
         
         self.profile_image_cache = {}
         self.pending_downloads = {}
@@ -384,11 +422,16 @@ class TwitterMediaDownloaderGUI(QWidget):
         self.stop_btn.hide()
         self.pause_resume_btn.hide()
         self.pause_resume_btn.setText('Pause')
+        self.next_batch_btn.hide()
+        self.auto_batch_btn.hide()
+        self.stop_fetch_btn.hide()
+        self.is_auto_fetching = False
+        self.enable_batch_buttons()
         self.hide_account_buttons()
 
     def initUI(self):
         self.setWindowTitle('Twitter/X Media Batch Downloader')
-        self.setFixedWidth(650)
+        self.setMinimumWidth(650)
         self.setMinimumHeight(350)
         self.resize(650, 350)
         
@@ -520,18 +563,47 @@ class TwitterMediaDownloaderGUI(QWidget):
         
         process_layout.addLayout(progress_time_layout)
         
-        control_layout = QHBoxLayout()
+        download_control_layout = QHBoxLayout()
         self.stop_btn = QPushButton('Stop')
         self.pause_resume_btn = QPushButton('Pause')
         
+        self.stop_btn.setFixedWidth(150)
+        self.pause_resume_btn.setFixedWidth(150)
         self.stop_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.pause_resume_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         
         self.stop_btn.clicked.connect(self.stop_download)
         self.pause_resume_btn.clicked.connect(self.toggle_pause_resume)
-        control_layout.addWidget(self.stop_btn)
-        control_layout.addWidget(self.pause_resume_btn)
-        process_layout.addLayout(control_layout)
+        
+        download_control_layout.addStretch()
+        download_control_layout.addWidget(self.stop_btn)
+        download_control_layout.addWidget(self.pause_resume_btn)
+        download_control_layout.addStretch()
+        process_layout.addLayout(download_control_layout)
+        
+        batch_control_layout = QHBoxLayout()
+        self.next_batch_btn = QPushButton('Next Batch')
+        self.auto_batch_btn = QPushButton('Auto Batch')
+        self.stop_fetch_btn = QPushButton('Stop Fetch')
+        
+        for btn in [self.next_batch_btn, self.auto_batch_btn, self.stop_fetch_btn]:
+            btn.setFixedWidth(150)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        
+        self.next_batch_btn.setToolTip("Fetch next batch manually")
+        self.auto_batch_btn.setToolTip("Start automatic batch fetching")
+        self.stop_fetch_btn.setToolTip("Stop automatic batch fetching")
+        
+        self.next_batch_btn.clicked.connect(self.fetch_next_batch)
+        self.auto_batch_btn.clicked.connect(self.start_auto_batch)
+        self.stop_fetch_btn.clicked.connect(self.stop_auto_fetch)
+        
+        batch_control_layout.addStretch()
+        batch_control_layout.addWidget(self.next_batch_btn)
+        batch_control_layout.addWidget(self.auto_batch_btn)
+        batch_control_layout.addWidget(self.stop_fetch_btn)
+        batch_control_layout.addStretch()
+        process_layout.addLayout(batch_control_layout)
         
         self.process_tab.setLayout(process_layout)
         
@@ -541,6 +613,9 @@ class TwitterMediaDownloaderGUI(QWidget):
         self.time_label.hide()
         self.stop_btn.hide()
         self.pause_resume_btn.hide()
+        self.next_batch_btn.hide()
+        self.auto_batch_btn.hide()
+        self.stop_fetch_btn.hide()
 
     def setup_settings_tab(self):
         settings_tab = QWidget()
@@ -766,7 +841,7 @@ class TwitterMediaDownloaderGUI(QWidget):
                 spacer = QSpacerItem(20, 6, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
                 about_layout.addItem(spacer)
 
-        footer_label = QLabel("v3.0 | gallery-dl v1.30.0 | July 2025")
+        footer_label = QLabel("v3.1 | gallery-dl v1.30.0 | July 2025")
         footer_label.setStyleSheet("font-size: 12px; margin-top: 10px;")
         about_layout.addWidget(footer_label, alignment=Qt.AlignmentFlag.AlignCenter)
         about_tab.setLayout(about_layout)
@@ -1016,42 +1091,65 @@ class TwitterMediaDownloaderGUI(QWidget):
 
         media_type = self.media_type_combo.currentData()
         
+        existing_account = None
         for account in self.accounts:
             if account.username == username and account.media_type == media_type:
-                self.log_output.append(f'Account {username} with {media_type} media type already in list.')
-                return
+                existing_account = account
+                break
+        
+        if existing_account:
+            self.accounts.remove(existing_account)
+            
+            for is_batch in [True, False]:
+                cache_file = self.get_cache_file_path(username, media_type, is_batch=is_batch)
+                try:
+                    if os.path.exists(cache_file):
+                        os.remove(cache_file)
+                        self.log_output.append(f'Removed existing cache: {os.path.basename(cache_file)}')
+                except Exception as e:
+                    self.log_output.append(f'Warning: Could not remove cache {os.path.basename(cache_file)}: {str(e)}')
+            
+            self.log_output.append(f'Preparing new batch for {username} ({media_type}) - cache cleared')
+            self.update_account_list()
 
-        cached_data = self.load_cached_data(username, media_type, is_batch=self.batch_mode)
-        if cached_data:
-            try:
-                account_info = cached_data.get('account_info', {})
-                timeline = cached_data.get('timeline', [])
-                if account_info and timeline:
-                    followers = account_info.get('followers_count', 0)
-                    following = account_info.get('friends_count', 0)
-                    posts = account_info.get('statuses_count', 0)
-                    nick = account_info.get('nick', account_info.get('name', ''))
-                    
-                    account = Account(
-                        username=username,
-                        nick=nick,
-                        followers=followers,
-                        following=following,
-                        posts=posts,
-                        media_type=media_type,
-                        media_list=timeline
-                    )
-                    
-                    self.accounts.append(account)
-                    self.update_account_list()
-                    self.log_output.append(f'Loaded from cache: {username} - Followers: {followers:,} - Posts: {posts:,} • {media_type.title()}')
-                    self.twitter_url.clear()
-                    return
-            except:
-                pass
+        if not existing_account:
+            cached_data = self.load_cached_data(username, media_type, is_batch=self.batch_mode)
+            if cached_data:
+                try:
+                    account_info = cached_data.get('account_info', {})
+                    timeline = cached_data.get('timeline', [])
+                    if account_info and timeline:
+                        followers = account_info.get('followers_count', 0)
+                        following = account_info.get('friends_count', 0)
+                        posts = account_info.get('statuses_count', 0)
+                        nick = account_info.get('nick', account_info.get('name', ''))
+                        
+                        account = Account(
+                            username=username,
+                            nick=nick,
+                            followers=followers,
+                            following=following,
+                            posts=posts,
+                            media_type=media_type,
+                            media_list=timeline
+                        )
+                        
+                        self.accounts.append(account)
+                        self.update_account_list()
+                        self.log_output.append(f'Loaded from cache: {username} - Followers: {followers:,} - Posts: {posts:,} • {media_type.title()}')
+                        self.twitter_url.clear()
+                        return
+                except:
+                    pass
 
         try:
             self.reset_ui()
+            
+            self.is_auto_fetching = False
+            self.current_fetch_username = username
+            self.current_fetch_media_type = media_type
+            
+            self.disable_batch_buttons()
             
             self.log_output.append(f'Fetching metadata for {username}...')
             self.tab_widget.setCurrentWidget(self.process_tab)
@@ -1082,8 +1180,14 @@ class TwitterMediaDownloaderGUI(QWidget):
             account_info = data.get('account_info', {})
             timeline = data.get('timeline', [])
             metadata = data.get('metadata', {})
-            if not account_info or not timeline:
-                self.log_output.append('Error: Invalid data received')
+            if not account_info:
+                self.log_output.append('Error: Invalid account data received')
+                self.update_account_list()
+                return
+            
+            if not timeline:
+                media_type_display = media_type if media_type != 'all' else 'media'
+                self.log_output.append(f'Error: No {media_type_display} found for account {username}')
                 self.update_account_list()
                 return
             existing_account = None
@@ -1128,27 +1232,37 @@ class TwitterMediaDownloaderGUI(QWidget):
             
             self.update_account_list()
             
+            self.current_fetch_username = username
+            self.current_fetch_media_type = media_type
+            self.current_fetch_metadata = metadata
+            
             if self.batch_mode and metadata.get('has_more', False):
                 current_page = metadata.get('page', 0)
                 next_page = current_page + 1
+                self.log_output.append(f'Batch {current_page + 1} completed. Next batch ({next_page + 1}) available.')
                 
-                self.log_output.append(f'Auto-fetching batch {next_page + 1} for {username}...')
-                
-                self.metadata_worker = MetadataFetchWorker(
-                    username, 
-                    media_type, 
-                    batch_mode=True,
-                    batch_size=self.batch_size,
-                    page=next_page
-                )
-                self.metadata_worker.auth_token = self.auth_token_input.text().strip()
-                self.metadata_worker.finished.connect(lambda data: self.on_metadata_fetched(data, username, media_type))
-                self.metadata_worker.error.connect(self.on_metadata_error)
-                self.metadata_worker.start()
+                if self.is_auto_fetching:
+                    self.next_batch_btn.hide()
+                    self.auto_batch_btn.hide()
+                    self.stop_fetch_btn.show()
+                    self.fetch_next_batch_internal()
+                else:
+                    self.next_batch_btn.show()
+                    self.auto_batch_btn.show()
+                    self.stop_fetch_btn.hide()
+                    self.enable_batch_buttons()
+                    self.log_output.append('Use "Next Batch" for manual fetch or "Auto Batch" for automatic fetching.')
             else:
+                self.next_batch_btn.hide()
+                self.auto_batch_btn.hide()
+                self.stop_fetch_btn.hide()
+                self.is_auto_fetching = False
+                self.enable_batch_buttons()
+                
                 if self.batch_mode:
                     total_items = len(existing_account.media_list)
-                    self.log_output.append(f'Auto-fetch complete! Total: {total_items:,} media items for {username}')
+                    self.log_output.append(f'All batches complete! Total: {total_items:,} media items for {username}')
+                
                 self.twitter_url.clear()
                 self.tab_widget.setCurrentIndex(0)
         except Exception as e:
@@ -1157,6 +1271,15 @@ class TwitterMediaDownloaderGUI(QWidget):
             
     def on_metadata_error(self, error_message):
         self.log_output.append(f'Error: {error_message}')
+        
+        if self.is_auto_fetching:
+            self.stop_auto_fetch()
+        
+        self.next_batch_btn.hide()
+        self.auto_batch_btn.hide()
+        self.stop_fetch_btn.hide()
+        
+        self.enable_batch_buttons()
         
         self.update_account_list()
 
@@ -1348,6 +1471,10 @@ class TwitterMediaDownloaderGUI(QWidget):
         self.stop_btn.show()
         self.pause_resume_btn.show()
         
+        self.next_batch_btn.hide()
+        self.auto_batch_btn.hide()
+        self.stop_fetch_btn.hide()
+        
         self.progress_bar.show()
         self.progress_bar.setValue(0)
         
@@ -1426,6 +1553,12 @@ class TwitterMediaDownloaderGUI(QWidget):
         self.download_selected_btn.setEnabled(True)
         self.download_all_btn.setEnabled(True)
         
+        if (self.batch_mode and self.current_fetch_metadata and 
+            self.current_fetch_metadata.get('has_more', False) and not self.is_auto_fetching):
+            self.next_batch_btn.show()
+            self.auto_batch_btn.show()
+            self.enable_batch_buttons()
+        
         if success:
             self.log_output.append(f"\nStatus: {message}")
         else:
@@ -1484,6 +1617,8 @@ class TwitterMediaDownloaderGUI(QWidget):
         self.reset_ui()
         self.tab_widget.setCurrentIndex(0)
 
+
+
     def update_timer(self):
         self.elapsed_time = self.elapsed_time.addSecs(1)
         self.time_label.setText(self.elapsed_time.toString("hh:mm:ss"))
@@ -1497,6 +1632,69 @@ class TwitterMediaDownloaderGUI(QWidget):
     def stop_timer(self):
         self.timer.stop()
         self.time_label.hide()
+    
+    def fetch_next_batch(self):
+        if not self.current_fetch_metadata or not self.current_fetch_metadata.get('has_more', False):
+            self.log_output.append('No more batches available.')
+            return
+        
+        self.disable_batch_buttons()
+        self.fetch_next_batch_internal()
+    
+    def start_auto_batch(self):
+        if not self.current_fetch_metadata or not self.current_fetch_metadata.get('has_more', False):
+            self.log_output.append('No more batches available.')
+            return
+        
+        self.is_auto_fetching = True
+        self.auto_batch_btn.hide()
+        self.next_batch_btn.hide()
+        self.stop_fetch_btn.show()
+        
+        self.log_output.append('Auto batch mode enabled. Fetching will continue automatically...')
+        self.fetch_next_batch_internal()
+    
+    def stop_auto_fetch(self):
+        self.is_auto_fetching = False
+        self.stop_fetch_btn.hide()
+        
+        if self.current_fetch_metadata and self.current_fetch_metadata.get('has_more', False):
+            self.next_batch_btn.show()
+            self.auto_batch_btn.show()
+            self.log_output.append('Auto batch mode stopped. Use "Next Batch" or "Auto Batch" to continue.')
+        else:
+            self.log_output.append('Auto batch mode stopped.')
+    
+    def disable_batch_buttons(self):
+        self.next_batch_btn.setEnabled(False)
+        self.auto_batch_btn.setEnabled(False)
+        
+    def enable_batch_buttons(self):
+        self.next_batch_btn.setEnabled(True)
+        self.auto_batch_btn.setEnabled(True)
+
+    def fetch_next_batch_internal(self):
+        if not self.current_fetch_username or not self.current_fetch_media_type or not self.current_fetch_metadata:
+            return
+        
+        self.disable_batch_buttons()
+        
+        current_page = self.current_fetch_metadata.get('page', 0)
+        next_page = current_page + 1
+        
+        self.log_output.append(f'Fetching batch {next_page + 1} for {self.current_fetch_username}...')
+        
+        self.metadata_worker = MetadataFetchWorker(
+            self.current_fetch_username, 
+            self.current_fetch_media_type, 
+            batch_mode=True,
+            batch_size=self.batch_size,
+            page=next_page
+        )
+        self.metadata_worker.auth_token = self.auth_token_input.text().strip()
+        self.metadata_worker.finished.connect(lambda data: self.on_metadata_fetched(data, self.current_fetch_username, self.current_fetch_media_type))
+        self.metadata_worker.error.connect(self.on_metadata_error)
+        self.metadata_worker.start()
 
     def show_account_buttons(self):
         self.download_selected_btn.show()
