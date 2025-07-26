@@ -4,4 +4,3 @@ aiohttp
 imageio-ffmpeg
 packaging
 gallery-dl
-pyqtdarktheme

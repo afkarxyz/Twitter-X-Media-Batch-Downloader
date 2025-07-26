@@ -8,9 +8,9 @@
 
 ## 📥 Download
 
-- **Windows (Latest)**: [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.2/TwitterXMediaBatchDownloader.exe)
-- **Linux**: [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.1/TwitterXMediaBatchDownloader)
-- **Mac**: [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.1/TwitterXMediaBatchDownloader.app.zip)
+- **Windows**: [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.3/TwitterXMediaBatchDownloader_Windows.exe)
+- **Linux**: [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.3/TwitterXMediaBatchDownloader_Linux)
+- **Mac**: [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.3/TwitterXMediaBatchDownloader_Mac.app.zip)
 - If you're familiar with **userscripts**, please install it [here](https://greasyfork.org/en/scripts/523157)
 
 ### The downloaded application won't run❓
@@ -18,7 +18,7 @@
 🐧 **Solution (Ubuntu/Linux)**: Open your terminal and run:
 
 ```bash
-chmod +x TwitterXMediaBatchDownloader
+chmod +x TwitterXMediaBatchDownloader_Linux
 ```
 
 https://github.com/user-attachments/assets/41231de2-e665-4d61-a4f4-62f424973af3
@@ -26,7 +26,7 @@ https://github.com/user-attachments/assets/41231de2-e665-4d61-a4f4-62f424973af3
 🍎 **Solution (macOS)**: Open your terminal and run:
 
 ```bash
-xattr -rd com.apple.quarantine ~/Downloads/TwitterXMediaBatchDownloader.app
+xattr -rd com.apple.quarantine ~/Downloads/TwitterXMediaBatchDownloader_Mac.app
 ```
 
 https://github.com/user-attachments/assets/56a89c03-29ab-45f1-979f-4317f45191f7
@@ -77,7 +77,7 @@ pip install pyinstaller
 ### 5. Build the Application
 
 ```bash
-pyinstaller --onefile --windowed TwitterXMediaBatchDownloader.py
+pyinstaller --onefile --windowed TwitterXMediaBatchDownloader_Linux.py
 ```
 
 The compiled binary will be located in the `dist/` folder.
@@ -121,7 +121,7 @@ pip install pyinstaller
 ### 6. Build the Application
 
 ```bash
-pyinstaller --onefile --windowed --icon=Archived/icon.icns TwitterXMediaBatchDownloader.py
+pyinstaller --onefile --windowed --icon=Archived/icon.icns TwitterXMediaBatchDownloader_Mac.py
 ```
 
 The `.app` bundle will be generated inside the `dist/` folder.
