@@ -642,7 +642,7 @@ class TwitterMediaDownloaderGUI(QWidget):
         auth_token_label = QLabel('Auth Token:')
         
         self.auth_token_input = QLineEdit()
-        self.auth_token_input.setPlaceholderText("Enter your Twitter/X auth_token")
+        self.auth_token_input.setPlaceholderText("Enter Auth Token")
         self.auth_token_input.setText(self.last_auth_token)
         self.auth_token_input.textChanged.connect(self.save_settings)
         self.auth_token_input.setClearButtonEnabled(True)
