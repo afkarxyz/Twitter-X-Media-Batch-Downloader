@@ -388,7 +388,7 @@ class TwitterMediaDownloaderGUI(QWidget):
 
     def check_updates(self):
         try:
-            response = requests.get("https://raw.githubusercontent.com/afkarxyz/Twitter-X-Media-Batch-Downloader/refs/heads/main/version.json")
+            response = requests.get("https://raw.githubusercontent.com/afkarxyz/Twitter-X-Media-Batch-Downloader/refs/heads/main/latest.json")
             if response.status_code == 200:
                 data = response.json()
                 new_version = data.get("version")
