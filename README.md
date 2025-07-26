@@ -41,11 +41,9 @@ https://github.com/user-attachments/assets/56a89c03-29ab-45f1-979f-4317f45191f7
   
 ## 🖼️ Screenshots
 
-![image](https://github.com/user-attachments/assets/7295213a-d9ba-4d75-8359-d43907b74aef)
+![image](https://github.com/user-attachments/assets/216cfa1d-90eb-4b48-bacf-42e943f5bbee)
 
-![image](https://github.com/user-attachments/assets/67bb51ef-0051-4470-b89b-66f653093543)
-
-![image](https://github.com/user-attachments/assets/9ccc945c-7318-4232-8ba3-9fbb636fa065)
+![image](https://github.com/user-attachments/assets/cfb57b60-661d-4d82-a1f3-1e859a33e8c4)
 
 ## 🐧 Build Yourself (Ubuntu/Linux)
 
