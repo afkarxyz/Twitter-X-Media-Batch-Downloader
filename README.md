@@ -82,8 +82,6 @@ pyinstaller --onefile --windowed TwitterXMediaBatchDownloader_Linux.py
 
 The compiled binary will be located in the `dist/` folder.
 
-#
-
 ## 🍎 Build Yourself (macOS)
 
 ### 1. Install Homebrew (if not already installed)
@@ -127,8 +125,6 @@ pyinstaller --onefile --windowed --icon=Archived/icon.icns TwitterXMediaBatchDow
 ```
 
 The `.app` bundle will be generated inside the `dist/` folder.
-
-#
 
 ## 🔑 How to Obtain Auth Token
 
