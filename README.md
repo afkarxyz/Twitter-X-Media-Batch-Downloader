@@ -8,10 +8,10 @@
 
 ## 📥 Download
 
-- **Windows**: [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.3/TwitterXMediaBatchDownloader_Windows.exe)
-- **Linux**: [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.3/TwitterXMediaBatchDownloader_Linux)
-- **Mac**: [TwitterXMediaBatchDownloader](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.3/TwitterXMediaBatchDownloader_Mac.app.zip)
-- If you're familiar with **userscripts**, please install it [here](https://greasyfork.org/en/scripts/523157)
+- [**Windows**](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.3/TwitterXMediaBatchDownloader_Windows.exe)
+- [**Linux**](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.3/TwitterXMediaBatchDownloader_Linux)
+- [**Mac**](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.3/TwitterXMediaBatchDownloader_Mac.app.zip)
+- If you're familiar with **userscripts**, please install it [**here**](https://greasyfork.org/en/scripts/523157)
 
 ### The downloaded application won't run❓
 
@@ -82,6 +82,8 @@ pyinstaller --onefile --windowed TwitterXMediaBatchDownloader_Linux.py
 
 The compiled binary will be located in the `dist/` folder.
 
+#
+
 ## 🍎 Build Yourself (macOS)
 
 ### 1. Install Homebrew (if not already installed)
@@ -125,6 +127,8 @@ pyinstaller --onefile --windowed --icon=Archived/icon.icns TwitterXMediaBatchDow
 ```
 
 The `.app` bundle will be generated inside the `dist/` folder.
+
+#
 
 ## 🔑 How to Obtain Auth Token
 
