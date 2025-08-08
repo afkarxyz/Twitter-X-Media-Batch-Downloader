@@ -34,14 +34,14 @@ https://github.com/user-attachments/assets/5f9a1cf6-a7a8-4943-ad71-d2831b406137
 ## ✨ Features
 
 - Powered by `gallery-dl`, similar to `yt-dlp`
-- **Bulk download**: Download multiple items at once
+- **Bulk download**: Download multiple accounts at once
 - Media-type selection: All (Images + GIFs + Videos) or specific (Images / GIFs / Videos)
 - **MP4 → GIF conversion:** Convert downloaded MP4 videos into GIF format
 - Downloads at original quality
   
 ## 🖼️ Screenshots
 
-![image](https://github.com/user-attachments/assets/216cfa1d-90eb-4b48-bacf-42e943f5bbee)
+![image](https://github.com/user-attachments/assets/bae739f3-c6be-415f-8e9b-18cceae659f6)
 
 ![image](https://github.com/user-attachments/assets/cfb57b60-661d-4d82-a1f3-1e859a33e8c4)
 
