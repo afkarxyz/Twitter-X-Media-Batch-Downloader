@@ -20,16 +20,14 @@
 ```bash
 chmod +x TwitterXMediaBatchDownloader_Linux
 ```
-
-https://github.com/user-attachments/assets/ab65e53f-2986-4386-9e09-e4c8e33ec90b
+https://github.com/user-attachments/assets/cc7400ec-76dd-4519-848d-71a834b7ec95
 
 🍎 **Solution (macOS)**: Open your terminal and run:
 
 ```bash
 xattr -rd com.apple.quarantine ~/Downloads/TwitterXMediaBatchDownloader_Mac.app
 ```
-
-https://github.com/user-attachments/assets/5f9a1cf6-a7a8-4943-ad71-d2831b406137
+https://github.com/user-attachments/assets/4b13c0b9-cf3a-48ce-ac35-a19007189ac8
 
 ## ✨ Features
 
