@@ -101,16 +101,21 @@ class DownloadWorker(QThread):
     async def download_file(self, session, url, filepath):
         try:
             if os.path.exists(filepath):
-                return True, True
+                if os.path.getsize(filepath) == 0:
+                    os.remove(filepath)
+                else:
+                    return True, True
             if self.is_stopped:
                 return False, False
-            
+
             os.makedirs(os.path.dirname(filepath), exist_ok=True)
-            
+
             async with session.get(url) as response:
                 if response.status == 200:
                     with open(filepath, 'wb') as f:
                         f.write(await response.read())
+                    if os.path.getsize(filepath) == 0:
+                        return False, False
                     return True, False
                 return False, False
         except Exception as e:
