@@ -8,9 +8,9 @@
 
 ## 📥 Download
 
-- [**Windows**](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.4/TwitterXMediaBatchDownloader_Windows.exe)
-- [**Linux**](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.4/TwitterXMediaBatchDownloader_Linux)
-- [**Mac**](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.4/TwitterXMediaBatchDownloader_Mac.app.zip)
+- [**Windows**](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.5/TwitterXMediaBatchDownloader_Windows.exe)
+- [**Linux**](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.5/TwitterXMediaBatchDownloader_Linux)
+- [**Mac**](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.5/TwitterXMediaBatchDownloader_Mac.app.zip)
 - If you're familiar with **userscripts**, please install it [**here**](https://greasyfork.org/en/scripts/523157)
 
 ### The downloaded application won't run❓
@@ -32,6 +32,7 @@ https://github.com/user-attachments/assets/4b13c0b9-cf3a-48ce-ac35-a19007189ac8
 ## ✨ Features
 
 - Powered by `gallery-dl`, similar to `yt-dlp`
+- **Bulk fetch**: Fetch multiple accounts at once
 - **Bulk download**: Download multiple accounts at once
 - Media-type selection: All (Images + GIFs + Videos) or specific (Images / GIFs / Videos)
 - **MP4 → GIF conversion:** Convert downloaded MP4 videos into GIF format
