@@ -262,14 +262,15 @@ class DownloadWorker(QThread):
                                     except Exception:
                                         pass
                                 
+
                                 if self.gif_resolution == 'high':
-                                    ffmpeg_args = [ffmpeg_exe, '-i', fp, '-vf', 'scale=800:-1:flags=lanczos', '-r', '15', gif_fp]
+                                    ffmpeg_args = [ffmpeg_exe, '-i', fp, '-lavfi', 'scale=800:-1:flags=lanczos,palettegen=stats_mode=full[palette];[0:v]scale=800:-1:flags=lanczos[scaled];[scaled][palette]paletteuse=dither=sierra2_4a', '-r', '15', '-y', gif_fp]
                                 elif self.gif_resolution == 'medium':
-                                    ffmpeg_args = [ffmpeg_exe, '-i', fp, '-vf', 'scale=600:-1:flags=lanczos', '-r', '10', gif_fp]
+                                    ffmpeg_args = [ffmpeg_exe, '-i', fp, '-lavfi', 'scale=600:-1:flags=lanczos,palettegen=stats_mode=full[palette];[0:v]scale=600:-1:flags=lanczos[scaled];[scaled][palette]paletteuse=dither=sierra2_4a', '-r', '10', '-y', gif_fp]
                                 elif self.gif_resolution == 'low':
-                                    ffmpeg_args = [ffmpeg_exe, '-i', fp, '-vf', 'scale=400:-1:flags=lanczos', '-r', '8', gif_fp]
+                                    ffmpeg_args = [ffmpeg_exe, '-i', fp, '-lavfi', 'scale=400:-1:flags=lanczos,palettegen=stats_mode=full[palette];[0:v]scale=400:-1:flags=lanczos[scaled];[scaled][palette]paletteuse=dither=sierra2_4a', '-r', '8', '-y', gif_fp]
                                 else:
-                                    ffmpeg_args = [ffmpeg_exe, '-i', fp, gif_fp]
+                                    ffmpeg_args = [ffmpeg_exe, '-i', fp, '-lavfi', 'palettegen=stats_mode=full[palette];[0:v][palette]paletteuse=dither=sierra2_4a', '-y', gif_fp]
                                 
                                 result = subprocess.run(ffmpeg_args, capture_output=True, creationflags=creationflags)
                                 if result.returncode == 0 and os.path.exists(gif_fp):
@@ -278,8 +279,6 @@ class DownloadWorker(QThread):
                                         converted_count += 1
                                     except Exception:
                                         pass
-                                else:
-                                    pass
                                     
                                 conv_progress = int((idx / total_gifs) * 100)
                                 self.conversion_progress.emit(f"Converting GIF {idx:,}/{total_gifs:,} ({self.gif_resolution})", conv_progress)
@@ -345,7 +344,7 @@ class UpdateDialog(QDialog):
 class TwitterMediaDownloaderGUI(QWidget):
     def __init__(self):
         super().__init__()
-        self.current_version = "3.4"
+        self.current_version = "3.5"
         self.accounts = []
         self.temp_dir = os.path.join(tempfile.gettempdir(), "twitterxmediabatchdownloader")
         os.makedirs(self.temp_dir, exist_ok=True)
@@ -366,13 +365,11 @@ class TwitterMediaDownloaderGUI(QWidget):
         self.check_for_updates = self.settings.value('check_for_updates', True, type=bool)
         self.current_theme_color = self.settings.value('theme_color', '#2196F3')
         
-        self.current_page = 0
-        self.media_info = None
-        
         self.is_auto_fetching = False
         self.current_fetch_username = None
         self.current_fetch_media_type = None
         self.current_fetch_metadata = None
+        self.is_multiple_user_mode = False
         
         self.profile_image_cache = {}
         self.pending_downloads = {}
@@ -455,7 +452,9 @@ class TwitterMediaDownloaderGUI(QWidget):
         self.next_batch_btn.hide()
         self.auto_batch_btn.hide()
         self.stop_fetch_btn.hide()
+        self.cancel_fetch_btn.hide()
         self.is_auto_fetching = False
+        self.is_multiple_user_mode = False
         self.enable_batch_buttons()
         self.hide_account_buttons()
 
@@ -481,7 +480,7 @@ class TwitterMediaDownloaderGUI(QWidget):
         twitter_label.setFixedWidth(100)
         
         self.twitter_url = QLineEdit()
-        self.twitter_url.setPlaceholderText("e.g. Takomayuyi or https://x.com/Takomayuyi")
+        self.twitter_url.setPlaceholderText("e.g. Takomayuyi or https://x.com/Takomayuyi or user1,user2,user3")
         self.twitter_url.setClearButtonEnabled(True)
         self.twitter_url.setText(self.last_url)
         self.twitter_url.textChanged.connect(self.save_url)        
@@ -497,6 +496,7 @@ class TwitterMediaDownloaderGUI(QWidget):
 
     def setup_tabs(self):
         self.tab_widget = QTabWidget()
+        self.tab_widget.currentChanged.connect(self.on_tab_changed)
         self.main_layout.addWidget(self.tab_widget)
 
         self.setup_dashboard_tab()
@@ -607,23 +607,27 @@ class TwitterMediaDownloaderGUI(QWidget):
         self.next_batch_btn = QPushButton('Next Batch')
         self.auto_batch_btn = QPushButton('Auto Batch')
         self.stop_fetch_btn = QPushButton('Stop Fetch')
+        self.cancel_fetch_btn = QPushButton('Cancel Fetch')
         
-        for btn in [self.next_batch_btn, self.auto_batch_btn, self.stop_fetch_btn]:
+        for btn in [self.next_batch_btn, self.auto_batch_btn, self.stop_fetch_btn, self.cancel_fetch_btn]:
             btn.setFixedWidth(120)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
         
         self.next_batch_btn.setToolTip("Fetch next batch manually")
         self.auto_batch_btn.setToolTip("Start automatic batch fetching")
         self.stop_fetch_btn.setToolTip("Stop automatic batch fetching")
+        self.cancel_fetch_btn.setToolTip("Cancel batch processing and return to dashboard")
         
         self.next_batch_btn.clicked.connect(self.fetch_next_batch)
         self.auto_batch_btn.clicked.connect(self.start_auto_batch)
         self.stop_fetch_btn.clicked.connect(self.stop_auto_fetch)
+        self.cancel_fetch_btn.clicked.connect(self.cancel_multiple_user_fetch)
         
         batch_control_layout.addStretch()
         batch_control_layout.addWidget(self.next_batch_btn)
         batch_control_layout.addWidget(self.auto_batch_btn)
         batch_control_layout.addWidget(self.stop_fetch_btn)
+        batch_control_layout.addWidget(self.cancel_fetch_btn)
         batch_control_layout.addStretch()
         process_layout.addLayout(batch_control_layout)
         
@@ -638,6 +642,7 @@ class TwitterMediaDownloaderGUI(QWidget):
         self.next_batch_btn.hide()
         self.auto_batch_btn.hide()
         self.stop_fetch_btn.hide()
+        self.cancel_fetch_btn.hide()
 
     def setup_settings_tab(self):
         settings_tab = QWidget()
@@ -820,7 +825,7 @@ class TwitterMediaDownloaderGUI(QWidget):
         theme_tab = QWidget()
         theme_layout = QVBoxLayout()
         theme_layout.setSpacing(8)
-        theme_layout.setContentsMargins(15, 15, 15, 15)
+        theme_layout.setContentsMargins(8, 15, 15, 15)
 
         grid_layout = QVBoxLayout()
         
@@ -1018,7 +1023,7 @@ class TwitterMediaDownloaderGUI(QWidget):
 
             about_layout.addWidget(section_widget)
 
-        footer_label = QLabel(f"v{self.current_version} | gallery-dl v1.30.2 | August 2025")
+        footer_label = QLabel(f"v{self.current_version} | gallery-dl v1.30.6 | September 2025")
         about_layout.addWidget(footer_label, alignment=Qt.AlignmentFlag.AlignCenter)
 
         about_tab.setLayout(about_layout)
@@ -1248,9 +1253,9 @@ class TwitterMediaDownloaderGUI(QWidget):
             pass
 
     def fetch_account(self):
-        url = self.twitter_url.text().strip()
+        url_input = self.twitter_url.text().strip()
         
-        if not url:
+        if not url_input:
             self.log_output.append('Warning: Please enter a Twitter username/URL.')
             return
 
@@ -1258,15 +1263,49 @@ class TwitterMediaDownloaderGUI(QWidget):
             self.log_output.append('Warning: Please enter your auth token.')
             return
 
-        username = url
-        if "x.com/" in url or "twitter.com/" in url:
-            parts = url.split('/')
-            for i, part in enumerate(parts):
-                if part in ['x.com', 'twitter.com'] and i + 1 < len(parts):
-                    username = parts[i + 1]
-                    username = username.split('/')[0]
-                    break
-        username = username.strip()
+        urls = [url.strip() for url in url_input.split(',') if url.strip()]
+        
+        if len(urls) > 1:
+
+            self.log_output.append(f'Processing {len(urls)} accounts: {", ".join(urls)}')
+            self.tab_widget.setCurrentWidget(self.process_tab)
+            
+            self.accounts_to_fetch = []
+            media_type = self.media_type_combo.currentData()
+            
+            for url in urls:
+                username = self.normalize_url_to_username(url)
+                if username:
+                    self.accounts_to_fetch.append((username, media_type))
+            
+            if self.accounts_to_fetch:
+                self.current_fetch_index = 0
+                self.is_multiple_user_mode = True
+                self.is_initial_fetch = True
+                
+                if self.batch_mode:
+                    self.is_auto_fetching = True
+                    self.auto_batch_btn.hide()
+                    self.next_batch_btn.hide()
+                    self.cancel_fetch_btn.hide()
+                    self.stop_fetch_btn.show()
+                    self.log_output.append('Multiple user batch mode: Auto-fetching all batches for all users...')
+                else:
+                    self.is_auto_fetching = True
+                    self.auto_batch_btn.hide()
+                    self.next_batch_btn.hide()
+                    self.cancel_fetch_btn.hide()
+                    self.stop_fetch_btn.show()
+                    self.log_output.append('Multiple user mode: Auto-fetching all users...')
+                
+                self.fetch_next_account_in_batch()
+            return
+        
+        url = urls[0]
+        username = self.normalize_url_to_username(url)
+        if not username:
+            self.log_output.append('Warning: Invalid username/URL format.')
+            return
 
         media_type = self.media_type_combo.currentData()
         
@@ -1327,6 +1366,7 @@ class TwitterMediaDownloaderGUI(QWidget):
             self.reset_ui()
             
             self.is_auto_fetching = False
+            self.is_multiple_user_mode = False
             self.current_fetch_username = username
             self.current_fetch_media_type = media_type
             
@@ -1334,6 +1374,8 @@ class TwitterMediaDownloaderGUI(QWidget):
             
             self.log_output.append(f'Fetching metadata for {username}...')
             self.tab_widget.setCurrentWidget(self.process_tab)
+            
+            self.cancel_fetch_btn.show()
             
             self.metadata_worker = MetadataFetchWorker(
                 username, 
@@ -1351,6 +1393,352 @@ class TwitterMediaDownloaderGUI(QWidget):
             self.log_output.append(f'Error: Failed to start metadata fetch: {str(e)}')
             self.update_account_list()
     
+    def normalize_url_to_username(self, url_or_username):
+        url_or_username = url_or_username.strip()
+        username = url_or_username
+        
+        if "x.com/" in url_or_username or "twitter.com/" in url_or_username:
+            parts = url_or_username.split('/')
+            for i, part in enumerate(parts):
+                if part in ['x.com', 'twitter.com'] and i + 1 < len(parts):
+                    username = parts[i + 1]
+                    username = username.split('/')[0]
+                    break
+        
+        username = username.strip()
+        return username if username else None
+    
+    def fetch_next_account_in_batch(self):
+
+        if hasattr(self, 'is_multiple_user_mode') and self.is_multiple_user_mode and not self.is_auto_fetching:
+            self.log_output.append('Auto-fetch stopped by user. Multiple user processing halted.')
+
+            if hasattr(self, 'accounts_to_fetch'):
+                delattr(self, 'accounts_to_fetch')
+            if hasattr(self, 'current_fetch_index'):
+                delattr(self, 'current_fetch_index')
+            if hasattr(self, 'is_multiple_user_mode'):
+                delattr(self, 'is_multiple_user_mode')
+            if hasattr(self, 'is_initial_fetch'):
+                delattr(self, 'is_initial_fetch')
+            self.twitter_url.clear()
+            self.tab_widget.setCurrentIndex(0)
+            return
+        
+        if not hasattr(self, 'accounts_to_fetch') or self.current_fetch_index >= len(self.accounts_to_fetch):
+            total_accounts = len(self.accounts_to_fetch) if hasattr(self, 'accounts_to_fetch') else 0
+            self.log_output.append(f'Batch processing completed! Processed {total_accounts} accounts.')
+            self.twitter_url.clear()
+            
+            self.auto_batch_btn.hide()
+            self.next_batch_btn.hide()
+            self.stop_fetch_btn.hide()
+            self.is_auto_fetching = False
+            
+            if hasattr(self, 'accounts_to_fetch'):
+                delattr(self, 'accounts_to_fetch')
+            if hasattr(self, 'current_fetch_index'):
+                delattr(self, 'current_fetch_index')
+            if hasattr(self, 'is_multiple_user_mode'):
+                delattr(self, 'is_multiple_user_mode')
+            if hasattr(self, 'is_initial_fetch'):
+                delattr(self, 'is_initial_fetch')
+            self.tab_widget.setCurrentIndex(0)
+            return
+        
+        username, media_type = self.accounts_to_fetch[self.current_fetch_index]
+        self.log_output.append(f'Processing account {self.current_fetch_index + 1}/{len(self.accounts_to_fetch)}: {username} ({media_type})')
+        
+        existing_account = None
+        for account in self.accounts:
+            if account.username == username and account.media_type == media_type:
+                existing_account = account
+                break
+        
+        if existing_account and hasattr(self, 'is_multiple_user_mode') and self.is_multiple_user_mode and not getattr(self, 'is_initial_fetch', True):
+            self.log_output.append(f'Resuming from existing progress for {username} ({media_type}) - {len(existing_account.media_list):,} items already fetched')
+            
+            cached_data = self.load_cached_data(username, media_type, is_batch=self.batch_mode)
+            if cached_data and cached_data.get('metadata', {}).get('has_more', False):
+                current_page = cached_data.get('metadata', {}).get('page', 0)
+                next_page = current_page + 1
+                self.log_output.append(f'Continuing from batch {next_page + 1} for {username}...')
+                self.fetch_next_batch_for_current_user(username, media_type, next_page, cached_data.get('metadata', {}))
+                return
+            else:
+                self.log_output.append(f'Account {username} already completed. Moving to next account.')
+                self.current_fetch_index += 1
+                self.fetch_next_account_in_batch()
+                return
+        elif existing_account:
+            self.accounts.remove(existing_account)
+            
+            for is_batch in [True, False]:
+                cache_file = self.get_cache_file_path(username, media_type, is_batch=is_batch)
+                try:
+                    if os.path.exists(cache_file):
+                        os.remove(cache_file)
+                        self.log_output.append(f'Removed existing cache: {os.path.basename(cache_file)}')
+                except Exception as e:
+                    self.log_output.append(f'Warning: Could not remove cache {os.path.basename(cache_file)}: {str(e)}')
+            
+            self.log_output.append(f'Preparing new batch for {username} ({media_type}) - cache cleared')
+            self.update_account_list()
+
+        if not existing_account:
+            cached_data = self.load_cached_data(username, media_type, is_batch=self.batch_mode)
+            if cached_data:
+                try:
+                    account_info = cached_data.get('account_info', {})
+                    timeline = cached_data.get('timeline', [])
+                    if account_info and timeline:
+                        followers = account_info.get('followers_count', 0)
+                        following = account_info.get('friends_count', 0)
+                        posts = account_info.get('statuses_count', 0)
+                        nick = account_info.get('nick', account_info.get('name', ''))
+                        
+                        account = Account(
+                            username=username,
+                            nick=nick,
+                            followers=followers,
+                            following=following,
+                            posts=posts,
+                            media_type=media_type,
+                            media_list=timeline,
+                            fetch_mode='batch' if cached_data.get('is_batch', False) else 'all',
+                            fetch_timestamp=cached_data.get('fetch_timestamp')
+                        )
+                        
+                        self.accounts.append(account)
+                        self.update_account_list()
+                        self.log_output.append(f'Loaded from cache: {username} - Followers: {followers:,} - Posts: {posts:,} • {media_type.title()}')
+                        
+                        self.current_fetch_index += 1
+                        self.fetch_next_account_in_batch()
+                        return
+                except:
+                    pass
+        
+        try:
+            if hasattr(self, 'is_multiple_user_mode') and self.is_multiple_user_mode:
+                if self.batch_mode and not self.is_auto_fetching:
+                    self.is_auto_fetching = True
+                    self.auto_batch_btn.hide()
+                    self.next_batch_btn.hide()
+                    self.stop_fetch_btn.show()
+            else:
+                self.is_auto_fetching = False
+            
+            self.current_fetch_username = username
+            self.current_fetch_media_type = media_type
+            
+            self.disable_batch_buttons()
+            
+            self.metadata_worker = MetadataFetchWorker(
+                username, 
+                media_type, 
+                batch_mode=self.batch_mode,
+                batch_size=self.batch_size if self.batch_mode else 0,
+                page=0
+            )
+            self.metadata_worker.auth_token = self.auth_token_input.text().strip()
+            self.metadata_worker.finished.connect(lambda data: self.on_batch_metadata_fetched(data, username, media_type))
+            self.metadata_worker.error.connect(self.on_batch_metadata_error)            
+            self.metadata_worker.start()
+            
+        except Exception as e:            
+            self.log_output.append(f'Error: Failed to start metadata fetch for {username}: {str(e)}')
+            self.current_fetch_index += 1
+            self.fetch_next_account_in_batch()
+    
+    def on_batch_metadata_fetched(self, data, username, media_type):
+        try:
+            if hasattr(self, 'is_multiple_user_mode') and self.is_multiple_user_mode and not self.is_auto_fetching:
+                self.log_output.append(f'Ignoring result for {username} - auto-fetch was stopped.')
+                return
+            
+            if 'error' in data:
+                self.log_output.append(f'Error fetching {username}: {data["error"]}')
+                if self.is_auto_fetching:
+                    self.current_fetch_index += 1
+                    self.fetch_next_account_in_batch()
+                return
+                
+            account_info = data.get('account_info', {})
+            timeline = data.get('timeline', [])
+            metadata = data.get('metadata', {})
+            
+            if not account_info:
+                self.log_output.append(f'Error: Invalid account data received for {username}')
+                self.current_fetch_index += 1
+                self.fetch_next_account_in_batch()
+                return
+            
+            if not timeline:
+                media_type_display = media_type if media_type != 'all' else 'media'
+                self.log_output.append(f'Warning: No {media_type_display} found for account {username}')
+                self.current_fetch_index += 1
+                self.fetch_next_account_in_batch()
+                return
+            
+            existing_account = None
+            for account in self.accounts:
+                if account.username == username and account.media_type == media_type:
+                    existing_account = account
+                    break
+            
+            if existing_account:
+                existing_account.media_list.extend(timeline)
+                new_items = len(timeline)
+                total_items = len(existing_account.media_list)
+                self.log_output.append(f'Added {new_items:,} items to {username}. Total: {total_items:,} media items')
+                
+                updated_data = {
+                    'account_info': account_info,
+                    'timeline': existing_account.media_list,
+                    'metadata': metadata,
+                    'is_batch': self.batch_mode,
+                    'fetch_timestamp': existing_account.fetch_timestamp
+                }
+                self.save_cached_data(username, media_type, updated_data, is_batch=self.batch_mode)
+            else:
+                followers = account_info.get('followers_count', 0)
+                following = account_info.get('friends_count', 0)
+                posts = account_info.get('statuses_count', 0)
+                nick = account_info.get('nick', account_info.get('name', ''))
+                profile_image_url = account_info.get('profile_image', '')
+                
+                account = Account(
+                    username=username,
+                    nick=nick,
+                    followers=followers,
+                    following=following,
+                    posts=posts,
+                    media_type=media_type,
+                    profile_image=profile_image_url,
+                    media_list=timeline,
+                    fetch_mode='batch' if self.batch_mode else 'all',
+                    fetch_timestamp=datetime.now().isoformat()
+                )
+                
+                self.accounts.append(account)
+                existing_account = account
+                self.log_output.append(f'Successfully fetched: {username} - Followers: {followers:,} - Posts: {posts:,} • {media_type.title()}')
+                
+                updated_data = {
+                    'account_info': account_info,
+                    'timeline': timeline,
+                    'metadata': metadata,
+                    'is_batch': self.batch_mode,
+                    'fetch_timestamp': account.fetch_timestamp
+                }
+                self.save_cached_data(username, media_type, updated_data, is_batch=self.batch_mode)
+            
+            self.update_account_list()
+            
+            if self.batch_mode and metadata.get('has_more', False):
+                current_page = metadata.get('page', 0)
+                next_page = current_page + 1
+                
+                if self.is_auto_fetching:
+                    self.log_output.append(f'Batch {current_page + 1} completed for {username}. Auto-fetching batch {next_page + 1}...')
+                    self.auto_batch_btn.hide()
+                    self.next_batch_btn.hide()
+                    self.stop_fetch_btn.show()
+                    self.fetch_next_batch_for_current_user(username, media_type, next_page, metadata)
+                else:
+                    self.log_output.append(f'Batch {current_page + 1} completed for {username}. Next batch ({next_page + 1}) available.')
+                    
+                    if hasattr(self, 'is_multiple_user_mode') and self.is_multiple_user_mode:
+                        if self.is_auto_fetching:
+                            self.auto_batch_btn.hide()
+                            self.next_batch_btn.hide()
+                            self.stop_fetch_btn.show()
+                            self.log_output.append(f'Auto-fetching next batch for {username}...')
+                            self.fetch_next_batch_for_current_user(username, media_type, next_page, metadata)
+                        else:
+                            self.log_output.append('Auto-fetch stopped by user. Batch processing halted.')
+                            return
+                    elif self.is_auto_fetching:
+                        self.auto_batch_btn.hide()
+                        self.next_batch_btn.hide()
+                        self.stop_fetch_btn.show()
+                        self.fetch_next_batch_for_current_user(username, media_type, next_page, metadata)
+                    else:
+                        return
+            else:
+                if self.batch_mode:
+                    total_items = len(existing_account.media_list)
+                    self.log_output.append(f'All batches completed for {username}! Total: {total_items:,} media items')
+                
+                if hasattr(self, 'is_multiple_user_mode') and self.is_multiple_user_mode:
+                    if self.is_auto_fetching:
+                        self.auto_batch_btn.hide()
+                        self.next_batch_btn.hide()
+                        self.stop_fetch_btn.show()
+                        self.current_fetch_index += 1
+                        self.fetch_next_account_in_batch()
+                    else:
+                        self.log_output.append('Auto-fetch stopped by user. Multiple user processing halted.')
+                        return
+                else:
+                    self.current_fetch_index += 1
+                    self.fetch_next_account_in_batch()
+            
+        except Exception as e:
+            self.log_output.append(f'Error processing {username}: {str(e)}')
+            self.current_fetch_index += 1
+            self.fetch_next_account_in_batch()
+    
+    def fetch_next_batch_for_current_user(self, username, media_type, page, metadata):
+        try:
+            if hasattr(self, 'is_multiple_user_mode') and self.is_multiple_user_mode and not self.is_auto_fetching:
+                self.log_output.append('Auto-fetch stopped by user. Batch processing halted.')
+                return
+            
+            if self.is_auto_fetching:
+                self.auto_batch_btn.hide()
+                self.next_batch_btn.hide()
+                self.stop_fetch_btn.show()
+            
+            self.metadata_worker = MetadataFetchWorker(
+                username, 
+                media_type, 
+                batch_mode=True,
+                batch_size=self.batch_size,
+                page=page
+            )
+            self.metadata_worker.auth_token = self.auth_token_input.text().strip()
+            self.metadata_worker.finished.connect(lambda data: self.on_batch_metadata_fetched(data, username, media_type))
+            self.metadata_worker.error.connect(self.on_batch_metadata_error)            
+            self.metadata_worker.start()
+            
+        except Exception as e:            
+            self.log_output.append(f'Error: Failed to start next batch fetch for {username}: {str(e)}')
+            if hasattr(self, 'is_multiple_user_mode') and self.is_multiple_user_mode and not self.is_auto_fetching:
+                return
+            self.current_fetch_index += 1
+            self.fetch_next_account_in_batch()
+    
+    def on_batch_metadata_error(self, error_message):
+        if hasattr(self, 'accounts_to_fetch') and hasattr(self, 'current_fetch_index'):
+            username, media_type = self.accounts_to_fetch[self.current_fetch_index]
+            self.log_output.append(f'Error fetching {username}: {error_message}')
+            
+            if hasattr(self, 'is_multiple_user_mode') and self.is_multiple_user_mode and not self.is_auto_fetching:
+                self.log_output.append('Auto-fetch stopped by user. Error handling halted.')
+                return
+            
+            if self.is_auto_fetching and hasattr(self, 'is_multiple_user_mode') and self.is_multiple_user_mode:
+                self.auto_batch_btn.hide()
+                self.next_batch_btn.hide()
+                self.stop_fetch_btn.show()
+            
+            self.current_fetch_index += 1
+            self.fetch_next_account_in_batch()
+        else:
+            self.on_metadata_error(error_message)
+        
     def on_metadata_fetched(self, data, username, media_type):
         try:
             if 'error' in data:
@@ -1429,20 +1817,21 @@ class TwitterMediaDownloaderGUI(QWidget):
                 if self.is_auto_fetching:
                     self.next_batch_btn.hide()
                     self.auto_batch_btn.hide()
+                    self.cancel_fetch_btn.hide()
                     self.stop_fetch_btn.show()
                     self.fetch_next_batch_internal()
                 else:
                     self.next_batch_btn.show()
                     self.auto_batch_btn.show()
+                    self.cancel_fetch_btn.show()
                     self.stop_fetch_btn.hide()
                     self.enable_batch_buttons()
-                    self.log_output.append('Use "Next Batch" for manual fetch or "Auto Batch" for automatic fetching.')
             else:
                 self.next_batch_btn.hide()
                 self.auto_batch_btn.hide()
                 self.stop_fetch_btn.hide()
+                self.cancel_fetch_btn.hide()
                 self.is_auto_fetching = False
-                self.enable_batch_buttons()
                 
                 if self.batch_mode:
                     total_items = len(existing_account.media_list)
@@ -1557,7 +1946,6 @@ class TwitterMediaDownloaderGUI(QWidget):
     def download_profile_image(self, url):
         if not url or url in self.profile_image_cache or url in self.pending_downloads:
             return
-        
         try:
             request = QNetworkRequest(QUrl(url))
             request.setHeader(QNetworkRequest.KnownHeaders.UserAgentHeader, 
@@ -1622,9 +2010,6 @@ class TwitterMediaDownloaderGUI(QWidget):
             return
         self.download_accounts([self.account_list.row(item) for item in selected_items])
 
-    def download_all(self):
-        self.download_accounts(range(len(self.accounts)))
-
     def update_selected(self):
         selected_items = self.account_list.selectedItems()
         if not selected_items:
@@ -1657,6 +2042,7 @@ class TwitterMediaDownloaderGUI(QWidget):
                 delattr(self, 'accounts_to_update')
             if hasattr(self, 'current_update_index'):
                 delattr(self, 'current_update_index')
+            self.tab_widget.setCurrentIndex(0)
             return
             
         account = self.accounts_to_update[self.current_update_index]
@@ -1718,7 +2104,6 @@ class TwitterMediaDownloaderGUI(QWidget):
             self.log_output.append("Error: Please enter your auth token")
             return
             
-        self.current_page = 0
         self.disable_batch_buttons()
         
         self.worker = MetadataFetchWorker(
@@ -1921,8 +2306,6 @@ class TwitterMediaDownloaderGUI(QWidget):
         self.reset_ui()
         self.tab_widget.setCurrentIndex(0)
 
-
-
     def update_timer(self):
         self.elapsed_time = self.elapsed_time.addSecs(1)
         self.time_label.setText(self.elapsed_time.toString("hh:mm:ss"))
@@ -1942,10 +2325,24 @@ class TwitterMediaDownloaderGUI(QWidget):
             self.log_output.append('No more batches available.')
             return
         
+        self.cancel_fetch_btn.hide()
         self.disable_batch_buttons()
         self.fetch_next_batch_internal()
     
     def start_auto_batch(self):
+        if hasattr(self, 'is_multiple_user_mode') and self.is_multiple_user_mode:
+            self.is_auto_fetching = True
+            self.is_initial_fetch = False
+            self.auto_batch_btn.hide()
+            self.next_batch_btn.hide()
+            self.cancel_fetch_btn.hide()
+            self.stop_fetch_btn.show()
+            
+            self.log_output.append('Resuming multiple user batch processing...')
+            
+            self.fetch_next_account_in_batch()
+            return
+        
         if not self.current_fetch_metadata or not self.current_fetch_metadata.get('has_more', False):
             self.log_output.append('No more batches available.')
             return
@@ -1953,21 +2350,67 @@ class TwitterMediaDownloaderGUI(QWidget):
         self.is_auto_fetching = True
         self.auto_batch_btn.hide()
         self.next_batch_btn.hide()
+        self.cancel_fetch_btn.hide()
         self.stop_fetch_btn.show()
         
-        self.log_output.append('Auto batch mode enabled. Fetching will continue automatically...')
+        self.log_output.append('Auto batch mode enabled.')
         self.fetch_next_batch_internal()
     
     def stop_auto_fetch(self):
         self.is_auto_fetching = False
         self.stop_fetch_btn.hide()
         
-        if self.current_fetch_metadata and self.current_fetch_metadata.get('has_more', False):
+        if hasattr(self, 'metadata_worker') and self.metadata_worker.isRunning():
+            self.metadata_worker.terminate()
+            self.metadata_worker.wait()
+        
+        if hasattr(self, 'is_multiple_user_mode') and self.is_multiple_user_mode:
+            self.auto_batch_btn.show()
+            self.auto_batch_btn.setEnabled(True)
+            self.next_batch_btn.hide()
+            self.cancel_fetch_btn.show()
+            self.log_output.append('Multiple user batch processing stopped.')
+        elif self.current_fetch_metadata and self.current_fetch_metadata.get('has_more', False):
             self.next_batch_btn.show()
             self.auto_batch_btn.show()
-            self.log_output.append('Auto batch mode stopped. Use "Next Batch" or "Auto Batch" to continue.')
-        else:
+            self.cancel_fetch_btn.show()
+            self.enable_batch_buttons()
             self.log_output.append('Auto batch mode stopped.')
+        else:
+            self.cancel_fetch_btn.show()
+            self.log_output.append('Auto batch mode stopped.')
+    
+    def cancel_multiple_user_fetch(self):
+        if hasattr(self, 'metadata_worker') and self.metadata_worker.isRunning():
+            self.metadata_worker.terminate()
+            self.metadata_worker.wait()
+        
+        if hasattr(self, 'is_multiple_user_mode') and self.is_multiple_user_mode:
+            self.log_output.append('Multiple user batch processing cancelled.')
+            
+            if hasattr(self, 'accounts_to_fetch'):
+                delattr(self, 'accounts_to_fetch')
+            if hasattr(self, 'current_fetch_index'):
+                delattr(self, 'current_fetch_index')
+            if hasattr(self, 'is_multiple_user_mode'):
+                delattr(self, 'is_multiple_user_mode')
+            if hasattr(self, 'is_initial_fetch'):
+                delattr(self, 'is_initial_fetch')
+        else:
+            self.log_output.append('Single user batch processing cancelled.')
+            
+            self.current_fetch_username = None
+            self.current_fetch_media_type = None
+            self.current_fetch_metadata = None
+        
+        self.auto_batch_btn.hide()
+        self.next_batch_btn.hide()
+        self.stop_fetch_btn.hide()
+        self.cancel_fetch_btn.hide()
+        self.is_auto_fetching = False
+        
+        self.twitter_url.clear()
+        self.tab_widget.setCurrentIndex(0)
     
     def disable_batch_buttons(self):
         self.next_batch_btn.setEnabled(False)
@@ -2000,11 +2443,9 @@ class TwitterMediaDownloaderGUI(QWidget):
         self.metadata_worker.error.connect(self.on_metadata_error)
         self.metadata_worker.start()
 
-    def show_account_buttons(self):
-        self.download_selected_btn.show()
-        self.update_selected_btn.show()
-        self.remove_btn.show()
-        self.clear_btn.show()
+    def on_tab_changed(self, index):
+        if index == 0:
+            self.update_button_states()
 
 def main():
     if getattr(sys, 'frozen', False):
