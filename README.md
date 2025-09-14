@@ -26,8 +26,7 @@
 
 ![image](https://github.com/user-attachments/assets/bae739f3-c6be-415f-8e9b-18cceae659f6)
 
-![image](https://github.com/user-attachments/assets/b48c02ae-39a0-444c-a888-a8e929de1310)
-
+![image](https://github.com/user-attachments/assets/a03ca334-779d-47d6-82dd-2edba28f5b76)
 
 ### The downloaded application won't run❓
 
