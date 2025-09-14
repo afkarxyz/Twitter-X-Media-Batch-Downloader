@@ -84,7 +84,7 @@ class DownloadWorker(QThread):
     download_progress = pyqtSignal(str, int)
     
     def __init__(self, accounts, outpath, auth_token, filename_format='username_date',
-                 download_batch_size=25, convert_gif=False, gif_resolution='original'):
+                 download_batch_size=25, convert_gif=False, gif_resolution='original', gif_conversion_mode='better'):
         super().__init__()
         self.accounts = accounts
         self.outpath = outpath
@@ -93,6 +93,7 @@ class DownloadWorker(QThread):
         self.download_batch_size = download_batch_size
         self.convert_gif = convert_gif
         self.gif_resolution = gif_resolution
+        self.gif_conversion_mode = gif_conversion_mode
         self.is_paused = False
         self.is_stopped = False
         self.filepath_map = []
@@ -256,19 +257,24 @@ class DownloadWorker(QThread):
                                         os.remove(fp)
                                         skipped_count += 1
                                         conv_progress = int((idx / total_gifs) * 100)
-                                        self.conversion_progress.emit(f"Converting GIF {idx:,}/{total_gifs:,} ({self.gif_resolution}) - Skipped (exists)", conv_progress)
+                                        quality_display = f"({self.gif_conversion_mode}) - ({self.gif_resolution})"
+                                        self.conversion_progress.emit(f"Converting GIF {idx:,}/{total_gifs:,} {quality_display} - Skipped (exists)", conv_progress)
                                         continue
                                     except Exception:
                                         pass
                                 
-                                if self.gif_resolution == 'high':
-                                    ffmpeg_args = [ffmpeg_exe, '-i', fp, '-lavfi', 'scale=800:-1:flags=lanczos,palettegen=stats_mode=full[palette];[0:v]scale=800:-1:flags=lanczos[scaled];[scaled][palette]paletteuse=dither=sierra2_4a', '-r', '15', '-y', gif_fp]
-                                elif self.gif_resolution == 'medium':
-                                    ffmpeg_args = [ffmpeg_exe, '-i', fp, '-lavfi', 'scale=600:-1:flags=lanczos,palettegen=stats_mode=full[palette];[0:v]scale=600:-1:flags=lanczos[scaled];[scaled][palette]paletteuse=dither=sierra2_4a', '-r', '10', '-y', gif_fp]
-                                elif self.gif_resolution == 'low':
-                                    ffmpeg_args = [ffmpeg_exe, '-i', fp, '-lavfi', 'scale=400:-1:flags=lanczos,palettegen=stats_mode=full[palette];[0:v]scale=400:-1:flags=lanczos[scaled];[scaled][palette]paletteuse=dither=sierra2_4a', '-r', '8', '-y', gif_fp]
+
+                                if self.gif_conversion_mode == 'fast':
+                                    ffmpeg_args = [ffmpeg_exe, '-i', fp, '-y', gif_fp]
                                 else:
-                                    ffmpeg_args = [ffmpeg_exe, '-i', fp, '-lavfi', 'palettegen=stats_mode=full[palette];[0:v][palette]paletteuse=dither=sierra2_4a', '-y', gif_fp]
+                                    if self.gif_resolution == 'high':
+                                        ffmpeg_args = [ffmpeg_exe, '-i', fp, '-lavfi', 'scale=800:-1:flags=lanczos,palettegen=stats_mode=full[palette];[0:v]scale=800:-1:flags=lanczos[scaled];[scaled][palette]paletteuse=dither=sierra2_4a', '-r', '15', '-y', gif_fp]
+                                    elif self.gif_resolution == 'medium':
+                                        ffmpeg_args = [ffmpeg_exe, '-i', fp, '-lavfi', 'scale=600:-1:flags=lanczos,palettegen=stats_mode=full[palette];[0:v]scale=600:-1:flags=lanczos[scaled];[scaled][palette]paletteuse=dither=sierra2_4a', '-r', '10', '-y', gif_fp]
+                                    elif self.gif_resolution == 'low':
+                                        ffmpeg_args = [ffmpeg_exe, '-i', fp, '-lavfi', 'scale=400:-1:flags=lanczos,palettegen=stats_mode=full[palette];[0:v]scale=400:-1:flags=lanczos[scaled];[scaled][palette]paletteuse=dither=sierra2_4a', '-r', '8', '-y', gif_fp]
+                                    else:
+                                        ffmpeg_args = [ffmpeg_exe, '-i', fp, '-lavfi', 'palettegen=stats_mode=full[palette];[0:v][palette]paletteuse=dither=sierra2_4a', '-y', gif_fp]
                                 
                                 result = subprocess.run(ffmpeg_args, capture_output=True, creationflags=creationflags)
                                 if result.returncode == 0 and os.path.exists(gif_fp):
@@ -281,7 +287,8 @@ class DownloadWorker(QThread):
                                     pass
                                     
                                 conv_progress = int((idx / total_gifs) * 100)
-                                self.conversion_progress.emit(f"Converting GIF {idx:,}/{total_gifs:,} ({self.gif_resolution})", conv_progress)
+                                quality_display = f"({self.gif_conversion_mode}) - ({self.gif_resolution})"
+                                self.conversion_progress.emit(f"Converting GIF {idx:,}/{total_gifs:,} {quality_display}", conv_progress)
                             if converted_count > 0 or skipped_count > 0:
                                 completion_msg = f"GIF conversion completed: {converted_count:,} converted"
                                 if skipped_count > 0:
@@ -344,7 +351,7 @@ class UpdateDialog(QDialog):
 class TwitterMediaDownloaderGUI(QWidget):
     def __init__(self):
         super().__init__()
-        self.current_version = "3.5"
+        self.current_version = "3.6"
         self.accounts = []
         self.temp_dir = os.path.join(tempfile.gettempdir(), "twitterxmediabatchdownloader")
         os.makedirs(self.temp_dir, exist_ok=True)
@@ -362,6 +369,8 @@ class TwitterMediaDownloaderGUI(QWidget):
         self.media_type = self.settings.value('media_type', 'all')
         self.convert_gif = self.settings.value('convert_gif', False, type=bool)
         self.gif_resolution = self.settings.value('gif_resolution', 'original')
+        self.gif_conversion_mode = self.settings.value('gif_conversion_mode', 'better')
+        self.gif_conversion_quality = self.settings.value('gif_conversion_quality', 'original')
         self.check_for_updates = self.settings.value('check_for_updates', True, type=bool)
         
         self.is_auto_fetching = False
@@ -710,6 +719,37 @@ class TwitterMediaDownloaderGUI(QWidget):
         first_row_layout = QHBoxLayout()
         first_row_layout.setSpacing(5)
 
+        timeline_label = QLabel("Timeline:")
+        self.timeline_type_combo = QComboBox()
+        self.timeline_type_combo.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.timeline_type_combo.setFixedWidth(75)
+        timeline_types = [
+            ('media', 'Media'), 
+            ('timeline', 'Post'), 
+            ('tweets', 'Tweets'), 
+            ('with_replies', 'Replies')
+        ]
+        for value, display in timeline_types:
+            self.timeline_type_combo.addItem(display, value)
+        self.timeline_type_combo.currentTextChanged.connect(self.save_settings)
+        first_row_layout.addWidget(timeline_label)
+        first_row_layout.addWidget(self.timeline_type_combo)
+        
+        first_row_layout.addSpacing(5)
+
+        media_label = QLabel("Media:")
+        self.media_type_combo = QComboBox()
+        self.media_type_combo.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.media_type_combo.setFixedWidth(85)
+        media_types = [('all', 'All'), ('image', 'Image'), ('video', 'Video'), ('gif', 'GIF')]
+        for value, display in media_types:
+            self.media_type_combo.addItem(display, value)
+        self.media_type_combo.currentTextChanged.connect(self.save_settings)
+        first_row_layout.addWidget(media_label)
+        first_row_layout.addWidget(self.media_type_combo)
+        
+        first_row_layout.addSpacing(5)
+
         self.batch_checkbox = QCheckBox("Fetch Batch")
         self.batch_checkbox.setCursor(Qt.CursorShape.PointingHandCursor)
         self.batch_checkbox.setToolTip("Enable for accounts with thousands of media")
@@ -731,52 +771,41 @@ class TwitterMediaDownloaderGUI(QWidget):
         self.size_label.hide()
         self.batch_size_combo.hide()
         
-        first_row_layout.addSpacing(5)
-
-        timeline_label = QLabel("Timeline Type:")
-        self.timeline_type_combo = QComboBox()
-        self.timeline_type_combo.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.timeline_type_combo.setFixedWidth(75)
-        timeline_types = [
-            ('media', 'Media'), 
-            ('timeline', 'Post'), 
-            ('tweets', 'Tweets'), 
-            ('with_replies', 'Replies')
-        ]
-        for value, display in timeline_types:
-            self.timeline_type_combo.addItem(display, value)
-        self.timeline_type_combo.currentTextChanged.connect(self.save_settings)
-        first_row_layout.addWidget(timeline_label)
-        first_row_layout.addWidget(self.timeline_type_combo)
-        
-        first_row_layout.addSpacing(5)
-
-        media_type_label = QLabel("Media Type:")
-        self.media_type_combo = QComboBox()
-        self.media_type_combo.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.media_type_combo.setFixedWidth(85)
-        media_types = [('all', 'All'), ('image', 'Image'), ('video', 'Video'), ('gif', 'GIF')]
-        for value, display in media_types:
-            self.media_type_combo.addItem(display, value)
-        self.media_type_combo.currentTextChanged.connect(self.save_settings)
-        first_row_layout.addWidget(media_type_label)
-        first_row_layout.addWidget(self.media_type_combo)
-        
         first_row_layout.addStretch()
         gallery_dl_layout.addLayout(first_row_layout)
         
         settings_layout.addWidget(gallery_dl_group)
 
-        download_group = QWidget()
-        download_layout = QVBoxLayout(download_group)
-        download_layout.setSpacing(5)
+        download_conversion_group = QWidget()
+        download_conversion_layout = QVBoxLayout(download_conversion_group)
+        download_conversion_layout.setSpacing(5)
         
+        labels_layout = QHBoxLayout()
+        
+        download_label_container = QWidget()
+        download_label_layout = QHBoxLayout(download_label_container)
+        download_label_layout.setContentsMargins(0, 0, 0, 0)
         download_label = QLabel('Download Settings')
         download_label.setStyleSheet("font-weight: bold;")
-        download_layout.addWidget(download_label)
+        download_label_layout.addWidget(download_label)
+        download_label_layout.addStretch()
+        download_label_container.setFixedWidth(180)
+        labels_layout.addWidget(download_label_container)
         
-        batch_layout = QHBoxLayout()
-        batch_label = QLabel('Concurrent Downloads:')
+        conversion_label = QLabel('Conversion Settings')
+        conversion_label.setStyleSheet("font-weight: bold;")
+        labels_layout.addWidget(conversion_label)
+        labels_layout.addStretch()
+        download_conversion_layout.addLayout(labels_layout)
+        
+        controls_layout = QHBoxLayout()
+        
+        download_controls_container = QWidget()
+        download_controls_layout = QHBoxLayout(download_controls_container)
+        download_controls_layout.setContentsMargins(0, 0, 0, 0)
+        
+        batch_label = QLabel('Concurrents:')
+        download_controls_layout.addWidget(batch_label)
         
         self.download_batch_combo = QComboBox()
         self.download_batch_combo.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -785,40 +814,62 @@ class TwitterMediaDownloaderGUI(QWidget):
             self.download_batch_combo.addItem(str(size))
         self.download_batch_combo.setCurrentText(str(self.download_batch_size))
         self.download_batch_combo.currentTextChanged.connect(self.save_settings)
+        download_controls_layout.addWidget(self.download_batch_combo)
+        download_controls_layout.addStretch()
+        
+        download_controls_container.setFixedWidth(180)
+        controls_layout.addWidget(download_controls_container)
         
         self.convert_gif_checkbox = QCheckBox("Convert GIF")
         self.convert_gif_checkbox.setCursor(Qt.CursorShape.PointingHandCursor)
         self.convert_gif_checkbox.setChecked(self.convert_gif)
-        self.convert_gif_checkbox.toggled.connect(self.handle_gif_checkbox)
+        self.convert_gif_checkbox.toggled.connect(self.handle_conversion_checkbox)
+        controls_layout.addWidget(self.convert_gif_checkbox)
         
-        batch_layout.addWidget(batch_label)
-        batch_layout.addWidget(self.download_batch_combo)
-        batch_layout.addWidget(self.convert_gif_checkbox)
+        controls_layout.addSpacing(5)
         
-        self.gif_resolution_label = QLabel("Converted GIF Quality:")
-        self.gif_resolution_combo = QComboBox()
-        self.gif_resolution_combo.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.gif_resolution_combo.setFixedWidth(85)
-        gif_resolutions = [
+        mode_label = QLabel("Mode:")
+        self.conversion_mode_combo = QComboBox()
+        self.conversion_mode_combo.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.conversion_mode_combo.setFixedWidth(80)
+        conversion_modes = [('better', 'Better'), ('fast', 'Fast')]
+        for value, display in conversion_modes:
+            self.conversion_mode_combo.addItem(display, value)
+        self.conversion_mode_combo.currentTextChanged.connect(self.save_settings)
+        controls_layout.addWidget(mode_label)
+        controls_layout.addWidget(self.conversion_mode_combo)
+        
+        controls_layout.addSpacing(5)
+        
+        quality_label = QLabel("Quality:")
+        self.conversion_quality_combo = QComboBox()
+        self.conversion_quality_combo.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.conversion_quality_combo.setFixedWidth(85)
+        gif_qualities = [
             ('original', 'Original'),
             ('high', 'High'),
             ('medium', 'Medium'),
             ('low', 'Low')
         ]
-        for value, display in gif_resolutions:
-            self.gif_resolution_combo.addItem(display, value)
-        self.gif_resolution_combo.currentTextChanged.connect(self.save_settings)
-        batch_layout.addWidget(self.gif_resolution_label)
-        batch_layout.addWidget(self.gif_resolution_combo)
+        for value, display in gif_qualities:
+            self.conversion_quality_combo.addItem(display, value)
+        self.conversion_quality_combo.currentTextChanged.connect(self.save_settings)
+        controls_layout.addWidget(quality_label)
+        controls_layout.addWidget(self.conversion_quality_combo)
+        
+        self.mode_label = mode_label
+        self.quality_label = quality_label
         
         if not self.convert_gif:
-            self.gif_resolution_label.hide()
-            self.gif_resolution_combo.hide()
+            mode_label.hide()
+            self.conversion_mode_combo.hide()
+            quality_label.hide()
+            self.conversion_quality_combo.hide()
         
-        batch_layout.addStretch()
-        download_layout.addLayout(batch_layout)
+        controls_layout.addStretch()
+        download_conversion_layout.addLayout(controls_layout)
         
-        settings_layout.addWidget(download_group)
+        settings_layout.addWidget(download_conversion_group)
         settings_layout.addStretch()
         
         settings_tab.setLayout(settings_layout)
@@ -880,9 +931,13 @@ class TwitterMediaDownloaderGUI(QWidget):
             self.settings.setValue('convert_gif', self.convert_gif_checkbox.isChecked())
             self.convert_gif = self.convert_gif_checkbox.isChecked()
         
-        if hasattr(self, 'gif_resolution_combo'):
-            self.settings.setValue('gif_resolution', self.gif_resolution_combo.currentData())
-            self.gif_resolution = self.gif_resolution_combo.currentData()
+        if hasattr(self, 'conversion_mode_combo'):
+            self.settings.setValue('gif_conversion_mode', self.conversion_mode_combo.currentData())
+            self.gif_conversion_mode = self.conversion_mode_combo.currentData()
+            
+        if hasattr(self, 'conversion_quality_combo'):
+            self.settings.setValue('gif_conversion_quality', self.conversion_quality_combo.currentData())
+            self.gif_conversion_quality = self.conversion_quality_combo.currentData()
         
         self.settings.sync()
 
@@ -932,17 +987,36 @@ class TwitterMediaDownloaderGUI(QWidget):
                 self.convert_gif_checkbox.blockSignals(False)
                 
                 if convert_gif:
-                    self.gif_resolution_label.show()
-                    self.gif_resolution_combo.show()
+                    if hasattr(self, 'mode_label'):
+                        self.mode_label.show()
+                    if hasattr(self, 'conversion_mode_combo'):
+                        self.conversion_mode_combo.show()
+                    if hasattr(self, 'quality_label'):
+                        self.quality_label.show()
+                    if hasattr(self, 'conversion_quality_combo'):
+                        self.conversion_quality_combo.show()
                 else:
-                    self.gif_resolution_label.hide()
-                    self.gif_resolution_combo.hide()
+                    if hasattr(self, 'mode_label'):
+                        self.mode_label.hide()
+                    if hasattr(self, 'conversion_mode_combo'):
+                        self.conversion_mode_combo.hide()
+                    if hasattr(self, 'quality_label'):
+                        self.quality_label.hide()
+                    if hasattr(self, 'conversion_quality_combo'):
+                        self.conversion_quality_combo.hide()
             
-            gif_resolution = self.settings.value('gif_resolution', 'original')
-            if hasattr(self, 'gif_resolution_combo'):
-                for i in range(self.gif_resolution_combo.count()):
-                    if self.gif_resolution_combo.itemData(i) == gif_resolution:
-                        self.gif_resolution_combo.setCurrentIndex(i)
+            gif_conversion_mode = self.settings.value('gif_conversion_mode', 'better')
+            if hasattr(self, 'conversion_mode_combo'):
+                for i in range(self.conversion_mode_combo.count()):
+                    if self.conversion_mode_combo.itemData(i) == gif_conversion_mode:
+                        self.conversion_mode_combo.setCurrentIndex(i)
+                        break
+            
+            gif_conversion_quality = self.settings.value('gif_conversion_quality', 'original')
+            if hasattr(self, 'conversion_quality_combo'):
+                for i in range(self.conversion_quality_combo.count()):
+                    if self.conversion_quality_combo.itemData(i) == gif_conversion_quality:
+                        self.conversion_quality_combo.setCurrentIndex(i)
                         break
             
             last_username_url = self.settings.value('twitter_url', '')
@@ -969,16 +1043,28 @@ class TwitterMediaDownloaderGUI(QWidget):
             self.fetch_btn.setText('Fetch')
         self.update_button_states()
 
-    def handle_gif_checkbox(self, checked):
+    def handle_conversion_checkbox(self, checked):
         self.convert_gif = checked
         self.save_settings()
         
         if checked:
-            self.gif_resolution_label.show()
-            self.gif_resolution_combo.show()
+            if hasattr(self, 'mode_label'):
+                self.mode_label.show()
+            if hasattr(self, 'conversion_mode_combo'):
+                self.conversion_mode_combo.show()
+            if hasattr(self, 'quality_label'):
+                self.quality_label.show()
+            if hasattr(self, 'conversion_quality_combo'):
+                self.conversion_quality_combo.show()
         else:
-            self.gif_resolution_label.hide()
-            self.gif_resolution_combo.hide()
+            if hasattr(self, 'mode_label'):
+                self.mode_label.hide()
+            if hasattr(self, 'conversion_mode_combo'):
+                self.conversion_mode_combo.hide()
+            if hasattr(self, 'quality_label'):
+                self.quality_label.hide()
+            if hasattr(self, 'conversion_quality_combo'):
+                self.conversion_quality_combo.hide()
 
     def browse_output(self):
         directory = QFileDialog.getExistingDirectory(self, "Select Output Directory")
@@ -1988,7 +2074,8 @@ class TwitterMediaDownloaderGUI(QWidget):
             self.filename_format,
             self.download_batch_size,
             self.convert_gif,
-            self.gif_resolution
+            self.gif_conversion_quality,
+            self.gif_conversion_mode
         )
         self.worker.finished.connect(self.on_download_finished)
         self.worker.progress.connect(self.update_progress)
