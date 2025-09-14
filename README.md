@@ -8,9 +8,9 @@
 
 ## 📥 Download
 
-- [**Windows**](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.5/TwitterXMediaBatchDownloader_Windows.exe)
-- [**Linux**](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.5/TwitterXMediaBatchDownloader_Linux)
-- [**Mac**](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.5/TwitterXMediaBatchDownloader_Mac.app.zip)
+- [**Windows**](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.6/TwitterXMediaBatchDownloader_Windows.exe)
+- [**Linux**](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.6/TwitterXMediaBatchDownloader_Linux)
+- [**Mac**](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.6/TwitterXMediaBatchDownloader_Mac.app.zip)
 - If you're familiar with **userscripts**, please install it [**here**](https://greasyfork.org/en/scripts/523157)
 
 ## ✨ Features
