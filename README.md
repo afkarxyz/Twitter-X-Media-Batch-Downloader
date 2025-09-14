@@ -13,6 +13,22 @@
 - [**Mac**](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.5/TwitterXMediaBatchDownloader_Mac.app.zip)
 - If you're familiar with **userscripts**, please install it [**here**](https://greasyfork.org/en/scripts/523157)
 
+## ✨ Features
+
+- Powered by `gallery-dl`, similar to `yt-dlp`
+- **Bulk fetch**: Fetch multiple accounts at once
+- **Bulk download**: Download multiple accounts at once
+- Media-type selection: All (Images + GIFs + Videos) or specific (Images / GIFs / Videos)
+- **MP4 → GIF conversion:** Convert downloaded MP4 videos into GIF format
+- Downloads at original quality
+  
+## 🖼️ Screenshots
+
+![image](https://github.com/user-attachments/assets/bae739f3-c6be-415f-8e9b-18cceae659f6)
+
+![image](https://github.com/user-attachments/assets/b48c02ae-39a0-444c-a888-a8e929de1310)
+
+
 ### The downloaded application won't run❓
 
 🐧 **Solution (Ubuntu/Linux)**: Open your terminal and run:
@@ -28,102 +44,6 @@ https://github.com/user-attachments/assets/cc7400ec-76dd-4519-848d-71a834b7ec95
 xattr -rd com.apple.quarantine ~/Downloads/TwitterXMediaBatchDownloader_Mac.app
 ```
 https://github.com/user-attachments/assets/4b13c0b9-cf3a-48ce-ac35-a19007189ac8
-
-## ✨ Features
-
-- Powered by `gallery-dl`, similar to `yt-dlp`
-- **Bulk fetch**: Fetch multiple accounts at once
-- **Bulk download**: Download multiple accounts at once
-- Media-type selection: All (Images + GIFs + Videos) or specific (Images / GIFs / Videos)
-- **MP4 → GIF conversion:** Convert downloaded MP4 videos into GIF format
-- Downloads at original quality
-  
-## 🖼️ Screenshots
-
-![image](https://github.com/user-attachments/assets/bae739f3-c6be-415f-8e9b-18cceae659f6)
-
-![image](https://github.com/user-attachments/assets/cfb57b60-661d-4d82-a1f3-1e859a33e8c4)
-
-## 🐧 Build Yourself (Ubuntu/Linux)
-
-### 1. Install Required Packages
-
-```bash
-sudo apt install git python3-pip python3-venv
-```
-
-### 2. Clone the Repository
-
-```bash
-git clone https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader.git
-cd Twitter-X-Media-Batch-Downloader
-```
-
-### 3. Create and Activate a Virtual Environment
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-### 4. Install Python Dependencies
-
-```bash
-pip install -r requirements.txt
-pip install pyinstaller
-```
-
-### 5. Build the Application
-
-```bash
-pyinstaller --onefile --windowed TwitterXMediaBatchDownloader_Linux.py
-```
-
-The compiled binary will be located in the `dist/` folder.
-
-## 🍎 Build Yourself (macOS)
-
-### 1. Install Homebrew (if not already installed)
-
-```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
-
-### 2. Install Git and Python
-
-```bash
-brew install git python
-```
-
-### 3. Go to Downloads and Clone the Repository
-
-```bash
-cd ~/Downloads
-git clone https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader.git
-cd Twitter-X-Media-Batch-Downloader
-```
-
-### 4. Create and Activate a Virtual Environment
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-### 5. Install Python Dependencies
-
-```bash
-pip install -r requirements.txt
-pip install pyinstaller
-```
-
-### 6. Build the Application
-
-```bash
-pyinstaller --onefile --windowed --icon=Archived/icon.icns TwitterXMediaBatchDownloader_Mac.py
-```
-
-The `.app` bundle will be generated inside the `dist/` folder.
 
 ## 🔑 How to Obtain Auth Token
 
