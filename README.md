@@ -35,14 +35,14 @@
 ```bash
 chmod +x TwitterXMediaBatchDownloader_Linux
 ```
-https://github.com/user-attachments/assets/cc7400ec-76dd-4519-848d-71a834b7ec95
+![Linux](https://github.com/user-attachments/assets/fd04a4ee-3a6d-4e41-893d-1e3ed1a76186)
 
 🍎 **Solution (macOS)**: Open your terminal and run:
 
 ```bash
 xattr -rd com.apple.quarantine ~/Downloads/TwitterXMediaBatchDownloader_Mac.app
 ```
-https://github.com/user-attachments/assets/4b13c0b9-cf3a-48ce-ac35-a19007189ac8
+![Mac](https://github.com/user-attachments/assets/24731c2f-019f-496d-8f98-870997f15758)
 
 ## 🔑 How to Obtain Auth Token
 
