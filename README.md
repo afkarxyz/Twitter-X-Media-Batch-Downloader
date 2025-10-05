@@ -25,7 +25,7 @@
   
 ## 🖼️ Screenshots
 
-![image](https://github.com/user-attachments/assets/bae739f3-c6be-415f-8e9b-18cceae659f6)
+![image](https://github.com/user-attachments/assets/ef8f4820-9ceb-4fcd-98d6-70c3aa679666)
 
 ![image](https://github.com/user-attachments/assets/a03ca334-779d-47d6-82dd-2edba28f5b76)
 
