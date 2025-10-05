@@ -14,11 +14,12 @@ from dataclasses import dataclass
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit,
     QLabel, QFileDialog, QListWidget, QTextEdit, QTabWidget, QAbstractItemView, QProgressBar, QCheckBox, QDialog,
-    QDialogButtonBox, QComboBox, QListWidgetItem
+    QDialogButtonBox, QComboBox, QListWidgetItem, QMessageBox
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QUrl, QTimer, QTime, QSettings, QSize
 from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkRequest
 from PyQt6.QtGui import QIcon, QTextCursor, QDesktopServices, QPixmap, QPainter, QPainterPath
+from PyQt6.QtSvg import QSvgRenderer
 from getMetadata import get_metadata
 
 @dataclass
@@ -351,9 +352,9 @@ class UpdateDialog(QDialog):
 class TwitterMediaDownloaderGUI(QWidget):
     def __init__(self):
         super().__init__()
-        self.current_version = "3.6"
+        self.current_version = "3.7"
         self.accounts = []
-        self.temp_dir = os.path.join(tempfile.gettempdir(), "twitterxmediabatchdownloader")
+        self.temp_dir = os.path.join(Path.home(), ".twitterxmediabatchdownloader")
         os.makedirs(self.temp_dir, exist_ok=True)
         self.reset_state()
         
@@ -471,7 +472,7 @@ class TwitterMediaDownloaderGUI(QWidget):
         self.setMinimumWidth(670)
         self.setMinimumHeight(350)  
         
-        icon_path = os.path.join(os.path.dirname(__file__), "icon.svg")
+        icon_path = os.path.join(os.path.dirname(__file__), "icons", "icon.svg")
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
             
@@ -557,24 +558,51 @@ class TwitterMediaDownloaderGUI(QWidget):
             
     def setup_account_buttons(self):
         self.btn_layout = QHBoxLayout()
-        self.download_selected_btn = QPushButton('Download Selected')
-        self.update_selected_btn = QPushButton('Update Selected')
-        self.remove_btn = QPushButton('Remove Selected')
-        self.clear_btn = QPushButton('Clear')
+        self.import_btn = QPushButton(' Import')
+        self.export_btn = QPushButton(' Export')
+        self.download_selected_btn = QPushButton(' Download')
+        self.update_selected_btn = QPushButton(' Update')
+        self.delete_btn = QPushButton(' Delete')
         
-        for btn in [self.download_selected_btn, self.update_selected_btn, self.remove_btn, self.clear_btn]:
-            btn.setMinimumWidth(120)
+        icon_dir = os.path.join(os.path.dirname(__file__), 'icons')
+        icon_color = self.palette().color(self.palette().ColorRole.ButtonText).name()
+        
+        self.import_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'database-import.svg'), icon_color))
+        self.export_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'database-export.svg'), icon_color))
+        self.download_selected_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'download.svg'), icon_color))
+        self.update_selected_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'reload.svg'), icon_color))
+        self.delete_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'trash.svg'), icon_color))
+        
+        for btn in [self.import_btn, self.export_btn, self.download_selected_btn, 
+                    self.update_selected_btn, self.delete_btn]:
+            btn.setMinimumWidth(100)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.setIconSize(QSize(18, 18))
             
+        self.import_btn.clicked.connect(self.import_accounts)
+        self.export_btn.clicked.connect(self.export_accounts)
         self.download_selected_btn.clicked.connect(self.download_selected)
         self.update_selected_btn.clicked.connect(self.update_selected)
-        self.remove_btn.clicked.connect(self.remove_selected_accounts)
-        self.clear_btn.clicked.connect(self.clear_accounts)
+        self.delete_btn.clicked.connect(self.delete_accounts)
         
         self.btn_layout.addStretch()
-        for btn in [self.download_selected_btn, self.update_selected_btn, self.remove_btn, self.clear_btn]:
+        for btn in [self.import_btn, self.export_btn, self.download_selected_btn, 
+                    self.update_selected_btn, self.delete_btn]:
             self.btn_layout.addWidget(btn, 1)
         self.btn_layout.addStretch()
+
+    def update_button_icons(self):
+        if not hasattr(self, 'import_btn'):
+            return
+        
+        icon_dir = os.path.join(os.path.dirname(__file__), 'icons')
+        icon_color = self.palette().color(self.palette().ColorRole.ButtonText).name()
+        
+        self.import_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'database-import.svg'), icon_color))
+        self.export_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'database-export.svg'), icon_color))
+        self.download_selected_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'download.svg'), icon_color))
+        self.update_selected_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'reload.svg'), icon_color))
+        self.delete_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'trash.svg'), icon_color))
 
     def setup_process_tab(self):
         self.process_tab = QWidget()
@@ -906,7 +934,7 @@ class TwitterMediaDownloaderGUI(QWidget):
 
             about_layout.addWidget(section_widget)
 
-        footer_label = QLabel(f"v{self.current_version} | gallery-dl v1.30.6 | September 2025")
+        footer_label = QLabel(f"v{self.current_version} | gallery-dl v1.30.9 | October 2025")
         about_layout.addWidget(footer_label, alignment=Qt.AlignmentFlag.AlignCenter)
 
         about_tab.setLayout(about_layout)
@@ -1822,6 +1850,23 @@ class TwitterMediaDownloaderGUI(QWidget):
         
         self.update_button_states()
 
+    def create_colored_icon(self, svg_path, color):
+        with open(svg_path, 'r', encoding='utf-8') as f:
+            svg_content = f.read()
+        
+        svg_content = svg_content.replace('stroke="currentColor"', f'stroke="{color}"')
+        svg_content = svg_content.replace('fill="currentColor"', f'fill="{color}"')
+        
+        pixmap = QPixmap(24, 24)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        
+        renderer = QSvgRenderer(svg_content.encode('utf-8'))
+        painter = QPainter(pixmap)
+        renderer.render(painter)
+        painter.end()
+        
+        return QIcon(pixmap)
+
     def create_placeholder_icon(self, size=48):
         pixmap = QPixmap(size, size)
         pixmap.fill(Qt.GlobalColor.transparent)
@@ -1907,34 +1952,46 @@ class TwitterMediaDownloaderGUI(QWidget):
         
         has_selected = len(self.account_list.selectedItems()) > 0
         
-        self.download_selected_btn.setEnabled(has_accounts and has_selected)
-        self.update_selected_btn.setEnabled(has_accounts and has_selected)
-        self.remove_btn.setEnabled(has_accounts and has_selected)
-        self.clear_btn.setEnabled(has_accounts)
+        self.import_btn.setEnabled(True)
+        self.export_btn.setEnabled(has_accounts)
+        self.download_selected_btn.setEnabled(has_accounts)
+        self.update_selected_btn.setEnabled(has_accounts)
+        self.delete_btn.setEnabled(has_accounts)
         
-        if has_accounts:
-            self.download_selected_btn.show()
-            self.update_selected_btn.show()
-            self.remove_btn.show()
-            self.clear_btn.show()
-        else:            
-            self.hide_account_buttons()
+        self.import_btn.show()
+        self.export_btn.show()
+        self.download_selected_btn.show()
+        self.update_selected_btn.show()
+        self.delete_btn.show()
     
     def hide_account_buttons(self):
-        buttons = [
-            self.download_selected_btn,
-            self.update_selected_btn,
-            self.remove_btn,
-            self.clear_btn
-        ]
-        for btn in buttons:
-            btn.hide()
+        self.import_btn.setEnabled(True)
+        self.export_btn.setEnabled(False)
+        self.download_selected_btn.setEnabled(False)
+        self.update_selected_btn.setEnabled(False)
+        self.delete_btn.setEnabled(False)
+        
+        self.import_btn.show()
+        self.export_btn.show()
+        self.download_selected_btn.show()
+        self.update_selected_btn.show()
+        self.delete_btn.show()
 
     def download_selected(self):
         selected_items = self.account_list.selectedItems()
+        
         if not selected_items:
-            self.log_output.append('Warning: Please select accounts to download.')
+            reply = QMessageBox.question(
+                self,
+                'Confirm Download All',
+                f'No accounts selected. Download all {len(self.accounts)} account(s)?',
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+            if reply == QMessageBox.StandardButton.Yes:
+                self.download_accounts(list(range(len(self.accounts))))
             return
+        
         self.download_accounts([self.account_list.row(item) for item in selected_items])
 
     def download_all(self):
@@ -1942,15 +1999,24 @@ class TwitterMediaDownloaderGUI(QWidget):
 
     def update_selected(self):
         selected_items = self.account_list.selectedItems()
-        if not selected_items:
-            self.log_output.append('Warning: Please select accounts to update.')
-            return
         
-        selected_accounts = []
-        for item in selected_items:
-            index = self.account_list.row(item)
-            if index < len(self.accounts):
-                selected_accounts.append(self.accounts[index])
+        if not selected_items:
+            reply = QMessageBox.question(
+                self,
+                'Confirm Update All',
+                f'No accounts selected. Update all {len(self.accounts)} account(s)?',
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+            if reply == QMessageBox.StandardButton.No:
+                return
+            selected_accounts = self.accounts.copy()
+        else:
+            selected_accounts = []
+            for item in selected_items:
+                index = self.account_list.row(item)
+                if index < len(self.accounts):
+                    selected_accounts.append(self.accounts[index])
         
         if not selected_accounts:
             return
@@ -2197,45 +2263,221 @@ class TwitterMediaDownloaderGUI(QWidget):
                 self.worker.pause()
                 self.pause_resume_btn.setText('Resume')
 
-    def remove_selected_accounts(self):
-        selected_indices = sorted([self.account_list.row(item) for item in self.account_list.selectedItems()], reverse=True)
+    def delete_accounts(self):
+        selected_items = self.account_list.selectedItems()
         
-        if not selected_indices:
+        if not selected_items:
+            reply = QMessageBox.question(
+                self,
+                'Confirm Delete All',
+                f'No accounts selected. Delete all {len(self.accounts)} account(s) and their cache files?',
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+            if reply == QMessageBox.StandardButton.No:
+                return
+            
+            for account in self.accounts:
+                username = account.username
+                if username:
+                    for is_batch in [True, False]:
+                        cache_file = self.get_cache_file_path(username, account.media_type, is_batch=is_batch)
+                        try:
+                            if os.path.exists(cache_file):
+                                os.remove(cache_file)
+                                self.log_output.append(f'Removed temp file: {os.path.basename(cache_file)}')
+                        except Exception as e:
+                            self.log_output.append(f'Warning: Could not remove temp file {os.path.basename(cache_file)}: {str(e)}')
+            
+            self.reset_state()
+            self.reset_ui()
+            self.tab_widget.setCurrentIndex(0)
+        else:
+            reply = QMessageBox.question(
+                self,
+                'Confirm Delete',
+                f'Delete {len(selected_items)} selected account(s) and their cache files?',
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+            if reply == QMessageBox.StandardButton.No:
+                return
+            
+            selected_indices = sorted([self.account_list.row(item) for item in selected_items], reverse=True)
+            
+            for index in selected_indices:
+                account = self.accounts[index]
+                username = account.username
+                if username:
+                    for is_batch in [True, False]:
+                        cache_file = self.get_cache_file_path(username, account.media_type, is_batch=is_batch)
+                        try:
+                            if os.path.exists(cache_file):
+                                os.remove(cache_file)
+                                self.log_output.append(f'Removed temp file: {os.path.basename(cache_file)}')
+                        except Exception as e:
+                            self.log_output.append(f'Warning: Could not remove temp file {os.path.basename(cache_file)}: {str(e)}')
+                
+                self.accounts.pop(index)
+            
+            self.update_account_list()
+            self.update_button_states()
+
+    def export_accounts(self):
+        self.tab_widget.setCurrentIndex(1)
+        
+        selected_items = self.account_list.selectedItems()
+        
+        if not selected_items:
+            reply = QMessageBox.question(
+                self,
+                'Confirm Export All',
+                f'No accounts selected. Export all {len(self.accounts)} account(s)?',
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+            if reply == QMessageBox.StandardButton.No:
+                self.log_output.append('Export cancelled')
+                return
+            selected_accounts = self.accounts.copy()
+        else:
+            selected_accounts = []
+            for item in selected_items:
+                row = self.account_list.row(item)
+                if 0 <= row < len(self.accounts):
+                    selected_accounts.append(self.accounts[row])
+        
+        if not selected_accounts:
+            self.log_output.append('No valid accounts found for export')
             return
         
-        for index in selected_indices:
-            account = self.accounts[index]
-            username = account.username
-            if username:
-                for is_batch in [True, False]:
-                    cache_file = self.get_cache_file_path(username, account.media_type, is_batch=is_batch)
-                    try:
-                        if os.path.exists(cache_file):
-                            os.remove(cache_file)
-                            self.log_output.append(f'Removed temp file: {os.path.basename(cache_file)}')
-                    except Exception as e:
-                        self.log_output.append(f'Warning: Could not remove temp file {os.path.basename(cache_file)}: {str(e)}')
-            
-            self.accounts.pop(index)
+        export_dir = QFileDialog.getExistingDirectory(self, "Select Export Directory", self.last_output_path)
+        if not export_dir:
+            self.log_output.append('Export cancelled')
+            return
+        
+        self.log_output.append(f'Starting export of {len(selected_accounts)} account(s)...')
+        exported_count = 0
+        
+        for account in selected_accounts:
+            try:
+                now = datetime.now()
+                date_str = now.strftime("%Y%m%d_%H%M%S")
+                
+                if account.fetch_mode == 'batch':
+                    filename = f"{account.username}_batch_{date_str}.json"
+                else:
+                    filename = f"{account.username}_{date_str}.json"
+                
+                filepath = os.path.join(export_dir, filename)
+                
+                export_data = {
+                    'username': account.username,
+                    'nick': account.nick,
+                    'followers': account.followers,
+                    'following': account.following,
+                    'posts': account.posts,
+                    'media_type': account.media_type,
+                    'profile_image': account.profile_image,
+                    'media_list': account.media_list,
+                    'fetch_mode': account.fetch_mode,
+                    'fetch_timestamp': account.fetch_timestamp,
+                    'export_timestamp': now.isoformat()
+                }
+                
+                with open(filepath, 'w', encoding='utf-8') as f:
+                    json.dump(export_data, f, indent=2, ensure_ascii=False)
+                
+                exported_count += 1
+                self.log_output.append(f'Exported: {filename}')
+                
+            except Exception as e:
+                self.log_output.append(f'Error exporting {account.username}: {str(e)}')
+        
+        self.log_output.append(f'Export completed: {exported_count}/{len(selected_accounts)} account(s) exported')
+        self.log_output.append(f'Export location: {export_dir}')
+
+    def import_accounts(self):
+        self.tab_widget.setCurrentIndex(1)
+        
+        file_paths, _ = QFileDialog.getOpenFileNames(
+            self, 
+            "Select JSON Files to Import", 
+            self.last_output_path,
+            "JSON Files (*.json)"
+        )
+        
+        if not file_paths:
+            self.log_output.append('Import cancelled')
+            return
+        
+        self.log_output.append(f'Starting import of {len(file_paths)} file(s)...')
+        imported_count = 0
+        skipped_count = 0
+        error_count = 0
+        
+        for filepath in file_paths:
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                username = data.get('username')
+                if not username:
+                    self.log_output.append(f'Skipped {os.path.basename(filepath)}: No username found')
+                    skipped_count += 1
+                    continue
+                
+                existing_account = next((acc for acc in self.accounts if acc.username == username), None)
+                if existing_account:
+                    self.log_output.append(f'Skipped {username}: Already exists in dashboard')
+                    skipped_count += 1
+                    continue
+                
+                account = Account(
+                    username=username,
+                    nick=data.get('nick', ''),
+                    followers=data.get('followers', 0),
+                    following=data.get('following', 0),
+                    posts=data.get('posts', 0),
+                    media_type=data.get('media_type', 'all'),
+                    profile_image=data.get('profile_image'),
+                    media_list=data.get('media_list', []),
+                    fetch_mode=data.get('fetch_mode', 'all'),
+                    fetch_timestamp=data.get('fetch_timestamp')
+                )
+                
+                self.accounts.append(account)
+                
+                account_info = {
+                    'followers_count': account.followers,
+                    'friends_count': account.following,
+                    'statuses_count': account.posts,
+                    'nick': account.nick,
+                    'name': account.nick,
+                    'profile_image': account.profile_image
+                }
+                
+                cache_data = {
+                    'account_info': account_info,
+                    'timeline': account.media_list,
+                    'metadata': {},
+                    'is_batch': (account.fetch_mode == 'batch'),
+                    'fetch_timestamp': account.fetch_timestamp
+                }
+                
+                self.save_cached_data(username, account.media_type, cache_data, is_batch=(account.fetch_mode == 'batch'))
+                
+                imported_count += 1
+                media_count = len(account.media_list) if account.media_list else 0
+                self.log_output.append(f'Imported: {username} ({media_count:,} media)')
+                
+            except Exception as e:
+                self.log_output.append(f'Error importing {os.path.basename(filepath)}: {str(e)}')
+                error_count += 1
         
         self.update_account_list()
         self.update_button_states()
-
-    def clear_accounts(self):
-        for account in self.accounts:
-            username = account.username
-            if username:
-                for is_batch in [True, False]:
-                    cache_file = self.get_cache_file_path(username, account.media_type, is_batch=is_batch)
-                    try:
-                        if os.path.exists(cache_file):
-                            os.remove(cache_file)
-                            self.log_output.append(f'Removed temp file: {os.path.basename(cache_file)}')
-                    except Exception as e:
-                        self.log_output.append(f'Warning: Could not remove temp file {os.path.basename(cache_file)}: {str(e)}')
-        
-        self.reset_state()
-        self.reset_ui()
+        self.log_output.append(f'Import completed: {imported_count} imported, {skipped_count} skipped, {error_count} errors')
         self.tab_widget.setCurrentIndex(0)
 
 
