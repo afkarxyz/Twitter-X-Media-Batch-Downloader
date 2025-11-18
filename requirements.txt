@@ -1,6 +1,8 @@
-PyQt6
+PyQt6==6.9.1
 requests
 aiohttp
 imageio-ffmpeg
 packaging
 gallery-dl
+pyqtdarktheme
+pyinstaller
