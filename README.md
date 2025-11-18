@@ -23,11 +23,9 @@
 - **MP4 → GIF conversion:** Convert downloaded MP4 videos into GIF format
 - Downloads at original quality
   
-## 🖼️ Screenshots
+## 🖼️ Screenshot
 
 ![Image](https://github.com/user-attachments/assets/80b9f665-5fb4-4d17-bd40-56960029688d)
-
-![Image](https://github.com/user-attachments/assets/8bcb02e7-d7da-45da-ab5d-4d94a91b30b1)
 
 ### The downloaded application won't run❓
 
