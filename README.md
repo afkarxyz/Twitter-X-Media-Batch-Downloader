@@ -8,9 +8,9 @@
 
 ## 📥 Download
 
-- [**Windows**](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.7/TwitterXMediaBatchDownloader_Windows.exe)
-- [**Linux**](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.7/TwitterXMediaBatchDownloader_Linux)
-- [**Mac**](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/download/v3.7/TwitterXMediaBatchDownloader_Mac.app.zip)
+- [**Windows**](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/latest/download/TwitterXMediaBatchDownloader_Windows.exe)
+- [**Linux**](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/latest/download/TwitterXMediaBatchDownloader_Linux)
+- [**Mac**](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/latest/download/TwitterXMediaBatchDownloader_Mac.zip)
 - If you're familiar with **userscripts**, please install it [**here**](https://greasyfork.org/en/scripts/523157)
 - The **Chrome extension** version is now available, please install it [**here**](https://www.patreon.com/posts/chrome-extension-139296789)
 
@@ -25,9 +25,9 @@
   
 ## 🖼️ Screenshots
 
-![image](https://github.com/user-attachments/assets/ef8f4820-9ceb-4fcd-98d6-70c3aa679666)
+![Image](https://github.com/user-attachments/assets/80b9f665-5fb4-4d17-bd40-56960029688d)
 
-![image](https://github.com/user-attachments/assets/a03ca334-779d-47d6-82dd-2edba28f5b76)
+![Image](https://github.com/user-attachments/assets/8bcb02e7-d7da-45da-ab5d-4d94a91b30b1)
 
 ### The downloaded application won't run❓
 
