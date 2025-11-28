@@ -1,4 +1,5 @@
 import os
+import qtawesome as qta
 from PyQt6.QtWidgets import QApplication, QLabel
 from PyQt6.QtCore import Qt, QSize, QEvent
 from PyQt6.QtGui import QIcon, QPalette, QColor
@@ -106,28 +107,11 @@ class TwitterXMediaBatchDownloaderGUI_Unix(TwitterXMediaBatchDownloaderGUI):
         
         self.update_button_icons_unix()
     
-    def create_colored_icon(self, icon_path, color=None):
-        if not os.path.exists(icon_path):
-            return QIcon()
-        
+    def create_colored_icon(self, icon_name, color=None):
         palette = QApplication.palette()
         text_color = palette.color(QPalette.ColorRole.Text)
         color_hex = text_color.name()
-        
-        from PyQt6.QtSvg import QSvgRenderer
-        from PyQt6.QtGui import QPixmap, QPainter
-        
-        renderer = QSvgRenderer(icon_path)
-        pixmap = QPixmap(24, 24)
-        pixmap.fill(Qt.GlobalColor.transparent)
-        
-        painter = QPainter(pixmap)
-        renderer.render(painter)
-        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
-        painter.fillRect(pixmap.rect(), QColor(color_hex))
-        painter.end()
-        
-        return QIcon(pixmap)
+        return qta.icon(icon_name, color=color_hex)
     
     def update_button_icons(self):
         self.update_button_icons_unix()
@@ -136,33 +120,29 @@ class TwitterXMediaBatchDownloaderGUI_Unix(TwitterXMediaBatchDownloaderGUI):
         if not hasattr(self, 'import_btn'):
             return
         
-        icon_dir = os.path.join(os.path.dirname(__file__), 'icons')
-        
-        self.import_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'database-import.svg')))
-        self.export_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'database-export.svg')))
-        self.download_selected_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'download.svg')))
-        self.update_selected_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'reload.svg')))
-        self.delete_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'trash.svg')))
+        self.import_btn.setIcon(self.create_colored_icon('fa6s.file-import'))
+        self.export_btn.setIcon(self.create_colored_icon('fa6s.file-export'))
+        self.download_selected_btn.setIcon(self.create_colored_icon('fa6s.download'))
+        self.update_selected_btn.setIcon(self.create_colored_icon('fa6s.arrows-rotate'))
+        self.delete_btn.setIcon(self.create_colored_icon('fa6s.trash'))
     
     def update_button_icons_unix(self):
         self.update_button_icons_unix_dashboard()
         
-        icon_dir = os.path.join(os.path.dirname(__file__), 'icons')
-        
         if hasattr(self, 'stop_btn'):
-            self.stop_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'cancel.svg')))
+            self.stop_btn.setIcon(self.create_colored_icon('fa6s.circle-xmark'))
         if hasattr(self, 'pause_resume_btn'):
             if self.pause_resume_btn.text() == ' Resume':
-                self.pause_resume_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'player-play.svg')))
+                self.pause_resume_btn.setIcon(self.create_colored_icon('fa6s.play'))
             else:
-                self.pause_resume_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'player-pause.svg')))
+                self.pause_resume_btn.setIcon(self.create_colored_icon('fa6s.pause'))
         if hasattr(self, 'stop_fetch_btn'):
-            self.stop_fetch_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'cancel.svg')))
+            self.stop_fetch_btn.setIcon(self.create_colored_icon('fa6s.circle-xmark'))
         if hasattr(self, 'pause_fetch_btn'):
             if self.pause_fetch_btn.text() == ' Resume':
-                self.pause_fetch_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'player-play.svg')))
+                self.pause_fetch_btn.setIcon(self.create_colored_icon('fa6s.play'))
             else:
-                self.pause_fetch_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'player-pause.svg')))
+                self.pause_fetch_btn.setIcon(self.create_colored_icon('fa6s.pause'))
     
     def setup_theme_tab(self):
         pass
@@ -172,17 +152,15 @@ class TwitterXMediaBatchDownloaderGUI_Unix(TwitterXMediaBatchDownloaderGUI):
     
     def toggle_pause_resume(self):
         if hasattr(self, 'worker'):
-            icon_dir = os.path.join(os.path.dirname(__file__), 'icons')
-            
             if self.worker.is_paused:
                 self.worker.resume()
                 self.pause_resume_btn.setText(' Pause')
-                self.pause_resume_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'player-pause.svg')))
+                self.pause_resume_btn.setIcon(self.create_colored_icon('fa6s.pause'))
                 self.timer.start(1000)
             else:
                 self.worker.pause()
                 self.pause_resume_btn.setText(' Resume')
-                self.pause_resume_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'player-play.svg')))
+                self.pause_resume_btn.setIcon(self.create_colored_icon('fa6s.play'))
     
     def pause_batch_fetch(self):
         self.is_auto_fetching = False
@@ -191,18 +169,16 @@ class TwitterXMediaBatchDownloaderGUI_Unix(TwitterXMediaBatchDownloaderGUI):
             self.metadata_worker.terminate()
             self.metadata_worker.wait()
         
-        icon_dir = os.path.join(os.path.dirname(__file__), 'icons')
         self.pause_fetch_btn.setText(' Resume')
-        self.pause_fetch_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'player-play.svg')))
+        self.pause_fetch_btn.setIcon(self.create_colored_icon('fa6s.play'))
         self.pause_fetch_btn.clicked.disconnect()
         self.pause_fetch_btn.clicked.connect(self.resume_batch_fetch)
         self.log_output.append('Batch fetching paused.')
     
     def resume_batch_fetch(self):
         self.is_auto_fetching = True
-        icon_dir = os.path.join(os.path.dirname(__file__), 'icons')
         self.pause_fetch_btn.setText(' Pause')
-        self.pause_fetch_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'player-pause.svg')))
+        self.pause_fetch_btn.setIcon(self.create_colored_icon('fa6s.pause'))
         self.pause_fetch_btn.clicked.disconnect()
         self.pause_fetch_btn.clicked.connect(self.pause_batch_fetch)
         self.log_output.append('Resuming batch fetching...')
@@ -222,9 +198,8 @@ class TwitterXMediaBatchDownloaderGUI_Unix(TwitterXMediaBatchDownloaderGUI):
             self.metadata_worker.wait()
         
         if self.pause_fetch_btn.text() == ' Resume':
-            icon_dir = os.path.join(os.path.dirname(__file__), 'icons')
             self.pause_fetch_btn.setText(' Pause')
-            self.pause_fetch_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'player-pause.svg')))
+            self.pause_fetch_btn.setIcon(self.create_colored_icon('fa6s.pause'))
             self.pause_fetch_btn.clicked.disconnect()
             self.pause_fetch_btn.clicked.connect(self.pause_batch_fetch)
         
@@ -240,17 +215,15 @@ class TwitterXMediaBatchDownloaderGUI_Unix(TwitterXMediaBatchDownloaderGUI):
     
     def reset_ui(self):
         super().reset_ui()
-        icon_dir = os.path.join(os.path.dirname(__file__), 'icons')
         if hasattr(self, 'pause_resume_btn'):
-            self.pause_resume_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'player-pause.svg')))
+            self.pause_resume_btn.setIcon(self.create_colored_icon('fa6s.pause'))
     
     def on_download_finished(self, success, message):
         self.progress_bar.hide()
         self.stop_btn.hide()
         self.pause_resume_btn.hide()
         self.pause_resume_btn.setText(' Pause')
-        icon_dir = os.path.join(os.path.dirname(__file__), 'icons')
-        self.pause_resume_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'player-pause.svg')))
+        self.pause_resume_btn.setIcon(self.create_colored_icon('fa6s.pause'))
         self.stop_timer()
         
         self.download_selected_btn.setEnabled(True)

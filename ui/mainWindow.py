@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from packaging import version
 import qdarktheme
+import qtawesome as qta
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit,
     QLabel, QFileDialog, QListWidget, QTextEdit, QTabWidget, QAbstractItemView, QProgressBar, QCheckBox, QDialog,
@@ -14,7 +15,6 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QUrl, QTimer, QTime, QSettings, QSize, QDate
 from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkRequest
 from PyQt6.QtGui import QIcon, QTextCursor, QDesktopServices, QPixmap, QPainter, QPainterPath
-from PyQt6.QtSvg import QSvgRenderer
 
 from core.databaseManager import DatabaseManager
 from core.metadataWorker import MetadataFetchWorker
@@ -27,7 +27,7 @@ ICON_DIR = os.path.join(os.path.dirname(__file__), 'icons')
 class TwitterXMediaBatchDownloaderGUI(QWidget):
     def __init__(self):
         super().__init__()
-        self.current_version = "3.8"
+        self.current_version = "3.9"
         self.accounts = []
         self.temp_dir = os.path.join(Path.home(), ".twitterxmediabatchdownloader")
         os.makedirs(self.temp_dir, exist_ok=True)
@@ -118,10 +118,11 @@ class TwitterXMediaBatchDownloaderGUI(QWidget):
 
     def check_updates(self):
         try:
-            response = requests.get("https://raw.githubusercontent.com/afkarxyz/Twitter-X-Media-Batch-Downloader/refs/heads/main/version.json")
+            response = requests.get("https://api.github.com/repos/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/latest")
             if response.status_code == 200:
                 data = response.json()
-                new_version = data.get("version")
+                tag_name = data.get("tag_name", "")
+                new_version = tag_name.lstrip("v")
                 
                 if new_version and version.parse(new_version) > version.parse(self.current_version):
                     dialog = UpdateDialog(self.current_version, new_version, self)
@@ -144,8 +145,7 @@ class TwitterXMediaBatchDownloaderGUI(QWidget):
         self.stop_btn.hide()
         self.pause_resume_btn.hide()
         self.pause_resume_btn.setText(' Pause')
-        icon_dir = ICON_DIR
-        self.pause_resume_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'player-pause.svg'), self.current_theme_color))
+        self.pause_resume_btn.setIcon(self.create_colored_icon('fa6s.pause', self.current_theme_color))
         self.pause_fetch_btn.hide()
         self.stop_fetch_btn.hide()
         self.is_auto_fetching = False
@@ -319,20 +319,19 @@ class TwitterXMediaBatchDownloaderGUI(QWidget):
         self.update_selected_btn = QPushButton(' Update')
         self.delete_btn = QPushButton(' Delete')
         
-        icon_dir = ICON_DIR
         accent_color = self.current_theme_color
         
-        self.import_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'database-import.svg'), accent_color))
-        self.export_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'database-export.svg'), accent_color))
-        self.download_selected_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'download.svg'), accent_color))
-        self.update_selected_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'reload.svg'), accent_color))
-        self.delete_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'trash.svg'), accent_color))
+        self.import_btn.setIcon(self.create_colored_icon('fa6s.file-import', accent_color))
+        self.export_btn.setIcon(self.create_colored_icon('fa6s.file-export', accent_color))
+        self.download_selected_btn.setIcon(self.create_colored_icon('fa6s.download', accent_color))
+        self.update_selected_btn.setIcon(self.create_colored_icon('fa6s.arrows-rotate', accent_color))
+        self.delete_btn.setIcon(self.create_colored_icon('fa6s.trash', accent_color))
         
         for btn in [self.import_btn, self.export_btn, self.download_selected_btn, 
                     self.update_selected_btn, self.delete_btn]:
             btn.setMinimumWidth(100)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setIconSize(QSize(18, 18))
+            btn.setIconSize(QSize(16, 16))
             
         self.import_btn.clicked.connect(self.import_accounts)
         self.export_btn.clicked.connect(self.export_accounts)
@@ -350,38 +349,37 @@ class TwitterXMediaBatchDownloaderGUI(QWidget):
         if not hasattr(self, 'import_btn'):
             return
         
-        icon_dir = ICON_DIR
         accent_color = self.current_theme_color
         
-        self.import_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'database-import.svg'), accent_color))
-        self.export_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'database-export.svg'), accent_color))
-        self.download_selected_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'download.svg'), accent_color))
-        self.update_selected_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'reload.svg'), accent_color))
-        self.delete_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'trash.svg'), accent_color))
+        self.import_btn.setIcon(self.create_colored_icon('fa6s.file-import', accent_color))
+        self.export_btn.setIcon(self.create_colored_icon('fa6s.file-export', accent_color))
+        self.download_selected_btn.setIcon(self.create_colored_icon('fa6s.download', accent_color))
+        self.update_selected_btn.setIcon(self.create_colored_icon('fa6s.arrows-rotate', accent_color))
+        self.delete_btn.setIcon(self.create_colored_icon('fa6s.trash', accent_color))
         
         if hasattr(self, 'rename_group_btn'):
-            self.rename_group_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'edit.svg'), accent_color))
+            self.rename_group_btn.setIcon(self.create_colored_icon('fa6s.pen-to-square', accent_color))
         if hasattr(self, 'delete_group_btn'):
-            self.delete_group_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'trash.svg'), accent_color))
+            self.delete_group_btn.setIcon(self.create_colored_icon('fa6s.trash', accent_color))
         if hasattr(self, 'assign_to_group_btn'):
-            self.assign_to_group_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'category-plus.svg'), accent_color))
+            self.assign_to_group_btn.setIcon(self.create_colored_icon('fa6s.folder-plus', accent_color))
         if hasattr(self, 'save_assignment_btn'):
-            self.save_assignment_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'device-floppy.svg'), accent_color))
+            self.save_assignment_btn.setIcon(self.create_colored_icon('fa6s.floppy-disk', accent_color))
         
         if hasattr(self, 'stop_btn'):
-            self.stop_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'cancel.svg'), accent_color))
+            self.stop_btn.setIcon(self.create_colored_icon('fa6s.circle-xmark', accent_color))
         if hasattr(self, 'pause_resume_btn'):
             if self.pause_resume_btn.text() == ' Resume':
-                self.pause_resume_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'player-play.svg'), accent_color))
+                self.pause_resume_btn.setIcon(self.create_colored_icon('fa6s.play', accent_color))
             else:
-                self.pause_resume_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'player-pause.svg'), accent_color))
+                self.pause_resume_btn.setIcon(self.create_colored_icon('fa6s.pause', accent_color))
         if hasattr(self, 'stop_fetch_btn'):
-            self.stop_fetch_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'cancel.svg'), accent_color))
+            self.stop_fetch_btn.setIcon(self.create_colored_icon('fa6s.circle-xmark', accent_color))
         if hasattr(self, 'pause_fetch_btn'):
             if self.pause_fetch_btn.text() == ' Resume':
-                self.pause_fetch_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'player-play.svg'), accent_color))
+                self.pause_fetch_btn.setIcon(self.create_colored_icon('fa6s.play', accent_color))
             else:
-                self.pause_fetch_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'player-pause.svg'), accent_color))
+                self.pause_fetch_btn.setIcon(self.create_colored_icon('fa6s.pause', accent_color))
 
     def setup_group_tab(self):
         group_tab = QWidget()
@@ -420,15 +418,14 @@ class TwitterXMediaBatchDownloaderGUI(QWidget):
         self.rename_group_btn = QPushButton(" Rename")
         self.delete_group_btn = QPushButton(" Delete")
         
-        icon_dir = ICON_DIR
         accent_color = self.current_theme_color
         
-        self.rename_group_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'edit.svg'), accent_color))
-        self.delete_group_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'trash.svg'), accent_color))
+        self.rename_group_btn.setIcon(self.create_colored_icon('fa6s.pen-to-square', accent_color))
+        self.delete_group_btn.setIcon(self.create_colored_icon('fa6s.trash', accent_color))
         
         for btn in [self.rename_group_btn, self.delete_group_btn]:
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setIconSize(QSize(18, 18))
+            btn.setIconSize(QSize(16, 16))
             btn.setEnabled(False)
         
         self.rename_group_btn.clicked.connect(self.rename_group)
@@ -465,9 +462,8 @@ class TwitterXMediaBatchDownloaderGUI(QWidget):
         self.save_assignment_btn.setEnabled(False)
         self.save_assignment_btn.clicked.connect(self.save_account_assignment)
         
-        icon_dir = ICON_DIR
-        self.save_assignment_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'device-floppy.svg'), accent_color))
-        self.save_assignment_btn.setIconSize(QSize(18, 18))
+        self.save_assignment_btn.setIcon(self.create_colored_icon('fa6s.floppy-disk', accent_color))
+        self.save_assignment_btn.setIconSize(QSize(16, 16))
         
         assign_btn_layout.addStretch()
         assign_btn_layout.addWidget(self.save_assignment_btn)
@@ -508,18 +504,17 @@ class TwitterXMediaBatchDownloaderGUI(QWidget):
         self.stop_btn = QPushButton(' Stop')
         self.pause_resume_btn = QPushButton(' Pause')
         
-        icon_dir = ICON_DIR
         accent_color = self.current_theme_color
         
-        self.stop_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'cancel.svg'), accent_color))
-        self.pause_resume_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'player-pause.svg'), accent_color))
+        self.stop_btn.setIcon(self.create_colored_icon('fa6s.circle-xmark', accent_color))
+        self.pause_resume_btn.setIcon(self.create_colored_icon('fa6s.pause', accent_color))
         
         self.stop_btn.setFixedWidth(120)
         self.pause_resume_btn.setFixedWidth(120)
         self.stop_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.pause_resume_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.stop_btn.setIconSize(QSize(18, 18))
-        self.pause_resume_btn.setIconSize(QSize(18, 18))
+        self.stop_btn.setIconSize(QSize(16, 16))
+        self.pause_resume_btn.setIconSize(QSize(16, 16))
         
         self.stop_btn.clicked.connect(self.stop_download)
         self.pause_resume_btn.clicked.connect(self.toggle_pause_resume)
@@ -534,13 +529,13 @@ class TwitterXMediaBatchDownloaderGUI(QWidget):
         self.pause_fetch_btn = QPushButton(' Pause')
         self.stop_fetch_btn = QPushButton(' Stop')
         
-        self.pause_fetch_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'player-pause.svg'), accent_color))
-        self.stop_fetch_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'cancel.svg'), accent_color))
+        self.pause_fetch_btn.setIcon(self.create_colored_icon('fa6s.pause', accent_color))
+        self.stop_fetch_btn.setIcon(self.create_colored_icon('fa6s.circle-xmark', accent_color))
         
         for btn in [self.pause_fetch_btn, self.stop_fetch_btn]:
             btn.setFixedWidth(120)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setIconSize(QSize(18, 18))
+            btn.setIconSize(QSize(16, 16))
         
         self.pause_fetch_btn.setToolTip("Pause batch fetching (can resume)")
         self.stop_fetch_btn.setToolTip("Stop batch fetching completely")
@@ -2005,23 +2000,8 @@ class TwitterXMediaBatchDownloaderGUI(QWidget):
 
         self.update_button_states()
 
-    def create_colored_icon(self, svg_path, color):
-        with open(svg_path, 'r', encoding='utf-8') as f:
-            svg_content = f.read()
-        
-        svg_content = svg_content.replace('stroke="currentColor"', f'stroke="{color}"')
-        svg_content = svg_content.replace('fill="currentColor"', f'fill="{color}"')
-        
-        pixmap = QPixmap(24, 24)
-        pixmap.fill(Qt.GlobalColor.transparent)
-        
-        from PyQt6.QtSvg import QSvgRenderer
-        renderer = QSvgRenderer(svg_content.encode('utf-8'))
-        painter = QPainter(pixmap)
-        renderer.render(painter)
-        painter.end()
-        
-        return QIcon(pixmap)
+    def create_colored_icon(self, icon_name, color):
+        return qta.icon(icon_name, color=color)
 
     def create_placeholder_icon(self, size=48):
         pixmap = QPixmap(size, size)
@@ -2457,8 +2437,7 @@ class TwitterXMediaBatchDownloaderGUI(QWidget):
         self.stop_btn.hide()
         self.pause_resume_btn.hide()
         self.pause_resume_btn.setText(' Pause')
-        icon_dir = ICON_DIR
-        self.pause_resume_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'player-pause.svg'), self.current_theme_color))
+        self.pause_resume_btn.setIcon(self.create_colored_icon('fa6s.pause', self.current_theme_color))
         self.stop_timer()
         
         self.download_selected_btn.setEnabled(True)
@@ -2476,18 +2455,17 @@ class TwitterXMediaBatchDownloaderGUI(QWidget):
     
     def toggle_pause_resume(self):
         if hasattr(self, 'worker'):
-            icon_dir = ICON_DIR
             accent_color = self.current_theme_color
             
             if self.worker.is_paused:
                 self.worker.resume()
                 self.pause_resume_btn.setText(' Pause')
-                self.pause_resume_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'player-pause.svg'), accent_color))
+                self.pause_resume_btn.setIcon(self.create_colored_icon('fa6s.pause', accent_color))
                 self.timer.start(1000)
             else:
                 self.worker.pause()
                 self.pause_resume_btn.setText(' Resume')
-                self.pause_resume_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'player-play.svg'), accent_color))
+                self.pause_resume_btn.setIcon(self.create_colored_icon('fa6s.play', accent_color))
 
     def delete_accounts(self):
         selected_items = self.account_list.selectedItems()
@@ -2582,54 +2560,50 @@ class TwitterXMediaBatchDownloaderGUI(QWidget):
             self.log_output.append('No valid accounts found for export')
             return
         
-        now = datetime.now()
-        date_str = now.strftime("%Y%m%d_%H%M%S")
-        default_filename = f"twitterxmediabatchdownloader_{date_str}.db"
-        
-        file_path, _ = QFileDialog.getSaveFileName(
+        export_dir = QFileDialog.getExistingDirectory(
             self,
-            "Export Database",
-            os.path.join(self.last_output_path, default_filename),
-            "Database Files (*.db)"
+            "Select Export Directory",
+            self.last_output_path
         )
         
-        if not file_path:
+        if not export_dir:
             self.log_output.append('Export cancelled')
             return
         
-        self.log_output.append(f'Starting export of {len(selected_accounts)} account(s) to database...')
+        self.log_output.append(f'Starting export of {len(selected_accounts)} account(s) to JSON...')
         
         try:
-            export_db_manager = DatabaseManager(file_path)
             exported_count = 0
             
             for account in selected_accounts:
                 try:
-                    export_db_manager.save_account(
-                        username=account.username,
-                        nick=account.nick,
-                        followers=account.followers,
-                        following=account.following,
-                        posts=account.posts,
-                        media_type=account.media_type,
-                        profile_image=account.profile_image,
-                        fetch_mode=account.fetch_mode,
-                        fetch_timestamp=account.fetch_timestamp
-                    )
+                    account_data = {
+                        'username': account.username,
+                        'nick': account.nick,
+                        'followers': account.followers,
+                        'following': account.following,
+                        'posts': account.posts,
+                        'media_type': account.media_type,
+                        'profile_image': account.profile_image,
+                        'fetch_mode': account.fetch_mode,
+                        'fetch_timestamp': account.fetch_timestamp,
+                        'group_id': account.group_id,
+                        'media_list': account.media_list if account.media_list else []
+                    }
                     
-                    if account.media_list:
-                        export_db_manager.save_media_list(account.username, account.media_list)
+                    file_path = os.path.join(export_dir, f"{account.username}.json")
+                    with open(file_path, 'w', encoding='utf-8') as f:
+                        json.dump(account_data, f, indent=2, ensure_ascii=False)
                     
                     exported_count += 1
                     media_count = len(account.media_list) if account.media_list else 0
-                    self.log_output.append(f'Exported: {account.username} ({media_count:,} media)')
+                    self.log_output.append(f'Exported: {account.username}.json ({media_count:,} media)')
                     
                 except Exception as e:
                     self.log_output.append(f'Error exporting {account.username}: {str(e)}')
             
-            export_db_manager.close()
             self.log_output.append(f'Export completed: {exported_count}/{len(selected_accounts)} account(s) exported')
-            self.log_output.append(f'Export location: {file_path}')
+            self.log_output.append(f'Export location: {export_dir}')
             
         except Exception as e:
             self.log_output.append(f'Export error: {str(e)}')
@@ -2868,8 +2842,7 @@ class TwitterXMediaBatchDownloaderGUI(QWidget):
             self.metadata_worker.wait()
         
         self.pause_fetch_btn.setText(' Resume')
-        icon_dir = ICON_DIR
-        self.pause_fetch_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'player-play.svg'), self.current_theme_color))
+        self.pause_fetch_btn.setIcon(self.create_colored_icon('fa6s.play', self.current_theme_color))
         self.pause_fetch_btn.clicked.disconnect()
         self.pause_fetch_btn.clicked.connect(self.resume_batch_fetch)
         self.log_output.append('Batch fetching paused.')
@@ -2877,8 +2850,7 @@ class TwitterXMediaBatchDownloaderGUI(QWidget):
     def resume_batch_fetch(self):
         self.is_auto_fetching = True
         self.pause_fetch_btn.setText(' Pause')
-        icon_dir = ICON_DIR
-        self.pause_fetch_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'player-pause.svg'), self.current_theme_color))
+        self.pause_fetch_btn.setIcon(self.create_colored_icon('fa6s.pause', self.current_theme_color))
         self.pause_fetch_btn.clicked.disconnect()
         self.pause_fetch_btn.clicked.connect(self.pause_batch_fetch)
         self.log_output.append('Resuming batch fetching...')
@@ -2900,8 +2872,7 @@ class TwitterXMediaBatchDownloaderGUI(QWidget):
         
         if self.pause_fetch_btn.text() == ' Resume':
             self.pause_fetch_btn.setText(' Pause')
-            icon_dir = ICON_DIR
-            self.pause_fetch_btn.setIcon(self.create_colored_icon(os.path.join(icon_dir, 'player-pause.svg'), self.current_theme_color))
+            self.pause_fetch_btn.setIcon(self.create_colored_icon('fa6s.pause', self.current_theme_color))
             self.pause_fetch_btn.clicked.disconnect()
             self.pause_fetch_btn.clicked.connect(self.pause_batch_fetch)
         
