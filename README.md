@@ -14,13 +14,13 @@ A GUI tool to download original-quality images and videos from Twitter/X account
 
 ### [Download](https://github.com/afkarxyz/SpotiFLAC/releases)
 
-- If you're familiar with **userscripts**, please install it [**here**](https://greasyfork.org/en/scripts/523157) or [**here**](https://greasyfork.org/en/scripts/551198)
+- If you're familiar with userscripts, install it [**here**](https://greasyfork.org/en/scripts/551198)
 
-- The **Chrome extension** version is now available, please install it [**here**](https://www.patreon.com/posts/chrome-extension-139296789)
-  
+- To install the Chrome extension version, click [**here**](https://www.patreon.com/posts/chrome-extension-139296789)
+
 ## Screenshot
 
-![Image](https://github.com/user-attachments/assets/02bd8c33-74b7-4fde-8b6c-d2b006a3ae70)
+![Image](https://github.com/user-attachments/assets/1638e0c3-5dc5-4202-bf94-cdebd37a5f19)
 
 ## How to Obtain Auth Token
 
