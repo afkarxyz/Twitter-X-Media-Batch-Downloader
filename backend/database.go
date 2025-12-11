@@ -241,36 +241,6 @@ func ClearAllAccounts() error {
 	return err
 }
 
-// GetAccountByUsername returns a specific account by username
-func GetAccountByUsername(username string) (*AccountDB, error) {
-	if db == nil {
-		if err := InitDB(); err != nil {
-			return nil, err
-		}
-	}
-
-	var acc AccountDB
-	var lastFetched time.Time
-	var completedInt int
-	err := db.QueryRow(`
-		SELECT id, username, name, profile_image, total_media, last_fetched, response_json,
-		       COALESCE(cursor, '') as cursor, COALESCE(completed, 1) as completed
-		FROM accounts WHERE username = ?
-	`, username).Scan(&acc.ID, &acc.Username, &acc.Name, &acc.ProfileImage, &acc.TotalMedia, &lastFetched, &acc.ResponseJSON, &acc.Cursor, &completedInt)
-
-	if err != nil {
-		return nil, err
-	}
-	acc.LastFetched = lastFetched
-	acc.Completed = completedInt == 1
-
-	// Convert legacy format if needed
-	if converted, err := ConvertLegacyToNewFormat(acc.ResponseJSON); err == nil {
-		acc.ResponseJSON = converted
-	}
-
-	return &acc, nil
-}
 
 // GetAccountByID returns a specific account by ID
 func GetAccountByID(id int64) (*AccountDB, error) {
@@ -314,14 +284,6 @@ func DeleteAccount(id int64) error {
 	_, err := db.Exec("DELETE FROM accounts WHERE id = ?", id)
 	return err
 }
-
-// ParseResponseJSON parses the stored JSON response
-func ParseResponseJSON(jsonStr string) (map[string]interface{}, error) {
-	var result map[string]interface{}
-	err := json.Unmarshal([]byte(jsonStr), &result)
-	return result, err
-}
-
 // LegacyMediaEntry represents media entry in old format
 type LegacyMediaEntry struct {
 	TweetID string `json:"tweet_id"`
@@ -436,6 +398,53 @@ func ExportAccountToFile(id int64, outputDir string) (string, error) {
 	filePath := filepath.Join(exportDir, filename+".json")
 
 	if err := os.WriteFile(filePath, []byte(acc.ResponseJSON), 0644); err != nil {
+		return "", err
+	}
+
+	return filePath, nil
+}
+
+// ExportAccountsToTXT exports selected accounts to TXT file (one username per line)
+func ExportAccountsToTXT(ids []int64, outputDir string) (string, error) {
+	if len(ids) == 0 {
+		return "", fmt.Errorf("no accounts to export")
+	}
+
+	// Create export directory if not exists
+	exportDir := filepath.Join(outputDir, "twitterxmediabatchdownloader_backups")
+	if err := os.MkdirAll(exportDir, 0755); err != nil {
+		return "", err
+	}
+
+	// Get all accounts by IDs
+	var usernames []string
+	for _, id := range ids {
+		acc, err := GetAccountByID(id)
+		if err != nil {
+			continue // Skip if account not found
+		}
+		if acc.Username != "" {
+			usernames = append(usernames, acc.Username)
+		}
+	}
+
+	if len(usernames) == 0 {
+		return "", fmt.Errorf("no valid usernames found")
+	}
+
+	// Create TXT content (one username per line)
+	txtContent := ""
+	for i, username := range usernames {
+		if i > 0 {
+			txtContent += "\n"
+		}
+		txtContent += username
+	}
+
+	// Filename: twitterxmediabatchdownloader_multiple.txt
+	filePath := filepath.Join(exportDir, "twitterxmediabatchdownloader_multiple.txt")
+
+	if err := os.WriteFile(filePath, []byte(txtContent), 0644); err != nil {
 		return "", err
 	}
 

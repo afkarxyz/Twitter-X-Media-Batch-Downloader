@@ -15,7 +15,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { getSettings, getSettingsWithDefaults, saveSettings, resetToDefaultSettings, applyThemeMode, applyFont, FONT_OPTIONS, type Settings as SettingsType, type FontFamily, type GifQuality, type GifResolution } from "@/lib/settings";
 import { themes, applyTheme } from "@/lib/themes";
-import { SelectFolder, IsFFmpegInstalled, DownloadFFmpeg } from "../../wailsjs/go/main/App";
+import { SelectFolder, IsFFmpegInstalled, DownloadFFmpeg, IsExifToolInstalled, DownloadExifTool } from "../../wailsjs/go/main/App";
 import { toastWithSound as toast } from "@/lib/toast-with-sound";
 
 export function SettingsPage() {
@@ -24,6 +24,8 @@ export function SettingsPage() {
   const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'));
   const [ffmpegInstalled, setFfmpegInstalled] = useState(false);
   const [downloadingFFmpeg, setDownloadingFFmpeg] = useState(false);
+  const [exiftoolInstalled, setExiftoolInstalled] = useState(false);
+  const [downloadingExifTool, setDownloadingExifTool] = useState(false);
 
   useEffect(() => {
     applyThemeMode(savedSettings.themeMode);
@@ -60,8 +62,9 @@ export function SettingsPage() {
     };
     loadDefaults();
     
-    // Check FFmpeg status
+    // Check FFmpeg and ExifTool status
     IsFFmpegInstalled().then(setFfmpegInstalled);
+    IsExifToolInstalled().then(setExiftoolInstalled);
   }, []);
 
   const handleSave = () => {
@@ -103,6 +106,20 @@ export function SettingsPage() {
       console.error("Error downloading FFmpeg:", error);
     } finally {
       setDownloadingFFmpeg(false);
+    }
+  };
+
+  const handleDownloadExifTool = async () => {
+    setDownloadingExifTool(true);
+    try {
+      await DownloadExifTool();
+      setExiftoolInstalled(true);
+      toast.success("ExifTool downloaded successfully");
+    } catch (error) {
+      toast.error("Failed to download ExifTool");
+      console.error("Error downloading ExifTool:", error);
+    } finally {
+      setDownloadingExifTool(false);
     }
   };
 
@@ -210,6 +227,49 @@ export function SettingsPage() {
 
         {/* Right Column */}
         <div className="space-y-4">
+          {/* Metadata Embedding */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              Metadata Embedding
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>ExifTool is required to embed tweet URL and original filename into media file metadata</p>
+                </TooltipContent>
+              </Tooltip>
+            </Label>
+            <div className="h-9 flex items-center">
+              {exiftoolInstalled ? (
+                <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                  <Check className="h-4 w-4" />
+                  Installed
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9"
+                  onClick={handleDownloadExifTool}
+                  disabled={downloadingExifTool}
+                >
+                  {downloadingExifTool ? (
+                    <>
+                      <Spinner />
+                      Downloading...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4" />
+                      Download ExifTool
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+          </div>
+
           {/* GIF Conversion */}
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
@@ -301,6 +361,73 @@ export function SettingsPage() {
               )}
             </>
           )}
+
+          {/* Proxy */}
+          <div className="space-y-2">
+            <Label htmlFor="proxy" className="flex items-center gap-2">
+              Proxy
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>If download fails, try using a proxy server</p>
+                </TooltipContent>
+              </Tooltip>
+            </Label>
+            <InputWithContext
+              id="proxy"
+              value={tempSettings.proxy || ""}
+              onChange={(e) => setTempSettings((prev) => ({ ...prev, proxy: e.target.value }))}
+              placeholder="http://proxy:port or socks5://proxy:port (optional)"
+              className="w-[90%]"
+            />
+          </div>
+
+          {/* Fetch Timeout */}
+          <div className="space-y-2">
+            <Label htmlFor="fetch-timeout" className="flex items-center gap-2">
+              Fetch Timeout
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Timeout in seconds. Fetch stops automatically when reached</p>
+                </TooltipContent>
+              </Tooltip>
+            </Label>
+            <InputWithContext
+              id="fetch-timeout"
+              type="number"
+              value={tempSettings.fetchTimeout || 60}
+              onChange={(e) => {
+                const inputValue = e.target.value;
+                // Allow empty input for user to type freely
+                if (inputValue === "") {
+                  setTempSettings((prev) => ({ ...prev, fetchTimeout: 60 }));
+                  return;
+                }
+                const value = parseInt(inputValue, 10);
+                // Allow any number while typing (including values less than min during typing)
+                // Validation will happen on blur
+                if (!isNaN(value)) {
+                  setTempSettings((prev) => ({ ...prev, fetchTimeout: value }));
+                }
+              }}
+              onBlur={(e) => {
+                // Validate and clamp value on blur
+                const value = parseInt(e.target.value, 10);
+                if (isNaN(value) || value < 30) {
+                  setTempSettings((prev) => ({ ...prev, fetchTimeout: 30 }));
+                } else if (value > 900) {
+                  setTempSettings((prev) => ({ ...prev, fetchTimeout: 900 }));
+                }
+              }}
+              placeholder="60"
+              className="w-[20%]"
+            />
+          </div>
         </div>
       </div>
 

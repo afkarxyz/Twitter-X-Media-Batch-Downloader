@@ -11,7 +11,7 @@
   },
   "info": {
     "productName": "Twitter/X Media Batch Downloader",
-    "productVersion": "4.0"
+    "productVersion": "4.1"
   },
   "wailsjsdir": "./frontend",
   "assetdir": "./frontend/dist",

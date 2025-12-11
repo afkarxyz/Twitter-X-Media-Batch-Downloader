@@ -1,28 +1,6 @@
-# twitter_cli.py — Usage Guide
+# Usage Guide
 
 CLI tool for extracting media and metadata from Twitter/X using gallery-dl extractor.
-
-## Quickstart
-
-1. **Set up environment**
-   ```powershell
-   cd helper
-   python -m venv .venv
-   .\.venv\Scripts\Activate.ps1
-   pip install -r requirements.txt
-   ```
-
-2. **Verify gallery-dl**
-   ```powershell
-   python -c "import gallery_dl; print(gallery_dl.__version__)"
-   ```
-
-3. **Quick test** (using demo account):
-   ```powershell
-   python twitter_cli.py https://x.com/xbatchdemo/media --limit 1 --json --guest
-   ```
-
----
 
 ## Command Line Arguments
 
@@ -274,34 +252,6 @@ Use in search URLs:
 | `-filter:retweets` | `cats -filter:retweets` | Exclude retweets |
 | `min_faves:N` | `min_faves:1000` | Min likes |
 | `min_retweets:N` | `min_retweets:100` | Min retweets |
-
----
-
-## Authentication
-
-### Getting Your Auth Token
-
-1. Open Twitter/X in your browser
-2. Open Developer Tools (F12)
-3. Go to Application/Storage → Cookies
-4. Find cookie named `auth_token`
-5. Copy its value
-
-### Security Notes
-
-- Use a dummy/secondary account for scraping
-- Don't share your auth token
-- Excessive usage may cause account suspension
-- Guest mode has stricter rate limits
-
----
-
-## Rate Limits
-
-- **Guest mode**: Lower limits, may hit rate limit faster
-- **Authenticated**: Higher limits but still restricted
-- **Rate limit hit**: Script will wait and retry automatically
-- **Best practice**: Use `--limit` to control fetch size
 
 ---
 

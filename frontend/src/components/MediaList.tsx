@@ -72,21 +72,33 @@ interface MediaListProps {
   timeline: TimelineEntry[];
   totalUrls: number;
   fetchedMediaType?: string;
+  newMediaCount?: number | null;
 }
 
 function getThumbnailUrl(url: string): string {
+  // For animated_gif: video.twimg.com/tweet_video/XXX.mp4 -> pbs.twimg.com/tweet_video_thumb/XXX?format=jpg&name=360x360
+  if (url.includes("video.twimg.com/tweet_video/")) {
+    // Extract filename from URL (e.g., GzstJyDbIAAPuX9.mp4 -> GzstJyDbIAAPuX9)
+    const match = url.match(/tweet_video\/([^\/]+)\.mp4/);
+    if (match && match[1]) {
+      const filename = match[1];
+      return `https://pbs.twimg.com/tweet_video_thumb/${filename}?format=jpg&name=360x360`;
+    }
+  }
+  
+  // For photos: pbs.twimg.com/media/XXX -> use 360x360 for consistency
   if (url.includes("pbs.twimg.com/media/")) {
     if (url.includes("?format=")) {
       if (url.includes("&name=")) {
         const parts = url.split("&name=");
-        return parts[0] + "&name=thumb";
+        return parts[0] + "&name=360x360";
       }
-      return url + "&name=thumb";
+      return url + "&name=360x360";
     }
     if (url.includes("?")) {
-      return url + "&name=thumb";
+      return url + "&name=360x360";
     }
-    return url + "?format=jpg&name=thumb";
+    return url + "?format=jpg&name=360x360";
   }
   return url;
 }
@@ -209,6 +221,7 @@ export function MediaList({
   timeline,
   totalUrls,
   fetchedMediaType = "all",
+  newMediaCount = null,
 }: MediaListProps) {
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   const [sortBy, setSortBy] = useState<string>("date-desc");
@@ -227,6 +240,9 @@ export function MediaList({
   const [failedItems, setFailedItems] = useState<Set<string>>(new Set());
   const [skippedItems, setSkippedItems] = useState<Set<string>>(new Set());
   const [downloadingItem, setDownloadingItem] = useState<string | null>(null);
+  // Lazy loading: start with 10 thumbnails, load more on scroll
+  const [visibleCount, setVisibleCount] = useState<number>(10);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   // Listen for scroll to show/hide scroll-to-top button
   useEffect(() => {
@@ -236,6 +252,69 @@ export function MediaList({
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // Filter and sort timeline
+  const filteredTimeline = useMemo(() => {
+    let filtered = [...timeline];
+
+    // Filter by media type
+    if (filterType !== "all") {
+      filtered = filtered.filter((item) => {
+        if (filterType === "photo") return item.type === "photo";
+        if (filterType === "video") return item.type === "video";
+        if (filterType === "gif") return item.type === "animated_gif" || item.type === "gif";
+        if (filterType === "text") return item.type === "text";
+        return true;
+      });
+    }
+
+    // Sort
+    filtered.sort((a, b) => {
+      if (sortBy === "date-desc") {
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+      } else if (sortBy === "date-asc") {
+        return new Date(a.date).getTime() - new Date(b.date).getTime();
+      } else if (sortBy === "tweet-id-desc") {
+        return Number(b.tweet_id) - Number(a.tweet_id);
+      } else if (sortBy === "tweet-id-asc") {
+        return Number(a.tweet_id) - Number(b.tweet_id);
+      }
+      return 0;
+    });
+
+    return filtered;
+  }, [timeline, filterType, sortBy]);
+
+  // Reset visible count when filtered timeline changes
+  useEffect(() => {
+    setVisibleCount(10);
+  }, [filteredTimeline.length]);
+
+  // Intersection Observer for lazy loading thumbnails
+  useEffect(() => {
+    if (!loadMoreRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) => {
+            // Load 10 more items at a time
+            const filteredLength = filteredTimeline.length;
+            return Math.min(prev + 10, filteredLength);
+          });
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(loadMoreRef.current);
+
+    return () => {
+      if (loadMoreRef.current) {
+        observer.unobserve(loadMoreRef.current);
+      }
+    };
+  }, [filteredTimeline.length]);
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -328,31 +407,6 @@ export function MediaList({
     };
   }, []);
 
-  // Filter and sort timeline
-  const filteredTimeline = useMemo(() => {
-    let filtered = [...timeline];
-
-    // Filter by media type
-    if (filterType !== "all") {
-      filtered = filtered.filter((item) => {
-        if (filterType === "photo") return item.type === "photo";
-        if (filterType === "video") return item.type === "video";
-        if (filterType === "gif") return item.type === "gif" || item.type === "animated_gif";
-        if (filterType === "text") return item.type === "text";
-        return true;
-      });
-    }
-
-    // Sort
-    if (sortBy === "date-asc") {
-      filtered.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    } else {
-      filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }
-
-    return filtered;
-  }, [timeline, sortBy, filterType]);
-
   const goToPrevious = () => {
     if (previewIndex !== null && previewIndex > 0) {
       setPreviewIndex(previewIndex - 1);
@@ -407,9 +461,21 @@ export function MediaList({
     setSelectedItems(newSelected);
   };
 
-  const handleDownload = async () => {
+  // Helper function to get output directory (adds "My Bookmarks" or "My Likes" folder)
+  const getOutputDir = (): string => {
     const settings = getSettings();
-    
+    const isBookmarks = accountInfo.nick === "My Bookmarks";
+    const isLikes = accountInfo.nick === "My Likes";
+    if (isBookmarks || isLikes) {
+      // Use path separator that backend will normalize (filepath.Join handles both / and \)
+      const separator = settings.downloadPath.includes("/") ? "/" : "\\";
+      const folderName = isBookmarks ? "My Bookmarks" : "My Likes";
+      return `${settings.downloadPath}${separator}${folderName}`;
+    }
+    return settings.downloadPath;
+  };
+
+  const handleDownload = async () => {
     // Get items with their original indices in filteredTimeline
     const itemsWithIndices = selectedItems.size > 0
       ? Array.from(selectedItems).map((i) => ({ item: filteredTimeline[i], originalIndex: i }))
@@ -432,6 +498,7 @@ export function MediaList({
     logger.info(`Starting download of ${itemsWithIndices.length} files...`);
 
     try {
+      const settings = getSettings();
       const request = new main.DownloadMediaWithMetadataRequest({
         items: itemsWithIndices.map(({ item }) => new main.MediaItemRequest({
           url: item.url,
@@ -439,15 +506,36 @@ export function MediaList({
           tweet_id: item.tweet_id,
           type: item.type,
           content: item.content || "",
+          original_filename: item.original_filename || "",
+          author_username: item.author_username || "",
         })),
-        output_dir: settings.downloadPath,
+        output_dir: getOutputDir(),
         username: accountInfo.name,
+        proxy: settings.proxy || "",
       });
       const response = await DownloadMediaWithMetadata(request);
 
       if (response.success) {
-        logger.success(`Downloaded ${response.downloaded} files`);
-        toast.success(`${response.downloaded} files downloaded`);
+        const parts: string[] = [];
+        if (response.downloaded > 0) {
+          parts.push(`${response.downloaded} file${response.downloaded !== 1 ? 's' : ''} downloaded`);
+        }
+        if (response.skipped > 0) {
+          parts.push(`${response.skipped} file${response.skipped !== 1 ? 's' : ''} already exist${response.skipped !== 1 ? '' : 's'}`);
+        }
+        if (response.failed > 0) {
+          parts.push(`${response.failed} failed`);
+        }
+        const message = parts.length > 0 ? parts.join(', ') : 'Download completed';
+        
+        // Use info toast if only skipped files (no downloaded, no failed)
+        if (response.downloaded === 0 && response.failed === 0 && response.skipped > 0) {
+          logger.info(message);
+          toast.info(message);
+        } else {
+          logger.success(message);
+          toast.success(message);
+        }
         setHasDownloaded(true);
         
         // Check if there are GIFs and FFmpeg is installed
@@ -486,10 +574,22 @@ export function MediaList({
 
   const handleOpenFolder = async () => {
     const settings = getSettings();
-    // Build path - backend will handle path separators with filepath.Clean
-    const folderPath = settings.downloadPath 
-      ? `${settings.downloadPath}/${accountInfo.name}`
-      : accountInfo.name;
+    const isBookmarks = accountInfo.nick === "My Bookmarks";
+    const isLikes = accountInfo.nick === "My Likes";
+    
+    // Build path - for bookmarks/likes, use the folder structure
+    let folderPath: string;
+    if (isBookmarks || isLikes) {
+      const separator = settings.downloadPath.includes("/") ? "/" : "\\";
+      const folderName = isBookmarks ? "My Bookmarks" : "My Likes";
+      folderPath = settings.downloadPath 
+        ? `${settings.downloadPath}${separator}${folderName}`
+        : folderName;
+    } else {
+      folderPath = settings.downloadPath 
+        ? `${settings.downloadPath}/${accountInfo.name}`
+        : accountInfo.name;
+    }
     
     try {
       await OpenFolder(folderPath);
@@ -508,8 +608,18 @@ export function MediaList({
 
   const handleConvertGifs = async () => {
     const settings = getSettings();
-    // Use forward slash for cross-platform compatibility (Go's filepath.Join handles it)
-    const folderPath = `${settings.downloadPath}/${accountInfo.name}`;
+    const isBookmarks = accountInfo.nick === "My Bookmarks";
+    const isLikes = accountInfo.nick === "My Likes";
+    
+    // Build path - for bookmarks/likes, use the folder structure
+    let folderPath: string;
+    if (isBookmarks || isLikes) {
+      const separator = settings.downloadPath.includes("/") ? "/" : "\\";
+      const folderName = isBookmarks ? "My Bookmarks" : "My Likes";
+      folderPath = `${settings.downloadPath}${separator}${folderName}`;
+    } else {
+      folderPath = `${settings.downloadPath}/${accountInfo.name}`;
+    }
 
     setIsConverting(true);
     logger.info("Converting GIFs...");
@@ -542,20 +652,28 @@ export function MediaList({
   return (
     <div className="space-y-4">
       {/* Account Info Card */}
-      {accountInfo.name === "bookmarks" ? (
-        // Bookmarks mode - simple card without account info
+      {accountInfo.name === "bookmarks" || accountInfo.name === "likes" ? (
+        // Bookmarks/Likes mode - simple card without account info
         <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
           <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-            <Bookmark className="h-8 w-8 text-primary" />
+            {accountInfo.name === "bookmarks" ? (
+              <Bookmark className="h-8 w-8 text-primary" />
+            ) : (
+              <Heart className="h-8 w-8 text-primary" />
+            )}
           </div>
           <div className="flex-1">
-            <h2 className="text-xl font-semibold">My Bookmarks</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              Your saved tweets from various accounts
-            </p>
+            <h2 className="text-xl font-semibold">{accountInfo.nick}</h2>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold text-primary">{formatNumberWithComma(totalUrls)}</div>
+            <div className="flex items-center justify-end gap-2">
+              {newMediaCount !== null && newMediaCount > 0 && (
+                <div className="text-lg font-semibold text-green-600 dark:text-green-400 animate-in fade-in slide-in-from-left-2 duration-300">
+                  {formatNumberWithComma(newMediaCount)}+
+                </div>
+              )}
+              <div className="text-2xl font-bold text-primary">{formatNumberWithComma(totalUrls)}</div>
+            </div>
             <div className="text-sm text-muted-foreground">items found</div>
           </div>
         </div>
@@ -594,7 +712,14 @@ export function MediaList({
             </div>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold text-primary">{formatNumberWithComma(totalUrls)}</div>
+            <div className="flex items-center justify-end gap-2">
+              {newMediaCount !== null && newMediaCount > 0 && (
+                <div className="text-lg font-semibold text-green-600 dark:text-green-400 animate-in fade-in slide-in-from-left-2 duration-300">
+                  {formatNumberWithComma(newMediaCount)}+
+                </div>
+              )}
+              <div className="text-2xl font-bold text-primary">{formatNumberWithComma(totalUrls)}</div>
+            </div>
             <div className="text-sm text-muted-foreground">items found</div>
           </div>
         </div>
@@ -745,7 +870,7 @@ export function MediaList({
       {/* Media Grid/List */}
       {viewMode === "list" ? (
         <div className="space-y-2">
-          {filteredTimeline.map((item, index) => {
+          {filteredTimeline.slice(0, visibleCount).map((item, index) => {
             const isSelected = selectedItems.has(index);
             const itemKey = getItemKey(item);
             const isItemDownloaded = downloadedItems.has(itemKey);
@@ -770,7 +895,7 @@ export function MediaList({
                   className="w-16 h-16 rounded overflow-hidden bg-muted shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
                   onClick={() => openPreview(index)}
                 >
-                  {item.type === "photo" ? (
+                  {item.type === "photo" || item.type === "animated_gif" || item.type === "gif" ? (
                     <img
                       src={getThumbnailUrl(item.url)}
                       alt=""
@@ -828,10 +953,10 @@ export function MediaList({
                         size="icon"
                         variant="default"
                         onClick={async () => {
-                          const settings = getSettings();
                           setDownloadingItem(itemKey);
                           currentDownloadingItemKeyRef.current = itemKey;
                           try {
+                            const settings = getSettings();
                             const request = new main.DownloadMediaWithMetadataRequest({
                               items: [new main.MediaItemRequest({
                                 url: item.url,
@@ -839,9 +964,12 @@ export function MediaList({
                                 tweet_id: item.tweet_id,
                                 type: item.type,
                                 content: item.content || "",
+                                original_filename: item.original_filename || "",
+                                author_username: item.author_username || "",
                               })],
-                              output_dir: settings.downloadPath,
+                              output_dir: getOutputDir(),
                               username: accountInfo.name,
+                              proxy: settings.proxy || "",
                             });
                             const response = await DownloadMediaWithMetadata(request);
                             if (response.success) {
@@ -903,7 +1031,7 @@ export function MediaList({
         </div>
       ) : (
         <div className={`grid gap-3 ${viewMode === "large" ? "grid-cols-4" : "grid-cols-6"}`}>
-          {filteredTimeline.map((item, index) => {
+          {filteredTimeline.slice(0, visibleCount).map((item, index) => {
             const isSelected = selectedItems.has(index);
             const itemKey = getItemKey(item);
             const isItemDownloaded = downloadedItems.has(itemKey);
@@ -923,7 +1051,7 @@ export function MediaList({
                   className="aspect-square bg-muted relative cursor-pointer"
                   onClick={() => openPreview(index)}
                 >
-                  {item.type === "photo" ? (
+                  {item.type === "photo" || item.type === "animated_gif" || item.type === "gif" ? (
                     <img
                       src={getThumbnailUrl(item.url)}
                       alt=""
@@ -946,10 +1074,10 @@ export function MediaList({
                           className="h-8 w-8"
                           onClick={async (e) => {
                             e.stopPropagation();
-                            const settings = getSettings();
                             setDownloadingItem(itemKey);
                             currentDownloadingItemKeyRef.current = itemKey;
                             try {
+                              const settings = getSettings();
                               const request = new main.DownloadMediaWithMetadataRequest({
                                 items: [new main.MediaItemRequest({
                                   url: item.url,
@@ -957,9 +1085,11 @@ export function MediaList({
                                   tweet_id: item.tweet_id,
                                   type: item.type,
                                   content: item.content || "",
+                                  author_username: item.author_username || "",
                                 })],
-                                output_dir: settings.downloadPath,
+                                output_dir: getOutputDir(),
                                 username: accountInfo.name,
+                                proxy: settings.proxy || "",
                               });
                               const response = await DownloadMediaWithMetadata(request);
                               if (response.success) {
@@ -1072,6 +1202,13 @@ export function MediaList({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Sentinel for lazy loading - only show if there are more items to load */}
+      {visibleCount < filteredTimeline.length && (
+        <div ref={loadMoreRef} className="h-20 flex items-center justify-center w-full">
+          <Spinner />
         </div>
       )}
 
@@ -1193,10 +1330,10 @@ export function MediaList({
                   size="sm"
                   className="h-9"
                   onClick={async () => {
-                    const settings = getSettings();
                     setDownloadingItem(itemKey);
                     currentDownloadingItemKeyRef.current = itemKey;
                     try {
+                      const settings = getSettings();
                       const request = new main.DownloadMediaWithMetadataRequest({
                         items: [new main.MediaItemRequest({
                           url: item.url,
@@ -1204,9 +1341,12 @@ export function MediaList({
                           tweet_id: item.tweet_id,
                           type: item.type,
                           content: item.content || "",
+                          original_filename: item.original_filename || "",
+                          author_username: item.author_username || "",
                         })],
-                        output_dir: settings.downloadPath,
+                        output_dir: getOutputDir(),
                         username: accountInfo.name,
+                        proxy: settings.proxy || "",
                       });
                       const response = await DownloadMediaWithMetadata(request);
                       if (response.success) {

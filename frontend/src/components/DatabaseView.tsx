@@ -28,16 +28,22 @@ import {
 } from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Spinner } from "@/components/ui/spinner";
-import { Trash2, Eye, FileInput, FileOutput, Pencil, Tag, Shuffle, X, Download, StopCircle, Globe, Lock, Bookmark, Heart, Image, Images, Video, Film, FileText, Filter, AlertCircle } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Trash2, FileInput, FileOutput, Pencil, Tag, Shuffle, X, Download, StopCircle, Globe, Lock, Bookmark, Heart, Image, Images, Video, Film, FileText, Filter, AlertCircle, MoreVertical, FileBraces, CloudBackup } from "lucide-react";
 import { toastWithSound as toast } from "@/lib/toast-with-sound";
 import { getSettings } from "@/lib/settings";
 import {
   GetAllAccountsFromDB,
   GetAccountFromDB,
   DeleteAccountFromDB,
-  ClearAllAccountsFromDB,
   SaveAccountToDB,
   ExportAccountJSON,
+  ExportAccountsTXT,
   UpdateAccountGroup,
   GetAllGroups,
   DownloadMediaWithMetadata,
@@ -96,11 +102,12 @@ interface GroupInfo {
 interface DatabaseViewProps {
   onBack: () => void;
   onLoadAccount: (responseJSON: string, username: string) => void;
+  onUpdateSelected?: (usernames: string[]) => void;
 }
 
 const ITEMS_PER_PAGE = 10;
 
-export function DatabaseView({ onLoadAccount }: DatabaseViewProps) {
+export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewProps) {
   const [accounts, setAccounts] = useState<AccountListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -230,25 +237,59 @@ export function DatabaseView({ onLoadAccount }: DatabaseViewProps) {
       }
 
       const settings = getSettings();
+      // Check if it's bookmarks or likes by checking account_info.nick or username (for backward compatibility)
+      const isBookmarks = data.account_info?.nick === "My Bookmarks" || username === "bookmarks";
+      const isLikes = data.account_info?.nick === "My Likes" || username === "likes";
+      let outputDir = settings.downloadPath;
+      if (isBookmarks) {
+        const separator = settings.downloadPath.includes("/") ? "/" : "\\";
+        outputDir = `${settings.downloadPath}${separator}My Bookmarks`;
+      } else if (isLikes) {
+        const separator = settings.downloadPath.includes("/") ? "/" : "\\";
+        outputDir = `${settings.downloadPath}${separator}My Likes`;
+      }
+      // Use actual username from account_info if available, otherwise use stored username
+      const actualUsername = data.account_info?.name || username;
+
       setIsDownloading(true);
       setDownloadingAccountId(id);
       setDownloadProgress({ current: 0, total: timeline.length, percent: 0 });
 
       const request = new main.DownloadMediaWithMetadataRequest({
-        items: timeline.map((item: { url: string; date: string; tweet_id: string; type: string }) => new main.MediaItemRequest({
+        items: timeline.map((item: { url: string; date: string; tweet_id: string; type: string; original_filename?: string; author_username?: string }) => new main.MediaItemRequest({
           url: item.url,
           date: item.date,
           tweet_id: item.tweet_id,
           type: item.type,
+          original_filename: item.original_filename || "",
+          author_username: item.author_username || "",
         })),
-        output_dir: settings.downloadPath,
-        username: username,
+        output_dir: outputDir,
+        username: actualUsername,
+        proxy: settings.proxy || "",
       });
 
       const response = await DownloadMediaWithMetadata(request);
 
       if (response.success) {
-        toast.success(`Downloaded ${response.downloaded} files for @${username}`);
+        const parts: string[] = [];
+        if (response.downloaded > 0) {
+          parts.push(`${response.downloaded} file${response.downloaded !== 1 ? 's' : ''} downloaded`);
+        }
+        if (response.skipped > 0) {
+          parts.push(`${response.skipped} file${response.skipped !== 1 ? 's' : ''} already exist${response.skipped !== 1 ? '' : 's'}`);
+        }
+        if (response.failed > 0) {
+          parts.push(`${response.failed} failed`);
+        }
+        const message = parts.length > 0 ? `${parts.join(', ')} for @${username}` : `Download completed for @${username}`;
+        
+        // Use info toast if only skipped files (no downloaded, no failed)
+        if (response.downloaded === 0 && response.failed === 0 && response.skipped > 0) {
+          toast.info(message);
+        } else {
+          toast.success(message);
+        }
       } else {
         toast.error(response.message || "Download failed");
       }
@@ -287,6 +328,7 @@ export function DatabaseView({ onLoadAccount }: DatabaseViewProps) {
 
     const settings = getSettings();
     let totalDownloaded = 0;
+    let totalSkipped = 0;
     let downloadedAccounts = 0;
 
     for (let i = 0; i < idsToDownload.length; i++) {
@@ -318,20 +360,38 @@ export function DatabaseView({ onLoadAccount }: DatabaseViewProps) {
 
         setDownloadProgress({ current: 0, total: timeline.length, percent: 0 });
 
+        // Check if it's bookmarks or likes by checking account_info.nick or username (for backward compatibility)
+        const isBookmarks = data.account_info?.nick === "My Bookmarks" || account.username === "bookmarks";
+        const isLikes = data.account_info?.nick === "My Likes" || account.username === "likes";
+        let outputDir = settings.downloadPath;
+        if (isBookmarks) {
+          const separator = settings.downloadPath.includes("/") ? "/" : "\\";
+          outputDir = `${settings.downloadPath}${separator}My Bookmarks`;
+        } else if (isLikes) {
+          const separator = settings.downloadPath.includes("/") ? "/" : "\\";
+          outputDir = `${settings.downloadPath}${separator}My Likes`;
+        }
+        // Use actual username from account_info if available, otherwise use stored username
+        const actualUsername = data.account_info?.name || account.username;
+
         const request = new main.DownloadMediaWithMetadataRequest({
-          items: timeline.map((item: { url: string; date: string; tweet_id: string; type: string }) => new main.MediaItemRequest({
+          items: timeline.map((item: { url: string; date: string; tweet_id: string; type: string; author_username?: string; original_filename?: string }) => new main.MediaItemRequest({
             url: item.url,
             date: item.date,
             tweet_id: item.tweet_id,
             type: item.type,
+            author_username: item.author_username || "",
+            original_filename: item.original_filename || "",
           })),
-          output_dir: settings.downloadPath,
-          username: account.username,
+          output_dir: outputDir,
+          username: actualUsername,
+          proxy: settings.proxy || "",
         });
 
         const response = await DownloadMediaWithMetadata(request);
         if (response.success) {
           totalDownloaded += response.downloaded;
+          totalSkipped += response.skipped || 0;
           downloadedAccounts++;
         }
       } catch (error) {
@@ -345,8 +405,22 @@ export function DatabaseView({ onLoadAccount }: DatabaseViewProps) {
     setBulkDownloadCurrent(0);
     setBulkDownloadTotal(0);
 
-    if (totalDownloaded > 0 && !stopBulkDownloadRef.current) {
-      toast.success(`Downloaded ${totalDownloaded} files from ${downloadedAccounts} accounts`);
+    if ((totalDownloaded > 0 || totalSkipped > 0) && !stopBulkDownloadRef.current) {
+      const parts: string[] = [];
+      if (totalDownloaded > 0) {
+        parts.push(`${totalDownloaded} file${totalDownloaded !== 1 ? 's' : ''} downloaded`);
+      }
+      if (totalSkipped > 0) {
+        parts.push(`${totalSkipped} file${totalSkipped !== 1 ? 's' : ''} already exist${totalSkipped !== 1 ? '' : 's'}`);
+      }
+      const message = parts.length > 0 ? `${parts.join(', ')} from ${downloadedAccounts} account${downloadedAccounts !== 1 ? 's' : ''}` : `Download completed from ${downloadedAccounts} account${downloadedAccounts !== 1 ? 's' : ''}`;
+      
+      // Use info toast if only skipped files (no downloaded)
+      if (totalDownloaded === 0 && totalSkipped > 0) {
+        toast.info(message);
+      } else {
+        toast.success(message);
+      }
     }
   };
 
@@ -375,7 +449,7 @@ export function DatabaseView({ onLoadAccount }: DatabaseViewProps) {
     }
   };
 
-  const handleExport = async () => {
+  const handleExportJSON = async () => {
     const idsToExport = selectedIds.size > 0 ? Array.from(selectedIds) : accounts.map((a) => a.id);
 
     if (idsToExport.length === 0) {
@@ -396,6 +470,34 @@ export function DatabaseView({ onLoadAccount }: DatabaseViewProps) {
     } catch (error) {
       toast.error("Failed to export");
     }
+  };
+
+  const handleExportTXT = async () => {
+    const idsToExport = selectedIds.size > 0 ? Array.from(selectedIds) : accounts.map((a) => a.id);
+
+    if (idsToExport.length === 0) {
+      toast.error("No accounts to export");
+      return;
+    }
+
+    const settings = getSettings();
+    const outputDir = settings.downloadPath || "";
+
+    try {
+      await ExportAccountsTXT(idsToExport, outputDir);
+      toast.success(`Exported ${idsToExport.length} account(s) to ${outputDir}\\twitterxmediabatchdownloader_backups\\twitterxmediabatchdownloader_multiple.txt`);
+    } catch (error) {
+      toast.error("Failed to export");
+    }
+  };
+
+  // Check if any selected accounts are private (bookmarks/likes)
+  const hasPrivateAccountSelected = () => {
+    if (selectedIds.size === 0) return false;
+    return Array.from(selectedIds).some((id) => {
+      const account = accounts.find((a) => a.id === id);
+      return account && isPrivateAccount(account.username);
+    });
   };
 
   const handleImport = () => {
@@ -522,29 +624,29 @@ export function DatabaseView({ onLoadAccount }: DatabaseViewProps) {
         <div className="flex items-center gap-3">
           <h2 className="text-2xl font-bold">Saved Accounts</h2>
           {/* Public/Private Toggle */}
-          <div className="flex gap-1 p-1 bg-muted rounded-lg">
+          <div className="flex gap-0.5 p-0.5 bg-muted rounded-lg">
             <button
               type="button"
               onClick={() => setViewMode("public")}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+              className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all ${
                 viewMode === "public"
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              <Globe className="h-4 w-4" />
+              <Globe className="h-3 w-3" />
               Public ({publicAccounts.length})
             </button>
             <button
               type="button"
               onClick={() => setViewMode("private")}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+              className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all ${
                 viewMode === "private"
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              <Lock className="h-4 w-4" />
+              <Lock className="h-3 w-3" />
               Private ({privateAccounts.length})
             </button>
           </div>
@@ -558,13 +660,62 @@ export function DatabaseView({ onLoadAccount }: DatabaseViewProps) {
             </TooltipTrigger>
             <TooltipContent>Import JSON</TooltipContent>
           </Tooltip>
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon" disabled={selectedIds.size === 0}>
+                    <FileOutput className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>Export Selected ({selectedIds.size})</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleExportJSON}>
+                <FileBraces className="h-4 w-4 mr-2" />
+                Export JSON
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportTXT} disabled={hasPrivateAccountSelected()}>
+                <FileText className="h-4 w-4 mr-2" />
+                Export TXT
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="outline" size="icon" onClick={handleExport} disabled={selectedIds.size === 0}>
-                <FileOutput className="h-4 w-4" />
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={() => {
+                  const idsToUpdate = selectedIds.size > 0 ? Array.from(selectedIds) : accounts.map((a) => a.id);
+                  if (idsToUpdate.length === 0) {
+                    toast.error("No accounts selected");
+                    return;
+                  }
+                  const usernames = idsToUpdate
+                    .map((id) => {
+                      const account = accounts.find((a) => a.id === id);
+                      return account?.username;
+                    })
+                    .filter((username): username is string => !!username);
+                  
+                  if (usernames.length === 0) {
+                    toast.error("No valid usernames found");
+                    return;
+                  }
+                  
+                  if (onUpdateSelected) {
+                    onUpdateSelected(usernames);
+                    toast.success(`Added ${usernames.length} account(s) to multiple fetch`);
+                  }
+                }}
+                disabled={selectedIds.size === 0 || hasPrivateAccountSelected()}
+              >
+                <CloudBackup className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Export Selected</TooltipContent>
+            <TooltipContent>Update Selected ({selectedIds.size})</TooltipContent>
           </Tooltip>
           {isBulkDownloading ? (
             <Tooltip>
@@ -589,12 +740,12 @@ export function DatabaseView({ onLoadAccount }: DatabaseViewProps) {
             <Tooltip>
               <TooltipTrigger asChild>
                 <DialogTrigger asChild>
-                  <Button variant="destructive" size="icon" disabled={accounts.length === 0}>
+                  <Button variant="destructive" size="icon" disabled={baseAccounts.length === 0}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </DialogTrigger>
               </TooltipTrigger>
-              <TooltipContent>Clear All</TooltipContent>
+              <TooltipContent>Clear All {viewMode === "public" ? "Public" : "Private"}</TooltipContent>
             </Tooltip>
             <DialogContent className="[&>button]:hidden">
               <div className="absolute right-4 top-4">
@@ -608,9 +759,9 @@ export function DatabaseView({ onLoadAccount }: DatabaseViewProps) {
                 </Button>
               </div>
               <DialogHeader>
-                <DialogTitle>Clear All Accounts?</DialogTitle>
+                <DialogTitle>Clear All {viewMode === "public" ? "Public" : "Private"} Accounts?</DialogTitle>
                 <DialogDescription>
-                  This will permanently delete all {formatNumberWithComma(accounts.length)} saved accounts. This action cannot be undone.
+                  This will permanently delete all {formatNumberWithComma(baseAccounts.length)} {viewMode === "public" ? "public" : "private"} saved accounts. This action cannot be undone.
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
@@ -618,8 +769,12 @@ export function DatabaseView({ onLoadAccount }: DatabaseViewProps) {
                   variant="destructive"
                   onClick={async () => {
                     try {
-                      await ClearAllAccountsFromDB();
-                      toast.success("All accounts deleted");
+                      // Delete only accounts matching the current view mode
+                      const accountsToDelete = baseAccounts.map((acc) => acc.id);
+                      for (const id of accountsToDelete) {
+                        await DeleteAccountFromDB(id);
+                      }
+                      toast.success(`All ${viewMode === "public" ? "public" : "private"} accounts deleted`);
                       setClearAllDialogOpen(false);
                       loadAccounts();
                     } catch (error) {
@@ -627,7 +782,7 @@ export function DatabaseView({ onLoadAccount }: DatabaseViewProps) {
                     }
                   }}
                 >
-                  Delete All
+                  Delete All {viewMode === "public" ? "Public" : "Private"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -754,7 +909,10 @@ export function DatabaseView({ onLoadAccount }: DatabaseViewProps) {
                   {(currentPage - 1) * ITEMS_PER_PAGE + index + 1}
                 </span>
                 {isPrivateAccount(account.username) ? (
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <div 
+                    className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors"
+                    onClick={() => handleView(account.id, account.username)}
+                  >
                     {account.username === "bookmarks" ? (
                       <Bookmark className="h-6 w-6 text-primary" />
                     ) : (
@@ -765,7 +923,8 @@ export function DatabaseView({ onLoadAccount }: DatabaseViewProps) {
                   <img
                     src={account.profile_image}
                     alt={account.name}
-                    className="w-12 h-12 rounded-full"
+                    className="w-12 h-12 rounded-full cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => handleView(account.id, account.username)}
                   />
                 )}
                 <div className="flex-1 min-w-0">
@@ -809,57 +968,14 @@ export function DatabaseView({ onLoadAccount }: DatabaseViewProps) {
                       </Badge>
                     )}
                   </div>
-                  <div className="text-sm text-muted-foreground">@{account.username}</div>
+                  {!isPrivateAccount(account.username) && (
+                    <div className="text-sm text-muted-foreground">@{account.username}</div>
+                  )}
                   <div className="text-sm text-muted-foreground">
                     {account.last_fetched} {getRelativeTime(account.last_fetched)}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => handleEditGroup(account)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Edit Group</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => handleView(account.id, account.username)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>View</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={async () => {
-                          const settings = getSettings();
-                          const outputDir = settings.downloadPath || "";
-                          try {
-                            await ExportAccountJSON(account.id, outputDir);
-                            toast.success(`Exported @${account.username} to ${outputDir}\\twitterxmediabatchdownloader_backups`);
-                          } catch (error) {
-                            toast.error("Failed to export");
-                          }
-                        }}
-                      >
-                        <FileOutput className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Export JSON</TooltipContent>
-                  </Tooltip>
                   {downloadingAccountId === account.id ? (
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -892,41 +1008,75 @@ export function DatabaseView({ onLoadAccount }: DatabaseViewProps) {
                       <TooltipContent>Download All Media</TooltipContent>
                     </Tooltip>
                   )}
-                  <Dialog>
+                  <DropdownMenu>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <DialogTrigger asChild>
-                          <Button variant="destructive" size="icon">
-                            <Trash2 className="h-4 w-4" />
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="icon">
+                            <MoreVertical className="h-4 w-4" />
                           </Button>
-                        </DialogTrigger>
+                        </DropdownMenuTrigger>
                       </TooltipTrigger>
-                      <TooltipContent>Delete</TooltipContent>
+                      <TooltipContent>More Options</TooltipContent>
                     </Tooltip>
-                    <DialogContent className="[&>button]:hidden">
-                      <div className="absolute right-4 top-4">
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleEditGroup(account)}>
+                        <Pencil className="h-4 w-4 mr-2" />
+                        Edit Group
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={async () => {
+                          const settings = getSettings();
+                          const outputDir = settings.downloadPath || "";
+                          try {
+                            await ExportAccountJSON(account.id, outputDir);
+                            toast.success(`Exported @${account.username} to ${outputDir}\\twitterxmediabatchdownloader_backups`);
+                          } catch (error) {
+                            toast.error("Failed to export");
+                          }
+                        }}
+                      >
+                        <FileOutput className="h-4 w-4 mr-2" />
+                        Export JSON
+                      </DropdownMenuItem>
+                      <Dialog>
                         <DialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 opacity-70 hover:opacity-100">
-                            <X className="h-4 w-4" />
-                          </Button>
+                          <DropdownMenuItem
+                            onSelect={(e: Event) => {
+                              e.preventDefault();
+                            }}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
                         </DialogTrigger>
-                      </div>
-                      <DialogHeader>
-                        <DialogTitle>Delete @{account.username}?</DialogTitle>
-                        <DialogDescription>
-                          This will permanently delete the saved data for this account.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <DialogFooter>
-                        <Button
-                          variant="destructive"
-                          onClick={() => handleDelete(account.id, account.username)}
-                        >
-                          Delete
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
+                        <DialogContent className="[&>button]:hidden">
+                          <div className="absolute right-4 top-4">
+                            <DialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-6 w-6 opacity-70 hover:opacity-100">
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </DialogTrigger>
+                          </div>
+                          <DialogHeader>
+                            <DialogTitle>Delete @{account.username}?</DialogTitle>
+                            <DialogDescription>
+                              This will permanently delete the saved data for this account.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <DialogFooter>
+                            <Button
+                              variant="destructive"
+                              onClick={() => handleDelete(account.id, account.username)}
+                            >
+                              Delete
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
               {/* Progress bar for this account */}

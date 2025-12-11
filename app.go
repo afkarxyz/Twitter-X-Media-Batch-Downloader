@@ -174,18 +174,21 @@ func (a *App) Quit() {
 
 // DownloadMediaRequest represents the request for downloading media (legacy)
 type DownloadMediaRequest struct {
-	URLs      []string `json:"urls"`
-	OutputDir string   `json:"output_dir"`
-	Username  string   `json:"username"`
+	URLs        []string `json:"urls"`
+	OutputDir   string   `json:"output_dir"`
+	Username    string   `json:"username"`
+	Proxy       string   `json:"proxy,omitempty"` // Optional proxy URL (e.g., http://proxy:port or socks5://proxy:port)
 }
 
 // MediaItemRequest represents a media item with metadata
 type MediaItemRequest struct {
-	URL     string                `json:"url"`
-	Date    string                `json:"date"`
-	TweetID backend.TweetIDString `json:"tweet_id"`
-	Type    string                `json:"type"`
-	Content string                `json:"content,omitempty"` // Tweet text content (for text-only tweets)
+	URL              string                `json:"url"`
+	Date             string                `json:"date"`
+	TweetID          backend.TweetIDString `json:"tweet_id"`
+	Type             string                `json:"type"`
+	Content          string                `json:"content,omitempty"` // Tweet text content (for text-only tweets)
+	OriginalFilename string                `json:"original_filename,omitempty"` // Original filename from API
+	AuthorUsername   string                `json:"author_username,omitempty"`   // Username of tweet author (for bookmarks and likes)
 }
 
 // DownloadMediaWithMetadataRequest represents the request for downloading media with metadata
@@ -193,12 +196,14 @@ type DownloadMediaWithMetadataRequest struct {
 	Items     []MediaItemRequest `json:"items"`
 	OutputDir string             `json:"output_dir"`
 	Username  string             `json:"username"`
+	Proxy     string             `json:"proxy,omitempty"` // Optional proxy URL (e.g., http://proxy:port or socks5://proxy:port)
 }
 
 // DownloadMediaResponse represents the response for download operation
 type DownloadMediaResponse struct {
 	Success    bool   `json:"success"`
 	Downloaded int    `json:"downloaded"`
+	Skipped    int    `json:"skipped"`
 	Failed     int    `json:"failed"`
 	Message    string `json:"message"`
 }
@@ -222,11 +227,12 @@ func (a *App) DownloadMedia(req DownloadMediaRequest) (DownloadMediaResponse, er
 		outputDir = filepath.Join(outputDir, req.Username)
 	}
 
-	downloaded, failed, err := backend.DownloadMediaFiles(req.URLs, outputDir)
+	downloaded, failed, err := backend.DownloadMediaFiles(req.URLs, outputDir, req.Proxy)
 	if err != nil {
 		return DownloadMediaResponse{
 			Success:    false,
 			Downloaded: downloaded,
+			Skipped:    0,
 			Failed:     failed,
 			Message:    err.Error(),
 		}, err
@@ -235,6 +241,7 @@ func (a *App) DownloadMedia(req DownloadMediaRequest) (DownloadMediaResponse, er
 	return DownloadMediaResponse{
 		Success:    true,
 		Downloaded: downloaded,
+		Skipped:    0,
 		Failed:     failed,
 		Message:    fmt.Sprintf("Downloaded %d files, %d failed", downloaded, failed),
 	}, nil
@@ -268,16 +275,31 @@ func (a *App) DownloadMediaWithMetadata(req DownloadMediaWithMetadataRequest) (D
 		outputDir = backend.GetDefaultDownloadPath()
 	}
 
-	// Convert request items to backend items
-	items := make([]backend.MediaItem, len(req.Items))
-	for i, item := range req.Items {
+		// Convert request items to backend items
+		// For bookmarks and likes, use author_username from each item if available
+		items := make([]backend.MediaItem, len(req.Items))
+		for i, item := range req.Items {
+			// Use original filename from API if available, otherwise extract from URL
+			originalFilename := item.OriginalFilename
+			if originalFilename == "" {
+				// Fallback: extract from URL if not provided in API response
+				originalFilename = backend.ExtractOriginalFilename(item.URL)
+			}
+			
+			// For bookmarks and likes, use author_username from item, otherwise use req.Username
+			username := req.Username
+			if item.AuthorUsername != "" {
+				username = item.AuthorUsername
+			}
+		
 		items[i] = backend.MediaItem{
-			URL:      item.URL,
-			Date:     item.Date,
-			TweetID:  int64(item.TweetID),
-			Type:     item.Type,
-			Username: req.Username,
-			Content:  item.Content,
+			URL:              item.URL,
+			Date:             item.Date,
+			TweetID:          int64(item.TweetID),
+			Type:             item.Type,
+			Username:         username,
+			Content:          item.Content,
+			OriginalFilename: originalFilename,
 		}
 	}
 
@@ -306,11 +328,12 @@ func (a *App) DownloadMediaWithMetadata(req DownloadMediaWithMetadataRequest) (D
 		})
 	}
 
-	downloaded, failed, err := backend.DownloadMediaWithMetadataProgressAndStatus(items, outputDir, req.Username, progressCallback, itemStatusCallback, a.downloadCtx)
+	downloaded, skipped, failed, err := backend.DownloadMediaWithMetadataProgressAndStatus(items, outputDir, req.Username, progressCallback, itemStatusCallback, a.downloadCtx, req.Proxy)
 	if err != nil {
 		return DownloadMediaResponse{
 			Success:    false,
 			Downloaded: downloaded,
+			Skipped:     skipped,
 			Failed:     failed,
 			Message:    err.Error(),
 		}, err
@@ -322,8 +345,9 @@ func (a *App) DownloadMediaWithMetadata(req DownloadMediaWithMetadataRequest) (D
 	return DownloadMediaResponse{
 		Success:    true,
 		Downloaded: downloaded,
+		Skipped:     skipped,
 		Failed:     failed,
-		Message:    fmt.Sprintf("Downloaded %d files, %d failed", downloaded, failed),
+		Message:    fmt.Sprintf("Downloaded %d files, %d skipped, %d failed", downloaded, skipped, failed),
 	}, nil
 }
 
@@ -378,6 +402,11 @@ func (a *App) ExportAccountJSON(id int64, outputDir string) (string, error) {
 	return backend.ExportAccountToFile(id, outputDir)
 }
 
+// ExportAccountsTXT exports selected accounts to TXT file in specified directory
+func (a *App) ExportAccountsTXT(ids []int64, outputDir string) (string, error) {
+	return backend.ExportAccountsToTXT(ids, outputDir)
+}
+
 // UpdateAccountGroup updates the group for an account
 func (a *App) UpdateAccountGroup(id int64, groupName, groupColor string) error {
 	return backend.UpdateAccountGroup(id, groupName, groupColor)
@@ -398,6 +427,16 @@ func (a *App) IsFFmpegInstalled() bool {
 // DownloadFFmpeg downloads ffmpeg binary
 func (a *App) DownloadFFmpeg() error {
 	return backend.DownloadFFmpeg(nil)
+}
+
+// IsExifToolInstalled checks if exiftool is available
+func (a *App) IsExifToolInstalled() bool {
+	return backend.IsExifToolInstalled()
+}
+
+// DownloadExifTool downloads exiftool binary
+func (a *App) DownloadExifTool() error {
+	return backend.DownloadExifTool(nil)
 }
 
 // ConvertGIFsRequest represents request for converting GIFs

@@ -213,6 +213,8 @@ type TimelineEntry struct {
 	ReplyCount    int           `json:"reply_count,omitempty"`
 	Source        string        `json:"source,omitempty"`
 	Verified      bool          `json:"verified,omitempty"`
+	OriginalFilename string     `json:"original_filename,omitempty"` // Original filename from API
+	AuthorUsername string       `json:"author_username,omitempty"`   // Username of tweet author (for bookmarks and likes)
 }
 
 // AccountInfo represents Twitter account information (derived from metadata)
@@ -395,27 +397,39 @@ func convertMetadataToTimelineEntry(meta TweetMetadata) TimelineEntry {
 		FavoriteCount: meta.FavoriteCount,
 		RetweetCount:  meta.RetweetCount,
 		ReplyCount:    meta.ReplyCount,
+		AuthorUsername: meta.Author.Name,
 	}
 }
 
 // convertToTimelineEntry converts CLIMediaItem to TimelineEntry
 func convertToTimelineEntry(media CLIMediaItem) TimelineEntry {
+	// Get username from Author field (preferred for bookmarks/likes) or User field
+	// Author field always contains the tweet author, while User might be the account fetching for likes
+	authorUsername := ""
+	if media.Author.Name != "" {
+		authorUsername = media.Author.Name
+	} else if media.User.Name != "" {
+		authorUsername = media.User.Name
+	}
+
 	entry := TimelineEntry{
-		URL:           media.URL,
-		TweetID:       media.TweetID,
-		Date:          media.Date,
-		Extension:     media.Extension,
-		Width:         media.Width,
-		Height:        media.Height,
-		IsRetweet:     media.RetweetID != 0,
-		Content:       media.Content,
-		ViewCount:     media.ViewCount,
-		BookmarkCount: media.BookmarkCount,
-		FavoriteCount: media.FavoriteCount,
-		RetweetCount:  media.RetweetCount,
-		ReplyCount:    media.ReplyCount,
-		Source:        media.Source,
-		Verified:      media.Author.Verified,
+		URL:              media.URL,
+		TweetID:          media.TweetID,
+		Date:             media.Date,
+		Extension:        media.Extension,
+		Width:            media.Width,
+		Height:           media.Height,
+		IsRetweet:        media.RetweetID != 0,
+		Content:          media.Content,
+		ViewCount:        media.ViewCount,
+		BookmarkCount:    media.BookmarkCount,
+		FavoriteCount:    media.FavoriteCount,
+		RetweetCount:     media.RetweetCount,
+		ReplyCount:       media.ReplyCount,
+		Source:           media.Source,
+		Verified:         media.Author.Verified,
+		AuthorUsername:   authorUsername,
+		// OriginalFilename will be extracted from URL in download.go
 	}
 
 	// Determine type - media item already has type from CLI
@@ -627,6 +641,17 @@ func ExtractTimeline(req TimelineRequest) (*TwitterResponse, error) {
 		mediaTweetIDs[int64(media.TweetID)] = true
 	}
 
+	// For bookmarks and likes, keep name as "bookmarks"/"likes" (not from author tweet)
+	isBookmarks := req.TimelineType == "bookmarks"
+	isLikes := req.TimelineType == "likes"
+	if isBookmarks {
+		accountInfo.Name = "bookmarks"
+		accountInfo.Nick = "My Bookmarks"
+	} else if isLikes {
+		accountInfo.Name = "likes"
+		accountInfo.Nick = "My Likes"
+	}
+
 	if isTextOnly {
 		// Text-only mode: get tweets from metadata that don't have media
 		timeline = make([]TimelineEntry, 0)
@@ -637,19 +662,31 @@ func ExtractTimeline(req TimelineRequest) (*TwitterResponse, error) {
 		}
 
 		// Get account info from first media item if available, otherwise from metadata
-		if len(cliResponse.Media) > 0 {
-			user := cliResponse.Media[0].User
-			accountInfo.Name = user.Name
-			accountInfo.Nick = user.Nick
-			accountInfo.Date = user.Date
-			accountInfo.FollowersCount = user.FollowersCount
-			accountInfo.FriendsCount = user.FriendsCount
-			accountInfo.ProfileImage = user.ProfileImage
-			accountInfo.StatusesCount = user.StatusesCount
-		} else if len(cliResponse.Metadata) > 0 {
-			firstMeta := cliResponse.Metadata[0]
-			accountInfo.Name = firstMeta.Author.Name
-			accountInfo.Nick = firstMeta.Author.Nick
+		if !isBookmarks && !isLikes {
+			if len(cliResponse.Media) > 0 {
+				user := cliResponse.Media[0].User
+				accountInfo.Name = user.Name
+				accountInfo.Nick = user.Nick
+				accountInfo.Date = user.Date
+				accountInfo.FollowersCount = user.FollowersCount
+				accountInfo.FriendsCount = user.FriendsCount
+				accountInfo.ProfileImage = user.ProfileImage
+				accountInfo.StatusesCount = user.StatusesCount
+			} else if len(cliResponse.Metadata) > 0 {
+				firstMeta := cliResponse.Metadata[0]
+				accountInfo.Name = firstMeta.Author.Name
+				accountInfo.Nick = firstMeta.Author.Nick
+			}
+		} else {
+			// For bookmarks and likes, get other info from first media item if available
+			if len(cliResponse.Media) > 0 {
+				user := cliResponse.Media[0].User
+				accountInfo.Date = user.Date
+				accountInfo.FollowersCount = user.FollowersCount
+				accountInfo.FriendsCount = user.FriendsCount
+				accountInfo.ProfileImage = user.ProfileImage
+				accountInfo.StatusesCount = user.StatusesCount
+			}
 		}
 	} else if len(cliResponse.Media) > 0 {
 		// Normal media items only (text tweets handled separately with "text" media type)
@@ -662,8 +699,10 @@ func ExtractTimeline(req TimelineRequest) (*TwitterResponse, error) {
 
 		// Get account info from first media item
 		user := cliResponse.Media[0].User
-		accountInfo.Name = user.Name
-		accountInfo.Nick = user.Nick
+		if !isBookmarks && !isLikes {
+			accountInfo.Name = user.Name
+			accountInfo.Nick = user.Nick
+		}
 		accountInfo.Date = user.Date
 		accountInfo.FollowersCount = user.FollowersCount
 		accountInfo.FriendsCount = user.FriendsCount
@@ -688,13 +727,16 @@ func ExtractTimeline(req TimelineRequest) (*TwitterResponse, error) {
 				FavoriteCount: meta.FavoriteCount,
 				RetweetCount:  meta.RetweetCount,
 				ReplyCount:    meta.ReplyCount,
+				AuthorUsername: meta.Author.Name,
 			}
 			timeline = append(timeline, entry)
 		}
 		// Get account info from first metadata
-		firstMeta := cliResponse.Metadata[0]
-		accountInfo.Name = firstMeta.Author.Name
-		accountInfo.Nick = firstMeta.Author.Nick
+		if !isBookmarks && !isLikes {
+			firstMeta := cliResponse.Metadata[0]
+			accountInfo.Name = firstMeta.Author.Name
+			accountInfo.Nick = firstMeta.Author.Nick
+		}
 	}
 
 	// Determine if there's more data to fetch
@@ -873,26 +915,4 @@ func extractJSON(output string) string {
 	}
 
 	return ""
-}
-
-// GetThumbnailURL converts a Twitter media URL to thumbnail size
-func GetThumbnailURL(url string) string {
-	// For images: https://pbs.twimg.com/media/XXX?format=jpg&name=thumb
-	if strings.Contains(url, "pbs.twimg.com/media/") {
-		// Check if it already has format parameter
-		if strings.Contains(url, "?format=") {
-			// Replace name parameter with thumb
-			if strings.Contains(url, "&name=") {
-				parts := strings.Split(url, "&name=")
-				return parts[0] + "&name=thumb"
-			}
-			return url + "&name=thumb"
-		}
-		// Add format and name parameters
-		if strings.Contains(url, "?") {
-			return url + "&name=thumb"
-		}
-		return url + "?format=jpg&name=thumb"
-	}
-	return url
 }

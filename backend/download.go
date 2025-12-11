@@ -21,23 +21,29 @@ const (
 
 // MediaItem represents a media item with metadata for download
 type MediaItem struct {
-	URL      string `json:"url"`
-	Date     string `json:"date"`
-	TweetID  int64  `json:"tweet_id"`
-	Type     string `json:"type"`
-	Username string `json:"username"`
-	Content  string `json:"content,omitempty"` // Tweet text content (for text-only tweets)
+	URL             string `json:"url"`
+	Date            string `json:"date"`
+	TweetID         int64  `json:"tweet_id"`
+	Type            string `json:"type"`
+	Username        string `json:"username"`
+	Content         string `json:"content,omitempty"` // Tweet text content (for text-only tweets)
+	OriginalFilename string `json:"original_filename,omitempty"` // Original Twitter media filename (15 char alphanumeric)
 }
 
 // DownloadMediaFiles downloads media files from URLs to the output directory (legacy)
-func DownloadMediaFiles(urls []string, outputDir string) (downloaded int, failed int, err error) {
+func DownloadMediaFiles(urls []string, outputDir string, customProxy string) (downloaded int, failed int, err error) {
 	// Create output directory if it doesn't exist
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return 0, len(urls), fmt.Errorf("failed to create output directory: %v", err)
 	}
 
-	client := &http.Client{
-		Timeout: 60 * time.Second,
+	// Create HTTP client with proxy support
+	client, err := CreateHTTPClient(customProxy, 60*time.Second)
+	if err != nil {
+		// If proxy setup fails, use default client without proxy
+		client = &http.Client{
+			Timeout: 60 * time.Second,
+		}
 	}
 
 	for _, mediaURL := range urls {
@@ -73,38 +79,35 @@ type downloadTask struct {
 	index      int
 }
 
-// DownloadMediaWithMetadata downloads media files with proper naming and categorization
-func DownloadMediaWithMetadata(items []MediaItem, outputDir string, username string) (downloaded int, failed int, err error) {
-	return DownloadMediaWithMetadataProgressAndStatus(items, outputDir, username, nil, nil, nil)
-}
-
-// DownloadMediaWithMetadataProgress downloads media files with progress callback and cancellation support
-func DownloadMediaWithMetadataProgress(items []MediaItem, outputDir string, username string, progress ProgressCallback, ctx context.Context) (downloaded int, failed int, err error) {
-	return DownloadMediaWithMetadataProgressAndStatus(items, outputDir, username, progress, nil, ctx)
-}
-
 // DownloadMediaWithMetadataProgressAndStatus downloads media files with progress and per-item status callbacks
-func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir string, username string, progress ProgressCallback, itemStatus ItemStatusCallback, ctx context.Context) (downloaded int, failed int, err error) {
+// Returns: downloaded count, skipped count, failed count, error
+func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir string, username string, progress ProgressCallback, itemStatus ItemStatusCallback, ctx context.Context, customProxy string) (downloaded int, skipped int, failed int, err error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
-	// Create base output directory
-	baseDir := filepath.Join(outputDir, username)
-	if err := os.MkdirAll(baseDir, 0755); err != nil {
-		return 0, len(items), fmt.Errorf("failed to create output directory: %v", err)
-	}
-
 	total := len(items)
 	if total == 0 {
-		return 0, 0, nil
+		return 0, 0, 0, nil
 	}
 
 	// Prepare all tasks first (sequential to handle tweet media count)
-	tweetMediaCount := make(map[int64]int)
+	// For bookmarks and likes, each item may have different username, so we track per username
+	tweetMediaCount := make(map[string]map[int64]int) // username -> tweet_id -> count
 	tasks := make([]downloadTask, 0, total)
 
 	for i, item := range items {
+		// Use item.Username if available (for bookmarks/likes with different authors), otherwise use provided username
+		itemUsername := item.Username
+		if itemUsername == "" {
+			itemUsername = username
+		}
+
+		// Initialize tweet media count for this username if needed
+		if tweetMediaCount[itemUsername] == nil {
+			tweetMediaCount[itemUsername] = make(map[int64]int)
+		}
+
 		// Determine subfolder based on type
 		var subfolder string
 		switch item.Type {
@@ -120,6 +123,12 @@ func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir str
 			subfolder = "other"
 		}
 
+		// Create base directory for this username
+		baseDir := filepath.Join(outputDir, itemUsername)
+		if err := os.MkdirAll(baseDir, 0755); err != nil {
+			continue
+		}
+
 		// Create type subfolder
 		typeDir := filepath.Join(baseDir, subfolder)
 		if err := os.MkdirAll(typeDir, 0755); err != nil {
@@ -132,12 +141,12 @@ func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir str
 		// Get file extension
 		ext := getExtension(item.URL, item.Type)
 
-		// Increment counter for this tweet_id
-		tweetMediaCount[item.TweetID]++
-		mediaIndex := tweetMediaCount[item.TweetID]
+		// Increment counter for this username and tweet_id
+		tweetMediaCount[itemUsername][item.TweetID]++
+		mediaIndex := tweetMediaCount[itemUsername][item.TweetID]
 
 		// Create filename: {username}_{timestamp}_{tweet_id}_{index}.{ext}
-		filename := fmt.Sprintf("%s_%s_%d_%02d%s", username, timestamp, item.TweetID, mediaIndex, ext)
+		filename := fmt.Sprintf("%s_%s_%d_%02d%s", itemUsername, timestamp, item.TweetID, mediaIndex, ext)
 		outputPath := filepath.Join(typeDir, filename)
 
 		tasks = append(tasks, downloadTask{
@@ -149,6 +158,7 @@ func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir str
 
 	// Counters for parallel downloads
 	var downloadedCount int64
+	var skippedCount int64
 	var failedCount int64
 	var completedCount int64
 
@@ -162,13 +172,23 @@ func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir str
 		numWorkers = len(tasks)
 	}
 
+	// Create HTTP client once for all workers (shared client is more efficient)
+	var sharedClient *http.Client
+	client, err := CreateHTTPClient(customProxy, 60*time.Second)
+	if err != nil {
+		// If proxy setup fails, use default client without proxy
+		sharedClient = &http.Client{
+			Timeout: 60 * time.Second,
+		}
+	} else {
+		sharedClient = client
+	}
+
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			client := &http.Client{
-				Timeout: 60 * time.Second,
-			}
+			client := sharedClient
 
 			for task := range taskChan {
 				// Check for cancellation
@@ -181,8 +201,13 @@ func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir str
 				var status string
 				// Skip if file already exists
 				if _, err := os.Stat(task.outputPath); err == nil {
-					atomic.AddInt64(&downloadedCount, 1)
 					status = "skipped"
+					// Emit status immediately for skipped files
+					if itemStatus != nil {
+						itemStatus(task.item.TweetID, task.index, status)
+					}
+					atomic.AddInt64(&skippedCount, 1)
+					continue // Skip to next task
 				} else if task.item.Type == "text" {
 					// For text tweets, write content to file
 					if err := os.WriteFile(task.outputPath, []byte(task.item.Content), 0644); err != nil {
@@ -196,6 +221,20 @@ func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir str
 					atomic.AddInt64(&failedCount, 1)
 					status = "failed"
 				} else {
+					// Embed metadata after successful download
+					tweetURL := fmt.Sprintf("https://x.com/i/status/%d", task.item.TweetID)
+					// Always extract original filename from URL (simpler approach)
+					originalFilename := ExtractOriginalFilename(task.item.URL)
+					
+					// For debugging: if original filename is still empty for video, it means it's not in the URL
+					// This is acceptable - video URLs from Twitter may not contain original filename
+					
+					// Embed metadata (non-fatal: if it fails, file is still downloaded)
+					if err := EmbedMetadata(task.outputPath, task.item.Content, tweetURL, originalFilename); err != nil {
+						// Log error but don't fail the download
+						// Metadata embedding is optional
+					}
+					
 					atomic.AddInt64(&downloadedCount, 1)
 					status = "success"
 				}
@@ -220,7 +259,7 @@ func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir str
 		case <-ctx.Done():
 			close(taskChan)
 			wg.Wait()
-			return int(downloadedCount), int(failedCount) + (total - int(completedCount)), ctx.Err()
+			return int(downloadedCount), int(skippedCount), int(failedCount) + (total - int(completedCount)), ctx.Err()
 		case taskChan <- task:
 		}
 	}
@@ -229,7 +268,7 @@ func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir str
 	// Wait for all workers to finish
 	wg.Wait()
 
-	return int(downloadedCount), int(failedCount), nil
+	return int(downloadedCount), int(skippedCount), int(failedCount), nil
 }
 
 // downloadFileWithContext downloads a single file with context support for cancellation

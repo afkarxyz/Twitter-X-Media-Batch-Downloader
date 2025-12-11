@@ -6,6 +6,7 @@
 import type { TwitterResponse, TimelineEntry, AccountInfo } from "@/types/api";
 
 const FETCH_STATE_KEY = "twitter_fetch_state";
+const CURSOR_STATE_KEY = "twitter_cursor_state"; // Lightweight cursor-only storage
 
 export interface FetchState {
   username: string;
@@ -164,6 +165,63 @@ export function stateToResponse(state: FetchState): TwitterResponse | null {
     cursor: state.cursor,
     completed: state.completed,
   };
+}
+
+/**
+ * Save cursor only (lightweight, can be called every batch)
+ */
+export function saveCursor(username: string, cursor: string): void {
+  try {
+    const allCursors = getAllCursors();
+    allCursors[username.toLowerCase()] = {
+      cursor,
+      lastUpdated: Date.now(),
+    };
+    localStorage.setItem(CURSOR_STATE_KEY, JSON.stringify(allCursors));
+  } catch (error) {
+    console.error("Failed to save cursor:", error);
+  }
+}
+
+/**
+ * Get cursor for username from localStorage (lightweight, synchronous)
+ */
+export function getCursor(username: string): string | null {
+  try {
+    const allCursors = getAllCursors();
+    return allCursors[username.toLowerCase()]?.cursor || null;
+  } catch (error) {
+    console.error("Failed to get cursor:", error);
+    return null;
+  }
+}
+
+/**
+ * Get all cursors
+ */
+function getAllCursors(): Record<string, { cursor: string; lastUpdated: number }> {
+  try {
+    const stored = localStorage.getItem(CURSOR_STATE_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (error) {
+    console.error("Failed to parse cursors:", error);
+  }
+  return {};
+}
+
+/**
+ * Clear cursor for username
+ */
+export function clearCursor(username: string): void {
+  try {
+    const allCursors = getAllCursors();
+    delete allCursors[username.toLowerCase()];
+    localStorage.setItem(CURSOR_STATE_KEY, JSON.stringify(allCursors));
+  } catch (error) {
+    console.error("Failed to clear cursor:", error);
+  }
 }
 
 /**

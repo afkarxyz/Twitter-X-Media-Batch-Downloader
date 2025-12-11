@@ -27,6 +27,8 @@ export interface TimelineEntry {
   reply_count?: number;
   source?: string;
   verified?: boolean;
+  original_filename?: string; // Original filename from API
+  author_username?: string; // Username of tweet author (for bookmarks and likes)
 }
 
 export interface ExtractMetadata {

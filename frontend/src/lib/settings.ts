@@ -12,6 +12,8 @@ export interface Settings {
   sfxEnabled: boolean;
   gifQuality: GifQuality;
   gifResolution: GifResolution;
+  proxy: string; // Proxy URL (e.g., http://proxy:port or socks5://proxy:port). Empty to use system proxy or no proxy.
+  fetchTimeout: number; // Fetch timeout in seconds. Default: 60 seconds.
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -22,6 +24,8 @@ export const DEFAULT_SETTINGS: Settings = {
   sfxEnabled: true,
   gifQuality: "fast",
   gifResolution: "high",
+  proxy: "",
+  fetchTimeout: 60, // Default: 60 seconds
 };
 
 export const FONT_OPTIONS: { value: FontFamily; label: string; fontFamily: string }[] = [

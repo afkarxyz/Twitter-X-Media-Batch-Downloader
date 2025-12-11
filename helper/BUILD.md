@@ -52,11 +52,3 @@ python -m nuitka --onefile --output-filename=extractor.exe --include-package=gal
 
 - PyInstaller: `dist/extractor` or `dist/extractor.exe`
 - Nuitka: `extractor` or `extractor.exe` (in current directory)
-
----
-
-## Notes
-
-- The main application automatically manages the binary (extracts, updates, and uses it)
-- Manual building is only needed if you're developing or customizing the extractor
-- The pre-built binary is kept in sync with the application version
