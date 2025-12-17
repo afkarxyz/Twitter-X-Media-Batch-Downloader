@@ -20,7 +20,7 @@ A GUI tool to download original-quality images and videos from Twitter/X account
 
 ## Screenshot
 
-![Image](https://github.com/user-attachments/assets/1638e0c3-5dc5-4202-bf94-cdebd37a5f19)
+![Image](https://github.com/user-attachments/assets/d0ad4af2-5e50-413b-8d52-7dd54bff38c9)
 
 ## How to Obtain Auth Token
 
