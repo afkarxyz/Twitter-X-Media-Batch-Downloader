@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { FolderOpen, Save, RotateCcw, Info, Download, Check, Volume2 } from "lucide-react";
+import { FolderOpen, Save, RotateCcw, Info, Download, Check } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { getSettings, getSettingsWithDefaults, saveSettings, resetToDefaultSettings, applyThemeMode, applyFont, FONT_OPTIONS, type Settings as SettingsType, type FontFamily, type GifQuality, type GifResolution } from "@/lib/settings";
@@ -215,7 +215,6 @@ export function SettingsPage() {
 
           {/* Sound Effects */}
           <div className="flex items-center gap-3 pt-2">
-            <Volume2 className="h-4 w-4 text-muted-foreground" />
             <Label htmlFor="sfx-enabled" className="cursor-pointer text-sm">Sound Effects</Label>
             <Switch
               id="sfx-enabled"
@@ -315,51 +314,42 @@ export function SettingsPage() {
 
           {/* GIF Quality - only show if FFmpeg installed */}
           {ffmpegInstalled && (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="gif-quality">GIF Quality</Label>
+            <div className="space-y-2">
+              <Label htmlFor="gif-quality">GIF Quality</Label>
+              <div className="flex items-center gap-2">
                 <Select
                   value={tempSettings.gifQuality}
                   onValueChange={(value: GifQuality) => {
                     setTempSettings((prev) => ({
                       ...prev,
                       gifQuality: value,
-                      // Auto-select "original" when switching to "better"
-                      gifResolution: value === "better" ? "original" : prev.gifResolution,
                     }));
                   }}
                 >
-                  <SelectTrigger id="gif-quality">
+                  <SelectTrigger id="gif-quality" className="w-auto">
                     <SelectValue placeholder="Select quality" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="fast">Fast (Simple conversion)</SelectItem>
-                    <SelectItem value="better">Better (Optimized palette)</SelectItem>
+                    <SelectItem value="fast">Fast</SelectItem>
+                    <SelectItem value="better">Better</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={tempSettings.gifResolution}
+                  onValueChange={(value: GifResolution) => setTempSettings((prev) => ({ ...prev, gifResolution: value }))}
+                >
+                  <SelectTrigger id="gif-resolution" className="w-auto">
+                    <SelectValue placeholder="Resolution" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="original">Original</SelectItem>
+                    <SelectItem value="high">High (800px)</SelectItem>
+                    <SelectItem value="medium">Medium (600px)</SelectItem>
+                    <SelectItem value="low">Low (400px)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-
-              {/* GIF Resolution - only show if Better quality selected */}
-              {tempSettings.gifQuality === "better" && (
-                <div className="space-y-2">
-                  <Label htmlFor="gif-resolution">GIF Resolution</Label>
-                  <Select
-                    value={tempSettings.gifResolution}
-                    onValueChange={(value: GifResolution) => setTempSettings((prev) => ({ ...prev, gifResolution: value }))}
-                  >
-                    <SelectTrigger id="gif-resolution">
-                      <SelectValue placeholder="Select resolution" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="original">Original (No scaling, 15 fps)</SelectItem>
-                      <SelectItem value="high">High (800px, 15 fps)</SelectItem>
-                      <SelectItem value="medium">Medium (600px, 10 fps)</SelectItem>
-                      <SelectItem value="low">Low (400px, 8 fps)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </>
+            </div>
           )}
 
           {/* Proxy */}

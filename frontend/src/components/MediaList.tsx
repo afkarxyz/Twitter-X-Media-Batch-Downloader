@@ -51,7 +51,7 @@ import { logger } from "@/lib/logger";
 import { toastWithSound as toast } from "@/lib/toast-with-sound";
 import { getSettings } from "@/lib/settings";
 import { openExternal } from "@/lib/utils";
-import { DownloadMediaWithMetadata, OpenFolder, IsFFmpegInstalled, ConvertGIFs, StopDownload } from "../../wailsjs/go/main/App";
+import { DownloadMediaWithMetadata, OpenFolder, IsFFmpegInstalled, ConvertGIFs, StopDownload, CheckFolderExists, CheckGifsFolderHasMP4 } from "../../wailsjs/go/main/App";
 import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
 import { main } from "../../wailsjs/go/models";
 
@@ -231,9 +231,10 @@ export function MediaList({
   const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
   const [hasDownloaded, setHasDownloaded] = useState(false);
   const [isConverting, setIsConverting] = useState(false);
-  const [hasGifs, setHasGifs] = useState(false);
   const [ffmpegInstalled, setFfmpegInstalled] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [folderExists, setFolderExists] = useState(false);
+  const [gifsFolderHasMP4, setGifsFolderHasMP4] = useState(false);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   // Download status tracking per item (by tweet_id + index for uniqueness)
   const [downloadedItems, setDownloadedItems] = useState<Set<string>>(new Set());
@@ -289,6 +290,40 @@ export function MediaList({
   useEffect(() => {
     setVisibleCount(10);
   }, [filteredTimeline.length]);
+
+  // Check folder existence and FFmpeg installation
+  useEffect(() => {
+    const checkFoldersAndFFmpeg = async () => {
+      const settings = getSettings();
+      const basePath = settings.downloadPath;
+      
+      // Check FFmpeg installation
+      const installed = await IsFFmpegInstalled();
+      setFfmpegInstalled(installed);
+      
+      if (!basePath || !accountInfo.name) return;
+
+      // For bookmarks/likes, check special folder names
+      let folderName = accountInfo.name;
+      if (accountInfo.nick === "My Bookmarks" || accountInfo.name === "bookmarks") {
+        folderName = "My Bookmarks";
+      } else if (accountInfo.nick === "My Likes" || accountInfo.name === "likes") {
+        folderName = "My Likes";
+      }
+
+      const exists = await CheckFolderExists(basePath, folderName);
+      setFolderExists(exists);
+
+      if (exists) {
+        const hasMP4 = await CheckGifsFolderHasMP4(basePath, folderName);
+        setGifsFolderHasMP4(hasMP4);
+      } else {
+        setGifsFolderHasMP4(false);
+      }
+    };
+
+    checkFoldersAndFFmpeg();
+  }, [accountInfo.name, accountInfo.nick, hasDownloaded]);
 
   // Intersection Observer for lazy loading thumbnails
   useEffect(() => {
@@ -538,13 +573,9 @@ export function MediaList({
         }
         setHasDownloaded(true);
         
-        // Check if there are GIFs and FFmpeg is installed
-        const hasGifItems = itemsWithIndices.some(({ item }) => item.type === "gif" || item.type === "animated_gif");
-        if (hasGifItems) {
-          setHasGifs(true);
-          const installed = await IsFFmpegInstalled();
-          setFfmpegInstalled(installed);
-        }
+        // Check if FFmpeg is installed for GIF conversion
+        const installed = await IsFFmpegInstalled();
+        setFfmpegInstalled(installed);
       } else {
         logger.error(response.message);
         toast.error("Download failed");
@@ -635,7 +666,16 @@ export function MediaList({
       if (response.success) {
         logger.success(`Converted ${response.converted} GIFs`);
         toast.success(`${response.converted} GIFs converted`);
-        setHasGifs(false);
+        // Re-check if gifs folder still has MP4 files after conversion
+        const settings = getSettings();
+        let folderName = accountInfo.name;
+        if (accountInfo.nick === "My Bookmarks" || accountInfo.name === "bookmarks") {
+          folderName = "My Bookmarks";
+        } else if (accountInfo.nick === "My Likes" || accountInfo.name === "likes") {
+          folderName = "My Likes";
+        }
+        const hasMP4 = await CheckGifsFolderHasMP4(settings.downloadPath, folderName);
+        setGifsFolderHasMP4(hasMP4);
       } else {
         logger.error(response.message);
         toast.error("Convert failed");
@@ -745,24 +785,30 @@ export function MediaList({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All ({formatNumberWithComma(totalUrls)})</SelectItem>
-              <SelectItem value="photo">
-                <span className="flex items-center gap-2">
-                  <Image className="h-4 w-4 text-blue-500" />
-                  Images ({formatNumberWithComma(mediaCounts.photo)})
-                </span>
-              </SelectItem>
-              <SelectItem value="video">
-                <span className="flex items-center gap-2">
-                  <Video className="h-4 w-4 text-purple-500" />
-                  Videos ({formatNumberWithComma(mediaCounts.video)})
-                </span>
-              </SelectItem>
-              <SelectItem value="gif">
-                <span className="flex items-center gap-2">
-                  <Film className="h-4 w-4 text-green-500" />
-                  GIFs ({formatNumberWithComma(mediaCounts.gif)})
-                </span>
-              </SelectItem>
+              {mediaCounts.photo > 0 && (
+                <SelectItem value="photo">
+                  <span className="flex items-center gap-2">
+                    <Image className="h-4 w-4 text-blue-500" />
+                    Images ({formatNumberWithComma(mediaCounts.photo)})
+                  </span>
+                </SelectItem>
+              )}
+              {mediaCounts.video > 0 && (
+                <SelectItem value="video">
+                  <span className="flex items-center gap-2">
+                    <Video className="h-4 w-4 text-purple-500" />
+                    Videos ({formatNumberWithComma(mediaCounts.video)})
+                  </span>
+                </SelectItem>
+              )}
+              {mediaCounts.gif > 0 && (
+                <SelectItem value="gif">
+                  <span className="flex items-center gap-2">
+                    <Film className="h-4 w-4 text-green-500" />
+                    GIFs ({formatNumberWithComma(mediaCounts.gif)})
+                  </span>
+                </SelectItem>
+              )}
             </SelectContent>
           </Select>
         )}
@@ -796,27 +842,23 @@ export function MediaList({
         </div>
 
         <div className="flex-1" />
-        {hasDownloaded && (
-          <Button variant="outline" onClick={handleOpenFolder}>
-            <FolderOpen className="h-4 w-4" />
-            Open Folder
-          </Button>
-        )}
-        {hasGifs && ffmpegInstalled && (
-          <Button variant="outline" onClick={handleConvertGifs} disabled={isConverting}>
-            {isConverting ? (
-              <>
-                <Spinner />
-                Converting...
-              </>
-            ) : (
-              <>
-                <Film className="h-4 w-4" />
-                Convert GIFs
-              </>
-            )}
-          </Button>
-        )}
+        <Button variant="outline" onClick={handleOpenFolder} disabled={!folderExists}>
+          <FolderOpen className="h-4 w-4" />
+          Open Folder
+        </Button>
+        <Button variant="outline" onClick={handleConvertGifs} disabled={isConverting || !gifsFolderHasMP4 || !ffmpegInstalled}>
+          {isConverting ? (
+            <>
+              <Spinner />
+              Converting...
+            </>
+          ) : (
+            <>
+              <Film className="h-4 w-4" />
+              Convert GIFs
+            </>
+          )}
+        </Button>
         <div className="flex items-center gap-2">
           {isDownloading && (
             <Button variant="destructive" onClick={handleStopDownload}>
@@ -1234,7 +1276,7 @@ export function MediaList({
 
           {/* Counter - above media */}
           <div className="text-white text-sm bg-black/50 px-4 py-1.5 rounded-full mb-4">
-            {previewIndex + 1} / {filteredTimeline.length}
+            {formatNumberWithComma(previewIndex + 1)} / {formatNumberWithComma(filteredTimeline.length)}
           </div>
 
           {/* Media content - center */}

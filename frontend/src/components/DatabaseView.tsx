@@ -34,9 +34,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Trash2, FileInput, FileOutput, Pencil, Tag, Shuffle, X, Download, StopCircle, Globe, Lock, Bookmark, Heart, Image, Images, Video, Film, FileText, Filter, AlertCircle, MoreVertical, FileBraces, CloudBackup } from "lucide-react";
+import { Trash2, FileInput, FileOutput, Pencil, Tag, Shuffle, X, XCircle, Download, StopCircle, Globe, Lock, Bookmark, Heart, Image, Images, Video, Film, FileText, Filter, AlertCircle, MoreVertical, FileBraces, CloudBackup, Search, LayoutGrid, Grid3X3, List, ArrowUpDown, ArrowUp, FolderOpen } from "lucide-react";
 import { toastWithSound as toast } from "@/lib/toast-with-sound";
 import { getSettings } from "@/lib/settings";
+import { openExternal } from "@/lib/utils";
 import {
   GetAllAccountsFromDB,
   GetAccountFromDB,
@@ -48,6 +49,9 @@ import {
   GetAllGroups,
   DownloadMediaWithMetadata,
   StopDownload,
+  CheckFolderExists,
+  OpenFolder,
+  GetFolderPath,
 } from "../../wailsjs/go/main/App";
 import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
 import { main } from "../../wailsjs/go/models";
@@ -105,17 +109,22 @@ interface DatabaseViewProps {
   onUpdateSelected?: (usernames: string[]) => void;
 }
 
-const ITEMS_PER_PAGE = 10;
+const INITIAL_LOAD_COUNT = 12;
+const LOAD_MORE_COUNT = 12;
 
 export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewProps) {
   const [accounts, setAccounts] = useState<AccountListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [currentPage, setCurrentPage] = useState(1);
+  const [visibleCount, setVisibleCount] = useState(INITIAL_LOAD_COUNT);
+  const [showScrollTop, setShowScrollTop] = useState(false);
   const [groups, setGroups] = useState<GroupInfo[]>([]);
   const [filterGroup, setFilterGroup] = useState<string>("all");
   const [filterMediaType, setFilterMediaType] = useState<string>("all");
-  const [viewMode, setViewMode] = useState<"public" | "private">("public");
+  const [accountViewMode, setAccountViewMode] = useState<"public" | "private">("public");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+  const [gridView, setGridView] = useState<"large" | "small" | "list">("list");
   const [editingAccount, setEditingAccount] = useState<AccountListItem | null>(null);
   const [editGroupName, setEditGroupName] = useState("");
   const [editGroupColor, setEditGroupColor] = useState("");
@@ -127,6 +136,32 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
   const [bulkDownloadCurrent, setBulkDownloadCurrent] = useState(0);
   const [bulkDownloadTotal, setBulkDownloadTotal] = useState(0);
   const stopBulkDownloadRef = useRef(false);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const [folderExistence, setFolderExistence] = useState<Map<number, boolean>>(new Map());
+
+  // Check folder existence for all accounts
+  const checkFolderExistence = async (accountsList: AccountListItem[]) => {
+    const settings = getSettings();
+    const basePath = settings.downloadPath;
+    if (!basePath) return;
+
+    const folderMap = new Map<number, boolean>();
+
+    for (const account of accountsList) {
+      // For bookmarks/likes, check special folder names
+      let folderName = account.username;
+      if (account.username === "bookmarks") {
+        folderName = "My Bookmarks";
+      } else if (account.username === "likes") {
+        folderName = "My Likes";
+      }
+
+      const exists = await CheckFolderExists(basePath, folderName);
+      folderMap.set(account.id, exists);
+    }
+
+    setFolderExistence(folderMap);
+  };
 
   const loadAccounts = async () => {
     setLoading(true);
@@ -136,6 +171,10 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
       const groupsData = await GetAllGroups();
       if (groupsData) {
         setGroups(groupsData.map((g) => ({ name: g.name || "", color: g.color || "" })));
+      }
+      // Check folder existence for all accounts
+      if (data && data.length > 0) {
+        checkFolderExistence(data);
       }
     } catch (error) {
       console.error("Failed to load accounts:", error);
@@ -149,6 +188,22 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
     loadAccounts();
   }, []);
 
+  // Reset visible count when grid view or filters change
+  useEffect(() => {
+    setVisibleCount(INITIAL_LOAD_COUNT);
+  }, [gridView, searchQuery, filterGroup, filterMediaType, accountViewMode, sortOrder]);
+
+  // Listen for scroll to show/hide scroll-to-top button
+  // Listen for scroll to show/hide scroll-to-top button
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 300);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Intersection Observer for lazy loading
   // Listen for download progress events
   useEffect(() => {
     const unsubscribe = EventsOn("download-progress", (progress: DownloadProgress) => {
@@ -160,6 +215,10 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
     };
   }, []);
 
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   // Separate accounts into public and private
   const isPrivateAccount = (username: string) => 
     username === "bookmarks" || username === "likes";
@@ -167,26 +226,61 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
   const publicAccounts = accounts.filter((acc) => !isPrivateAccount(acc.username));
   const privateAccounts = accounts.filter((acc) => isPrivateAccount(acc.username));
 
-  const baseAccounts = viewMode === "public" ? publicAccounts : privateAccounts;
+  const baseAccounts = accountViewMode === "public" ? publicAccounts : privateAccounts;
 
-  const filteredAccounts = baseAccounts.filter((acc) => {
-    // Filter by group
-    if (filterGroup !== "all") {
-      if (filterGroup === "ungrouped" && acc.group_name) return false;
-      if (filterGroup !== "ungrouped" && acc.group_name !== filterGroup) return false;
-    }
-    // Filter by media type
-    if (filterMediaType !== "all") {
-      const accMediaType = acc.media_type || "all";
-      // "all-media" in filter matches "all" in database (fetched with All Media option)
-      if (filterMediaType === "all-media") {
-        if (accMediaType !== "all") return false;
-      } else {
-        if (accMediaType !== filterMediaType) return false;
+  const filteredAccounts = baseAccounts
+    .filter((acc) => {
+      // Filter by search query
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesUsername = acc.username.toLowerCase().includes(query);
+        const matchesName = acc.name.toLowerCase().includes(query);
+        if (!matchesUsername && !matchesName) return false;
       }
-    }
-    return true;
-  });
+      // Filter by group
+      if (filterGroup !== "all") {
+        if (filterGroup === "ungrouped" && acc.group_name) return false;
+        if (filterGroup !== "ungrouped" && acc.group_name !== filterGroup) return false;
+      }
+      // Filter by media type
+      if (filterMediaType !== "all") {
+        const accMediaType = acc.media_type || "all";
+        // "all-media" in filter matches "all" in database (fetched with All Media option)
+        if (filterMediaType === "all-media") {
+          if (accMediaType !== "all") return false;
+        } else {
+          if (accMediaType !== filterMediaType) return false;
+        }
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      // Sort by last_fetched date
+      const dateA = new Date(a.last_fetched).getTime();
+      const dateB = new Date(b.last_fetched).getTime();
+      return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
+    });
+
+  // Intersection Observer for lazy loading
+  useEffect(() => {
+    const currentRef = loadMoreRef.current;
+    if (!currentRef) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) => prev + LOAD_MORE_COUNT);
+        }
+      },
+      { threshold: 0.1, rootMargin: "100px" }
+    );
+
+    observer.observe(currentRef);
+
+    return () => {
+      observer.unobserve(currentRef);
+    };
+  }, [filteredAccounts.length, visibleCount, loading]);
 
   const handleEditGroup = (account: AccountListItem) => {
     setEditingAccount(account);
@@ -222,6 +316,22 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
       onLoadAccount(responseJSON, username);
     } catch (error) {
       toast.error("Failed to load account data");
+    }
+  };
+
+  const handleOpenFolder = async (username: string) => {
+    const settings = getSettings();
+    let folderName = username;
+    if (username === "bookmarks") {
+      folderName = "My Bookmarks";
+    } else if (username === "likes") {
+      folderName = "My Likes";
+    }
+    const folderPath = await GetFolderPath(settings.downloadPath, folderName);
+    try {
+      await OpenFolder(folderPath);
+    } catch (error) {
+      toast.error("Failed to open folder");
     }
   };
 
@@ -485,7 +595,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
 
     try {
       await ExportAccountsTXT(idsToExport, outputDir);
-      toast.success(`Exported ${idsToExport.length} account(s) to ${outputDir}\\twitterxmediabatchdownloader_backups\\twitterxmediabatchdownloader_multiple.txt`);
+      toast.success(`Exported ${formatNumberWithComma(idsToExport.length)} account(s) to ${outputDir}\\twitterxmediabatchdownloader_backups\\twitterxmediabatchdownloader_multiple.txt`);
     } catch (error) {
       toast.error("Failed to export");
     }
@@ -627,27 +737,27 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
           <div className="flex gap-0.5 p-0.5 bg-muted rounded-lg">
             <button
               type="button"
-              onClick={() => setViewMode("public")}
+              onClick={() => setAccountViewMode("public")}
               className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all ${
-                viewMode === "public"
+                accountViewMode === "public"
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <Globe className="h-3 w-3" />
-              Public ({publicAccounts.length})
+              Public ({formatNumberWithComma(publicAccounts.length)})
             </button>
             <button
               type="button"
-              onClick={() => setViewMode("private")}
+              onClick={() => setAccountViewMode("private")}
               className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all ${
-                viewMode === "private"
+                accountViewMode === "private"
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <Lock className="h-3 w-3" />
-              Private ({privateAccounts.length})
+              Private ({formatNumberWithComma(privateAccounts.length)})
             </button>
           </div>
         </div>
@@ -669,7 +779,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
-              <TooltipContent>Export Selected ({selectedIds.size})</TooltipContent>
+              <TooltipContent>Export Selected ({formatNumberWithComma(selectedIds.size)})</TooltipContent>
             </Tooltip>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={handleExportJSON}>
@@ -707,7 +817,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                   
                   if (onUpdateSelected) {
                     onUpdateSelected(usernames);
-                    toast.success(`Added ${usernames.length} account(s) to multiple fetch`);
+                    toast.success(`Added ${formatNumberWithComma(usernames.length)} account(s) to multiple fetch`);
                   }
                 }}
                 disabled={selectedIds.size === 0 || hasPrivateAccountSelected()}
@@ -715,7 +825,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                 <CloudBackup className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Update Selected ({selectedIds.size})</TooltipContent>
+            <TooltipContent>Update Selected ({formatNumberWithComma(selectedIds.size)})</TooltipContent>
           </Tooltip>
           {isBulkDownloading ? (
             <Tooltip>
@@ -733,19 +843,19 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                   <Download className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Download Selected ({selectedIds.size})</TooltipContent>
+              <TooltipContent>Download Selected ({formatNumberWithComma(selectedIds.size)})</TooltipContent>
             </Tooltip>
           )}
           <Dialog open={clearAllDialogOpen} onOpenChange={setClearAllDialogOpen}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <DialogTrigger asChild>
-                  <Button variant="destructive" size="icon" disabled={baseAccounts.length === 0}>
+                  <Button variant="destructive" size="icon" disabled={selectedIds.size === 0}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </DialogTrigger>
               </TooltipTrigger>
-              <TooltipContent>Clear All {viewMode === "public" ? "Public" : "Private"}</TooltipContent>
+              <TooltipContent>Delete Selected ({formatNumberWithComma(selectedIds.size)})</TooltipContent>
             </Tooltip>
             <DialogContent className="[&>button]:hidden">
               <div className="absolute right-4 top-4">
@@ -759,9 +869,9 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                 </Button>
               </div>
               <DialogHeader>
-                <DialogTitle>Clear All {viewMode === "public" ? "Public" : "Private"} Accounts?</DialogTitle>
+                <DialogTitle>Delete {formatNumberWithComma(selectedIds.size)} Selected Account{selectedIds.size !== 1 ? 's' : ''}?</DialogTitle>
                 <DialogDescription>
-                  This will permanently delete all {formatNumberWithComma(baseAccounts.length)} {viewMode === "public" ? "public" : "private"} saved accounts. This action cannot be undone.
+                  This will permanently delete the selected account{selectedIds.size !== 1 ? 's' : ''}. This action cannot be undone.
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
@@ -769,20 +879,20 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                   variant="destructive"
                   onClick={async () => {
                     try {
-                      // Delete only accounts matching the current view mode
-                      const accountsToDelete = baseAccounts.map((acc) => acc.id);
-                      for (const id of accountsToDelete) {
+                      const idsToDelete = Array.from(selectedIds);
+                      for (const id of idsToDelete) {
                         await DeleteAccountFromDB(id);
                       }
-                      toast.success(`All ${viewMode === "public" ? "public" : "private"} accounts deleted`);
+                      toast.success(`Deleted ${formatNumberWithComma(idsToDelete.length)} account${idsToDelete.length !== 1 ? 's' : ''}`);
                       setClearAllDialogOpen(false);
+                      setSelectedIds(new Set());
                       loadAccounts();
                     } catch (error) {
-                      toast.error("Failed to clear accounts");
+                      toast.error("Failed to delete accounts");
                     }
                   }}
                 >
-                  Delete All {viewMode === "public" ? "Public" : "Private"}
+                  Delete {formatNumberWithComma(selectedIds.size)} Account{selectedIds.size !== 1 ? 's' : ''}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -798,8 +908,8 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
         </div>
       ) : (
         <div className="space-y-2">
-          {/* Filter and Select All */}
-          <div className="flex items-center gap-4 px-4 py-2">
+          {/* Row 1: Select All + Search Bar (Search only for public) */}
+          <div className="flex items-center gap-4 py-2">
             <div className="flex items-center gap-2">
               <Checkbox
                 checked={selectedIds.size === filteredAccounts.length && filteredAccounts.length > 0}
@@ -809,7 +919,47 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                 Select all {selectedIds.size > 0 && `(${formatNumberWithComma(selectedIds.size)} selected)`}
               </span>
             </div>
-            <div className="flex-1" />
+            
+            {/* Search Bar - Only show for public accounts */}
+            {accountViewMode === "public" && (
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                  }}
+                  className="pl-9 h-9"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery("");
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <XCircle className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Row 2: Sort, Filters, View Toggle */}
+          <div className="flex items-center gap-2 pb-2">
+            {/* Sort Order */}
+            <Select value={sortOrder} onValueChange={(v) => setSortOrder(v as "newest" | "oldest")}>
+              <SelectTrigger className="w-auto">
+                <ArrowUpDown className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Sort" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Newest</SelectItem>
+                <SelectItem value="oldest">Oldest</SelectItem>
+              </SelectContent>
+            </Select>
             
             {/* Media Type Filter */}
             <Select value={filterMediaType} onValueChange={setFilterMediaType}>
@@ -830,32 +980,32 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                 <SelectItem value="image">
                   <span className="flex items-center gap-2">
                     <Image className="h-4 w-4 text-blue-500" />
-                    Images Only
+                    Images
                   </span>
                 </SelectItem>
                 <SelectItem value="video">
                   <span className="flex items-center gap-2">
                     <Video className="h-4 w-4 text-purple-500" />
-                    Videos Only
+                    Videos
                   </span>
                 </SelectItem>
                 <SelectItem value="gif">
                   <span className="flex items-center gap-2">
                     <Film className="h-4 w-4 text-green-500" />
-                    GIFs Only
+                    GIFs
                   </span>
                 </SelectItem>
                 <SelectItem value="text">
                   <span className="flex items-center gap-2">
                     <FileText className="h-4 w-4 text-orange-500" />
-                    Text Only
+                    Text
                   </span>
                 </SelectItem>
               </SelectContent>
             </Select>
 
             {/* Group Filter */}
-            <Select value={filterGroup} onValueChange={setFilterGroup}>
+            <Select value={filterGroup} onValueChange={setFilterGroup} disabled={groups.length === 0}>
               <SelectTrigger className="w-auto">
                 <Tag className="h-4 w-4 mr-2" />
                 <SelectValue placeholder="Filter by group" />
@@ -876,6 +1026,36 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                 ))}
               </SelectContent>
             </Select>
+
+            <div className="flex-1" />
+
+            {/* Grid View Toggle */}
+            <div className="flex items-center border rounded-md">
+              <Button
+                variant={gridView === "large" ? "secondary" : "ghost"}
+                size="icon"
+                className="h-9 w-9 rounded-r-none"
+                onClick={() => setGridView("large")}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={gridView === "small" ? "secondary" : "ghost"}
+                size="icon"
+                className="h-9 w-9 rounded-none border-x"
+                onClick={() => setGridView("small")}
+              >
+                <Grid3X3 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={gridView === "list" ? "secondary" : "ghost"}
+                size="icon"
+                className="h-9 w-9 rounded-l-none"
+                onClick={() => setGridView("list")}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
           {/* Bulk Download Progress */}
@@ -891,8 +1071,333 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
             </div>
           )}
 
-          {filteredAccounts
-            .slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
+          {/* Grid View: Large */}
+          {gridView === "large" && (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {filteredAccounts
+                .slice(0, visibleCount)
+                .map((account) => (
+                <div
+                  key={account.id}
+                  className={`relative rounded-lg border transition-colors p-4 ${
+                    selectedIds.has(account.id) ? "border-primary bg-primary/5" : "bg-card hover:bg-muted/50"
+                  }`}
+                >
+                  {/* Checkbox - Top Left */}
+                  <Checkbox
+                    checked={selectedIds.has(account.id)}
+                    onCheckedChange={() => toggleSelect(account.id)}
+                    className="absolute top-2 left-2 z-10"
+                  />
+                  {/* Media Type Badge - Top Right */}
+                  <div className="absolute top-2 right-2 z-10 flex gap-1">
+                    <Badge
+                      variant="secondary"
+                      className={cn(
+                        "text-xs flex items-center gap-1",
+                        account.media_type === "text" && "bg-orange-500/20 text-orange-600 dark:text-orange-400",
+                        account.media_type === "image" && "bg-blue-500/20 text-blue-600 dark:text-blue-400",
+                        account.media_type === "video" && "bg-purple-500/20 text-purple-600 dark:text-purple-400",
+                        account.media_type === "gif" && "bg-green-500/20 text-green-600 dark:text-green-400",
+                        (!account.media_type || account.media_type === "all") && "bg-indigo-500/20 text-indigo-600 dark:text-indigo-400"
+                      )}
+                    >
+                      {account.media_type === "text" ? <FileText className="h-3 w-3" /> :
+                       account.media_type === "image" ? <Image className="h-3 w-3" /> :
+                       account.media_type === "video" ? <Video className="h-3 w-3" /> :
+                       account.media_type === "gif" ? <Film className="h-3 w-3" /> :
+                       <Images className="h-3 w-3" />}
+                    </Badge>
+                    {!account.completed && (
+                      <Badge variant="secondary" className="text-xs bg-yellow-500/20 text-yellow-600 dark:text-yellow-400">
+                        <AlertCircle className="h-3 w-3" />
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-center text-center gap-3 pt-4">
+                    {isPrivateAccount(account.username) ? (
+                      <div 
+                        className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors"
+                        onClick={() => handleView(account.id, account.username)}
+                      >
+                        {account.username === "bookmarks" ? (
+                          <Bookmark className="h-10 w-10 text-primary" />
+                        ) : (
+                          <Heart className="h-10 w-10 text-primary" />
+                        )}
+                      </div>
+                    ) : (
+                      <img
+                        src={account.profile_image}
+                        alt={account.name}
+                        className="w-20 h-20 rounded-full cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => handleView(account.id, account.username)}
+                      />
+                    )}
+                    <div className="w-full min-w-0">
+                      <div className="font-medium truncate">{account.name}</div>
+                      {!isPrivateAccount(account.username) && (
+                        <button
+                          type="button"
+                          onClick={() => openExternal(`https://x.com/${account.username}`)}
+                          className="text-sm text-muted-foreground hover:text-primary hover:underline"
+                        >
+                          @{account.username}
+                        </button>
+                      )}
+                      <div className="text-sm text-muted-foreground mt-1">
+                        {formatNumberWithComma(account.total_media)}
+                      </div>
+                    </div>
+                    <div className="flex gap-1">
+                      {downloadingAccountId === account.id ? (
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={handleStopDownload}
+                        >
+                          <StopCircle className="h-4 w-4 text-destructive" />
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="default"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handleDownload(account.id, account.username)}
+                          disabled={isDownloading}
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleOpenFolder(account.username)}
+                        disabled={!folderExistence.get(account.id)}
+                      >
+                        <FolderOpen className="h-4 w-4" />
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEditGroup(account)}>
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Edit Group
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={async () => {
+                              const settings = getSettings();
+                              const outputDir = settings.downloadPath || "";
+                              try {
+                                await ExportAccountJSON(account.id, outputDir);
+                                toast.success(`Exported @${account.username}`);
+                              } catch (error) {
+                                toast.error("Failed to export");
+                              }
+                            }}
+                          >
+                            <FileOutput className="h-4 w-4 mr-2" />
+                            Export JSON
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleDelete(account.id, account.username)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                  {/* Progress bar */}
+                  {downloadingAccountId === account.id && downloadProgress && (
+                    <div className="mt-3 space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">
+                          {downloadProgress.current}/{downloadProgress.total}
+                        </span>
+                        <span className="font-medium">{downloadProgress.percent}%</span>
+                      </div>
+                      <Progress value={downloadProgress.percent} className="h-1.5" />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Grid View: Small */}
+          {gridView === "small" && (
+            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              {filteredAccounts
+                .slice(0, visibleCount)
+                .map((account) => (
+                <div
+                  key={account.id}
+                  className={`relative rounded-lg border transition-colors p-3 ${
+                    selectedIds.has(account.id) ? "border-primary bg-primary/5" : "bg-card hover:bg-muted/50"
+                  }`}
+                >
+                  {/* Checkbox - Top Left */}
+                  <Checkbox
+                    checked={selectedIds.has(account.id)}
+                    onCheckedChange={() => toggleSelect(account.id)}
+                    className="absolute top-1.5 left-1.5 z-10"
+                  />
+                  {/* Media Type Badge & Incomplete - Top Right */}
+                  <div className="absolute top-1.5 right-1.5 z-10 flex gap-1">
+                    <Badge
+                      variant="secondary"
+                      className={cn(
+                        "text-xs p-1",
+                        account.media_type === "text" && "bg-orange-500/20 text-orange-600 dark:text-orange-400",
+                        account.media_type === "image" && "bg-blue-500/20 text-blue-600 dark:text-blue-400",
+                        account.media_type === "video" && "bg-purple-500/20 text-purple-600 dark:text-purple-400",
+                        account.media_type === "gif" && "bg-green-500/20 text-green-600 dark:text-green-400",
+                        (!account.media_type || account.media_type === "all") && "bg-indigo-500/20 text-indigo-600 dark:text-indigo-400"
+                      )}
+                    >
+                      {account.media_type === "text" ? <FileText className="h-3 w-3" /> :
+                       account.media_type === "image" ? <Image className="h-3 w-3" /> :
+                       account.media_type === "video" ? <Video className="h-3 w-3" /> :
+                       account.media_type === "gif" ? <Film className="h-3 w-3" /> :
+                       <Images className="h-3 w-3" />}
+                    </Badge>
+                    {!account.completed && (
+                      <Badge variant="secondary" className="text-xs p-1 bg-yellow-500/20 text-yellow-600 dark:text-yellow-400">
+                        <AlertCircle className="h-3 w-3" />
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-center text-center gap-2 pt-4">
+                    {isPrivateAccount(account.username) ? (
+                      <div 
+                        className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors"
+                        onClick={() => handleView(account.id, account.username)}
+                      >
+                        {account.username === "bookmarks" ? (
+                          <Bookmark className="h-7 w-7 text-primary" />
+                        ) : (
+                          <Heart className="h-7 w-7 text-primary" />
+                        )}
+                      </div>
+                    ) : (
+                      <img
+                        src={account.profile_image}
+                        alt={account.name}
+                        className="w-14 h-14 rounded-full cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => handleView(account.id, account.username)}
+                      />
+                    )}
+                    <div className="w-full min-w-0">
+                      <div className="text-xs font-medium truncate">{account.name}</div>
+                      {!isPrivateAccount(account.username) && (
+                        <button
+                          type="button"
+                          onClick={() => openExternal(`https://x.com/${account.username}`)}
+                          className="text-xs text-muted-foreground hover:text-primary hover:underline truncate block w-full"
+                        >
+                          @{account.username}
+                        </button>
+                      )}
+                      <div className="text-xs text-muted-foreground">
+                        {formatNumberWithComma(account.total_media)}
+                      </div>
+                    </div>
+                    <div className="flex gap-1">
+                      {downloadingAccountId === account.id ? (
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={handleStopDownload}
+                        >
+                          <StopCircle className="h-3 w-3 text-destructive" />
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="default"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => handleDownload(account.id, account.username)}
+                          disabled={isDownloading}
+                        >
+                          <Download className="h-3 w-3" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => handleOpenFolder(account.username)}
+                        disabled={!folderExistence.get(account.id)}
+                      >
+                        <FolderOpen className="h-3 w-3" />
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="icon" className="h-7 w-7">
+                            <MoreVertical className="h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEditGroup(account)}>
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Edit Group
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={async () => {
+                              const settings = getSettings();
+                              const outputDir = settings.downloadPath || "";
+                              try {
+                                await ExportAccountJSON(account.id, outputDir);
+                                toast.success(`Exported @${account.username}`);
+                              } catch (error) {
+                                toast.error("Failed to export");
+                              }
+                            }}
+                          >
+                            <FileOutput className="h-4 w-4 mr-2" />
+                            Export JSON
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleDelete(account.id, account.username)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                  {/* Progress bar */}
+                  {downloadingAccountId === account.id && downloadProgress && (
+                    <div className="mt-2 space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">
+                          {downloadProgress.current}/{downloadProgress.total}
+                        </span>
+                        <span className="font-medium">{downloadProgress.percent}%</span>
+                      </div>
+                      <Progress value={downloadProgress.percent} className="h-1" />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* List View */}
+          {gridView === "list" && filteredAccounts
+            .slice(0, visibleCount)
             .map((account, index) => (
             <div
               key={account.id}
@@ -906,7 +1411,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                   onCheckedChange={() => toggleSelect(account.id)}
                 />
                 <span className="text-sm text-muted-foreground w-8 text-center shrink-0">
-                  {(currentPage - 1) * ITEMS_PER_PAGE + index + 1}
+                  {index + 1}
                 </span>
                 {isPrivateAccount(account.username) ? (
                   <div 
@@ -943,7 +1448,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                         (!account.media_type || account.media_type === "all") && "bg-indigo-500/20 text-indigo-600 dark:text-indigo-400"
                       )}
                     >
-                      {account.media_type === "text" ? <><FileText className="h-3 w-3" /> Text Only</> :
+                      {account.media_type === "text" ? <><FileText className="h-3 w-3" /> Text</> :
                        account.media_type === "image" ? <><Image className="h-3 w-3" /> Images</> :
                        account.media_type === "video" ? <><Video className="h-3 w-3" /> Videos</> :
                        account.media_type === "gif" ? <><Film className="h-3 w-3" /> GIFs</> :
@@ -969,7 +1474,13 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                     )}
                   </div>
                   {!isPrivateAccount(account.username) && (
-                    <div className="text-sm text-muted-foreground">@{account.username}</div>
+                    <button
+                      type="button"
+                      onClick={() => openExternal(`https://x.com/${account.username}`)}
+                      className="text-sm text-muted-foreground hover:text-primary hover:underline"
+                    >
+                      @{account.username}
+                    </button>
                   )}
                   <div className="text-sm text-muted-foreground">
                     {account.last_fetched} {getRelativeTime(account.last_fetched)}
@@ -1008,6 +1519,19 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                       <TooltipContent>Download All Media</TooltipContent>
                     </Tooltip>
                   )}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleOpenFolder(account.username)}
+                        disabled={!folderExistence.get(account.id)}
+                      >
+                        <FolderOpen className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Open Folder</TooltipContent>
+                  </Tooltip>
                   <DropdownMenu>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -1094,31 +1618,26 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
             </div>
           ))}
 
-          {/* Pagination */}
-          {filteredAccounts.length > ITEMS_PER_PAGE && (
-            <div className="flex items-center justify-center gap-2 pt-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-              >
-                Previous
-              </Button>
-              <span className="text-sm text-muted-foreground px-4">
-                Page {currentPage} of {Math.ceil(filteredAccounts.length / ITEMS_PER_PAGE)}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage((p) => Math.min(Math.ceil(filteredAccounts.length / ITEMS_PER_PAGE), p + 1))}
-                disabled={currentPage === Math.ceil(filteredAccounts.length / ITEMS_PER_PAGE)}
-              >
-                Next
-              </Button>
-            </div>
-          )}
+          {/* Load More Trigger (invisible) */}
+          <div 
+            ref={loadMoreRef} 
+            className={`h-4 ${visibleCount >= filteredAccounts.length ? 'hidden' : ''}`} 
+          />
+
+
         </div>
+      )}
+
+      {/* Scroll to Top Button */}
+      {showScrollTop && (
+        <Button
+          variant="default"
+          size="icon"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 h-9 w-9 rounded-full shadow-lg z-30"
+          onClick={scrollToTop}
+        >
+          <ArrowUp className="h-4 w-4" />
+        </Button>
       )}
 
       {/* Edit Group Dialog */}

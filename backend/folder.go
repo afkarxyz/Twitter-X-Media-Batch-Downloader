@@ -2,7 +2,9 @@ package backend
 
 import (
 	"context"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -49,4 +51,54 @@ func SelectFolderDialog(ctx context.Context, defaultPath string) (string, error)
 	}
 
 	return selectedPath, nil
+}
+
+// CheckFolderExists checks if a folder exists at the given path
+func CheckFolderExists(basePath, username string) bool {
+	folderPath := filepath.Join(basePath, username)
+	info, err := os.Stat(folderPath)
+	if err != nil {
+		return false
+	}
+	return info.IsDir()
+}
+
+// CheckGifsFolderExists checks if a gifs subfolder exists for the given username
+func CheckGifsFolderExists(basePath, username string) bool {
+	gifsPath := filepath.Join(basePath, username, "gifs")
+	info, err := os.Stat(gifsPath)
+	if err != nil {
+		return false
+	}
+	return info.IsDir()
+}
+
+// CheckGifsFolderHasMP4 checks if the gifs folder has any MP4 files to convert
+func CheckGifsFolderHasMP4(basePath, username string) bool {
+	gifsPath := filepath.Join(basePath, username, "gifs")
+
+	entries, err := os.ReadDir(gifsPath)
+	if err != nil {
+		return false
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			ext := filepath.Ext(entry.Name())
+			if ext == ".mp4" || ext == ".MP4" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// GetFolderPath returns the full path for a username folder
+func GetFolderPath(basePath, username string) string {
+	return filepath.Join(basePath, username)
+}
+
+// GetGifsFolderPath returns the full path for a username's gifs folder
+func GetGifsFolderPath(basePath, username string) string {
+	return filepath.Join(basePath, username, "gifs")
 }

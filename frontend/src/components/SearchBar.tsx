@@ -28,6 +28,10 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
+
+function formatNumberWithComma(num: number): string {
+  return num.toLocaleString();
+}
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
@@ -386,7 +390,7 @@ export function SearchBar({
                   {/* Timer Display */}
                   {(remainingTime !== null || elapsedTime > 0) && (
                     <div className="flex items-center gap-1.5 px-3 py-1.5 border rounded-md bg-muted/50 text-sm w-[85px]">
-                      <Clock className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                      <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                       <span className="font-mono">
                         {remainingTime !== null && remainingTime >= 0
                           ? `${Math.floor(remainingTime / 60)}:${String(remainingTime % 60).padStart(2, "0")}`
@@ -505,7 +509,7 @@ export function SearchBar({
                 {/* Timer Display */}
                 {(remainingTime !== null || elapsedTime > 0) && (
                   <div className="flex items-center gap-1.5 px-3 py-1.5 border rounded-md bg-muted/50 text-sm w-[85px]">
-                    <Clock className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                    <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                     <span className="font-mono">
                       {remainingTime !== null && remainingTime >= 0
                         ? `${Math.floor(remainingTime / 60)}:${String(remainingTime % 60).padStart(2, "0")}`
@@ -614,10 +618,10 @@ export function SearchBar({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Media</SelectItem>
-                  <SelectItem value="image">Images Only</SelectItem>
-                  <SelectItem value="video">Videos Only</SelectItem>
-                  <SelectItem value="gif">GIFs Only</SelectItem>
-                  <SelectItem value="text">Text Only (No Media)</SelectItem>
+                  <SelectItem value="image">Images</SelectItem>
+                  <SelectItem value="video">Videos</SelectItem>
+                  <SelectItem value="gif">GIFs</SelectItem>
+                  <SelectItem value="text">Text (No Media)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -688,29 +692,29 @@ export function SearchBar({
               <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
               <span className="text-muted-foreground">Completed:</span>
               <span className="font-medium">
-                {multipleAccounts.filter((acc) => acc.status === "completed").length}
+                {formatNumberWithComma(multipleAccounts.filter((acc) => acc.status === "completed").length)}
               </span>
             </div>
             <div className="flex items-center gap-2">
               <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
               <span className="text-muted-foreground">Incomplete:</span>
               <span className="font-medium">
-                {multipleAccounts.filter((acc) => acc.status === "incomplete").length}
+                {formatNumberWithComma(multipleAccounts.filter((acc) => acc.status === "incomplete").length)}
               </span>
             </div>
             <div className="flex items-center gap-2">
               <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
               <span className="text-muted-foreground">Failed:</span>
               <span className="font-medium">
-                {multipleAccounts.filter((acc) => acc.status === "failed").length}
+                {formatNumberWithComma(multipleAccounts.filter((acc) => acc.status === "failed").length)}
               </span>
             </div>
             <div className="flex items-center gap-2 ml-auto">
               <span className="text-muted-foreground">Total:</span>
               <span className="font-medium">
-                {multipleAccounts.filter((acc) => 
+                {formatNumberWithComma(multipleAccounts.filter((acc) => 
                   acc.status === "completed" || acc.status === "incomplete" || acc.status === "failed"
-                ).length}/{multipleAccounts.length}
+                ).length)}/{formatNumberWithComma(multipleAccounts.length)}
               </span>
             </div>
           </div>
@@ -720,7 +724,7 @@ export function SearchBar({
       {/* Account List - below auth token and advanced settings */}
       {fetchType === "multiple" && multipleAccounts.length > 0 && (
         <div className="space-y-2">
-          <p className="text-sm text-muted-foreground">Accounts to Fetch ({multipleAccounts.length})</p>
+          <p className="text-sm text-muted-foreground">Accounts to Fetch ({formatNumberWithComma(multipleAccounts.length)})</p>
           <div className="space-y-2 max-h-[400px] overflow-y-auto">
             {multipleAccounts.map((account) => (
               <div
@@ -767,7 +771,7 @@ export function SearchBar({
                     {account.status === "fetching" && (
                       <>
                         <div className="flex items-center gap-1.5 px-3 py-1.5 border rounded-md bg-muted/50 text-sm w-[85px]">
-                          <Clock className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                          <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                           <span className="font-mono">
                             {account.remainingTime !== null && account.remainingTime >= 0
                               ? formatTime(account.remainingTime)

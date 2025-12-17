@@ -102,6 +102,20 @@ def _extract_tweet_metadata(data: MutableMapping[str, Any]) -> Dict[str, Any]:
             "name": meta["author"].get("name"),
             "nick": meta["author"].get("nick"),
         }
+    elif isinstance(meta["author"], str):
+        # Handle case where author is just a string (username)
+        meta["author"] = {
+            "id": None,
+            "name": meta["author"],
+            "nick": meta["author"],
+        }
+    else:
+        # Handle None or other types
+        meta["author"] = {
+            "id": None,
+            "name": None,
+            "nick": None,
+        }
     return meta
 
 
@@ -171,7 +185,9 @@ def run_request(
             for message in extractor:
                 mtype = message[0]
                 if mtype is Message.Directory and request.metadata:
-                    metadata.append(_extract_tweet_metadata(message[1]))
+                    # Only extract metadata if message[1] is a dict
+                    if isinstance(message[1], dict):
+                        metadata.append(_extract_tweet_metadata(message[1]))
                 elif mtype is Message.Url:
                     url = message[1]
                     

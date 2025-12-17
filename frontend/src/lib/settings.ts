@@ -1,6 +1,6 @@
 import { GetDefaults } from "../../wailsjs/go/main/App";
 
-export type FontFamily = "google-sans" | "inter" | "poppins" | "roboto" | "dm-sans" | "plus-jakarta-sans" | "manrope" | "space-grotesk";
+export type FontFamily = "google-sans" | "inter" | "poppins" | "roboto" | "dm-sans" | "plus-jakarta-sans" | "manrope" | "space-grotesk" | "noto-sans" | "nunito-sans" | "figtree" | "raleway" | "public-sans" | "outfit" | "jetbrains-mono" | "geist-sans";
 export type GifQuality = "fast" | "better";
 export type GifResolution = "original" | "high" | "medium" | "low";
 
@@ -23,19 +23,27 @@ export const DEFAULT_SETTINGS: Settings = {
   fontFamily: "google-sans",
   sfxEnabled: true,
   gifQuality: "fast",
-  gifResolution: "high",
+  gifResolution: "original",
   proxy: "",
   fetchTimeout: 60, // Default: 60 seconds
 };
 
 export const FONT_OPTIONS: { value: FontFamily; label: string; fontFamily: string }[] = [
+  { value: "dm-sans", label: "DM Sans", fontFamily: '"DM Sans", system-ui, sans-serif' },
+  { value: "figtree", label: "Figtree", fontFamily: '"Figtree", system-ui, sans-serif' },
+  { value: "geist-sans", label: "Geist Sans", fontFamily: '"Geist", system-ui, sans-serif' },
   { value: "google-sans", label: "Google Sans Flex", fontFamily: '"Google Sans Flex", system-ui, sans-serif' },
   { value: "inter", label: "Inter", fontFamily: '"Inter", system-ui, sans-serif' },
-  { value: "poppins", label: "Poppins", fontFamily: '"Poppins", system-ui, sans-serif' },
-  { value: "roboto", label: "Roboto", fontFamily: '"Roboto", system-ui, sans-serif' },
-  { value: "dm-sans", label: "DM Sans", fontFamily: '"DM Sans", system-ui, sans-serif' },
-  { value: "plus-jakarta-sans", label: "Plus Jakarta Sans", fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif' },
+  { value: "jetbrains-mono", label: "JetBrains Mono", fontFamily: '"JetBrains Mono", ui-monospace, monospace' },
   { value: "manrope", label: "Manrope", fontFamily: '"Manrope", system-ui, sans-serif' },
+  { value: "noto-sans", label: "Noto Sans", fontFamily: '"Noto Sans", system-ui, sans-serif' },
+  { value: "nunito-sans", label: "Nunito Sans", fontFamily: '"Nunito Sans", system-ui, sans-serif' },
+  { value: "outfit", label: "Outfit", fontFamily: '"Outfit", system-ui, sans-serif' },
+  { value: "plus-jakarta-sans", label: "Plus Jakarta Sans", fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif' },
+  { value: "poppins", label: "Poppins", fontFamily: '"Poppins", system-ui, sans-serif' },
+  { value: "public-sans", label: "Public Sans", fontFamily: '"Public Sans", system-ui, sans-serif' },
+  { value: "raleway", label: "Raleway", fontFamily: '"Raleway", system-ui, sans-serif' },
+  { value: "roboto", label: "Roboto", fontFamily: '"Roboto", system-ui, sans-serif' },
   { value: "space-grotesk", label: "Space Grotesk", fontFamily: '"Space Grotesk", system-ui, sans-serif' },
 ];
 

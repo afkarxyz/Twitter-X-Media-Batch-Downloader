@@ -6,10 +6,7 @@ CLI tool for extracting media and metadata from Twitter/X using gallery-dl extra
 
 ### Required
 - `url` — Twitter/X URL (timeline, media, likes, search, etc.)
-
-### Authentication
-- `--auth-token TOKEN` — Your auth_token cookie value
-- `--guest` — Force guest mode (no authentication)
+- `--auth-token TOKEN` — Your auth_token cookie value (required)
 
 ### Content Options
 - `--retweets {skip|include|original}` — Control retweets (default: skip)
@@ -42,10 +39,7 @@ CLI tool for extracting media and metadata from Twitter/X using gallery-dl extra
 ### Basic Fetch
 
 ```powershell
-# Guest mode (no auth)
-python twitter_cli.py https://x.com/username/media --limit 10 --json --guest
-
-# With authentication
+# Fetch media with authentication
 python twitter_cli.py https://x.com/username/media --limit 10 --json --auth-token YOUR_TOKEN
 ```
 
@@ -53,49 +47,49 @@ python twitter_cli.py https://x.com/username/media --limit 10 --json --auth-toke
 
 ```powershell
 # Photos only
-python twitter_cli.py https://x.com/username/media --type photo --json --guest
+python twitter_cli.py https://x.com/username/media --type photo --json --auth-token YOUR_TOKEN
 
 # Videos only
-python twitter_cli.py https://x.com/username/media --type video --json --guest
+python twitter_cli.py https://x.com/username/media --type video --json --auth-token YOUR_TOKEN
 
 # Animated GIFs only
-python twitter_cli.py https://x.com/username/media --type animated_gif --json --guest
+python twitter_cli.py https://x.com/username/media --type animated_gif --json --auth-token YOUR_TOKEN
 ```
 
 ### With Metadata
 
 ```powershell
 # Include tweet metadata (author, date, counts)
-python twitter_cli.py https://x.com/username/media --limit 5 --json --metadata --guest
+python twitter_cli.py https://x.com/username/media --limit 5 --json --metadata --auth-token YOUR_TOKEN
 ```
 
 ### Retweets Control
 
 ```powershell
 # Skip retweets (default)
-python twitter_cli.py https://x.com/username/timeline --retweets skip --json --guest
+python twitter_cli.py https://x.com/username/timeline --retweets skip --json --auth-token YOUR_TOKEN
 
 # Include retweets
-python twitter_cli.py https://x.com/username/timeline --retweets include --json --guest
+python twitter_cli.py https://x.com/username/timeline --retweets include --json --auth-token YOUR_TOKEN
 
 # Get original tweet from retweets
-python twitter_cli.py https://x.com/username/timeline --retweets original --json --guest
+python twitter_cli.py https://x.com/username/timeline --retweets original --json --auth-token YOUR_TOKEN
 ```
 
 ### Save & Resume
 
 ```powershell
 # Save to file (with resume capability)
-python twitter_cli.py https://x.com/username/media --limit 100 --output results.json --progress --guest
+python twitter_cli.py https://x.com/username/media --limit 100 --output results.json --progress --auth-token YOUR_TOKEN
 
 # Resume from saved file
-python twitter_cli.py https://x.com/username/media --resume results.json --limit 100 --output results.json --guest
+python twitter_cli.py https://x.com/username/media --resume results.json --limit 100 --output results.json --auth-token YOUR_TOKEN
 
 # Fetch all remaining
-python twitter_cli.py https://x.com/username/media --resume results.json --limit 0 --output results.json --guest
+python twitter_cli.py https://x.com/username/media --resume results.json --limit 0 --output results.json --auth-token YOUR_TOKEN
 ```
 
-### Private Content (Requires Auth)
+### Private Content
 
 ```powershell
 # Your likes
@@ -109,30 +103,30 @@ python twitter_cli.py https://x.com/i/bookmarks --limit 20 --json --auth-token Y
 
 ```powershell
 # Search with filters
-python twitter_cli.py "https://x.com/search?q=from:username filter:media" --limit 50 --json --guest
+python twitter_cli.py "https://x.com/search?q=from:username filter:media" --limit 50 --json --auth-token YOUR_TOKEN
 
 # Date range search
-python twitter_cli.py "https://x.com/search?q=from:username since:2024-01-01 until:2024-12-31" --json --guest
+python twitter_cli.py "https://x.com/search?q=from:username since:2024-01-01 until:2024-12-31" --json --auth-token YOUR_TOKEN
 ```
 
 ### Advanced Filtering
 
 ```powershell
 # Filter by date (2024 only)
-python twitter_cli.py https://x.com/username/media --json --metadata --set filter="date.year == 2024" --guest
+python twitter_cli.py https://x.com/username/media --json --metadata --set filter="date.year == 2024" --auth-token YOUR_TOKEN
 
 # Filter by engagement (>1000 likes)
-python twitter_cli.py https://x.com/username/media --json --metadata --set filter="favorite_count > 1000" --guest
+python twitter_cli.py https://x.com/username/media --json --metadata --set filter="favorite_count > 1000" --auth-token YOUR_TOKEN
 
 # Combine filters (photos from 2024 with >100 likes)
-python twitter_cli.py https://x.com/username/media --type photo --json --metadata --set filter="date.year == 2024 and favorite_count > 100" --guest
+python twitter_cli.py https://x.com/username/media --type photo --json --metadata --set filter="date.year == 2024 and favorite_count > 100" --auth-token YOUR_TOKEN
 ```
 
 ### Text-Only Tweets
 
 ```powershell
 # Fetch tweets without media
-python twitter_cli.py https://x.com/username/tweets --text-tweets --json --metadata --guest
+python twitter_cli.py https://x.com/username/tweets --text-tweets --json --metadata --auth-token YOUR_TOKEN
 ```
 
 ---
@@ -200,16 +194,16 @@ When using `--output`, the file includes:
 
 ```powershell
 # Step 1: Initial fetch (saves state)
-python twitter_cli.py https://x.com/user/media --limit 100 --output data.json --progress --guest
+python twitter_cli.py https://x.com/user/media --limit 100 --output data.json --progress --auth-token YOUR_TOKEN
 # Output: Saved 202 media to data.json [partial (can resume)]
 
 # Step 2: Resume and fetch more
-python twitter_cli.py https://x.com/user/media --resume data.json --limit 100 --output data.json --guest
+python twitter_cli.py https://x.com/user/media --resume data.json --limit 100 --output data.json --auth-token YOUR_TOKEN
 # Output: Resuming from cursor, 202 media already fetched
 #         Added 100 new media (total: 302)
 
 # Step 3: Fetch all remaining
-python twitter_cli.py https://x.com/user/media --resume data.json --limit 0 --output data.json --guest
+python twitter_cli.py https://x.com/user/media --resume data.json --limit 0 --output data.json --auth-token YOUR_TOKEN
 # Output: Added 244 new media (total: 546) [completed]
 ```
 
@@ -222,10 +216,10 @@ python twitter_cli.py https://x.com/user/media --resume data.json --limit 0 --ou
 - `https://x.com/username/timeline` — Full timeline
 - `https://x.com/username/tweets` — Tweets only
 - `https://x.com/username/with_replies` — With replies
-- `https://x.com/username/likes` — Liked tweets (requires auth)
+- `https://x.com/username/likes` — Liked tweets
 
 ### Private Content
-- `https://x.com/i/bookmarks` — Your bookmarks (requires auth)
+- `https://x.com/i/bookmarks` — Your bookmarks
 
 ### Search
 - `https://x.com/search?q=QUERY` — Search tweets
@@ -260,19 +254,19 @@ Use in search URLs:
 ### 1. Progressive Fetch with Resume
 ```powershell
 # Fetch in batches to avoid long waits
-python twitter_cli.py URL --limit 200 --output data.json --progress --guest
-python twitter_cli.py URL --resume data.json --limit 200 --output data.json --guest
+python twitter_cli.py URL --limit 200 --output data.json --progress --auth-token YOUR_TOKEN
+python twitter_cli.py URL --resume data.json --limit 200 --output data.json --auth-token YOUR_TOKEN
 ```
 
 ### 2. Combine Type Filter with Custom Filter
 ```powershell
 # Photos from 2024 with high engagement
-python twitter_cli.py URL --type photo --metadata --set filter="date.year == 2024 and favorite_count > 500" --json --guest
+python twitter_cli.py URL --type photo --metadata --set filter="date.year == 2024 and favorite_count > 500" --json --auth-token YOUR_TOKEN
 ```
 
 ### 3. Use Progress Flag for Long Fetches
 ```powershell
-python twitter_cli.py URL --limit 1000 --progress --output data.json --guest
+python twitter_cli.py URL --limit 1000 --progress --output data.json --auth-token YOUR_TOKEN
 ```
 
 ### 4. Check Cursor Availability

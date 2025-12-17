@@ -220,12 +220,34 @@ func ConvertMP4ToGIF(inputPath, outputPath, quality, resolution string) error {
 	var args []string
 
 	if quality == "fast" {
-		// Fast mode: simple conversion
-		args = []string{
-			"-i", inputPath,
-			"-loop", "0",
-			"-y",
-			outputPath,
+		// Fast mode: simple conversion with resolution scaling
+		var scaleFilter string
+		switch resolution {
+		case "high":
+			scaleFilter = "scale=800:-1"
+		case "medium":
+			scaleFilter = "scale=600:-1"
+		case "low":
+			scaleFilter = "scale=400:-1"
+		default: // original - no scaling
+			scaleFilter = ""
+		}
+
+		if scaleFilter != "" {
+			args = []string{
+				"-i", inputPath,
+				"-vf", scaleFilter,
+				"-loop", "0",
+				"-y",
+				outputPath,
+			}
+		} else {
+			args = []string{
+				"-i", inputPath,
+				"-loop", "0",
+				"-y",
+				outputPath,
+			}
 		}
 	} else {
 		// Better mode: optimized palette with dithering

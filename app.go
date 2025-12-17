@@ -174,10 +174,10 @@ func (a *App) Quit() {
 
 // DownloadMediaRequest represents the request for downloading media (legacy)
 type DownloadMediaRequest struct {
-	URLs        []string `json:"urls"`
-	OutputDir   string   `json:"output_dir"`
-	Username    string   `json:"username"`
-	Proxy       string   `json:"proxy,omitempty"` // Optional proxy URL (e.g., http://proxy:port or socks5://proxy:port)
+	URLs      []string `json:"urls"`
+	OutputDir string   `json:"output_dir"`
+	Username  string   `json:"username"`
+	Proxy     string   `json:"proxy,omitempty"` // Optional proxy URL (e.g., http://proxy:port or socks5://proxy:port)
 }
 
 // MediaItemRequest represents a media item with metadata
@@ -186,7 +186,7 @@ type MediaItemRequest struct {
 	Date             string                `json:"date"`
 	TweetID          backend.TweetIDString `json:"tweet_id"`
 	Type             string                `json:"type"`
-	Content          string                `json:"content,omitempty"` // Tweet text content (for text-only tweets)
+	Content          string                `json:"content,omitempty"`           // Tweet text content (for text-only tweets)
 	OriginalFilename string                `json:"original_filename,omitempty"` // Original filename from API
 	AuthorUsername   string                `json:"author_username,omitempty"`   // Username of tweet author (for bookmarks and likes)
 }
@@ -275,23 +275,23 @@ func (a *App) DownloadMediaWithMetadata(req DownloadMediaWithMetadataRequest) (D
 		outputDir = backend.GetDefaultDownloadPath()
 	}
 
-		// Convert request items to backend items
-		// For bookmarks and likes, use author_username from each item if available
-		items := make([]backend.MediaItem, len(req.Items))
-		for i, item := range req.Items {
-			// Use original filename from API if available, otherwise extract from URL
-			originalFilename := item.OriginalFilename
-			if originalFilename == "" {
-				// Fallback: extract from URL if not provided in API response
-				originalFilename = backend.ExtractOriginalFilename(item.URL)
-			}
-			
-			// For bookmarks and likes, use author_username from item, otherwise use req.Username
-			username := req.Username
-			if item.AuthorUsername != "" {
-				username = item.AuthorUsername
-			}
-		
+	// Convert request items to backend items
+	// For bookmarks and likes, use author_username from each item if available
+	items := make([]backend.MediaItem, len(req.Items))
+	for i, item := range req.Items {
+		// Use original filename from API if available, otherwise extract from URL
+		originalFilename := item.OriginalFilename
+		if originalFilename == "" {
+			// Fallback: extract from URL if not provided in API response
+			originalFilename = backend.ExtractOriginalFilename(item.URL)
+		}
+
+		// For bookmarks and likes, use author_username from item, otherwise use req.Username
+		username := req.Username
+		if item.AuthorUsername != "" {
+			username = item.AuthorUsername
+		}
+
 		items[i] = backend.MediaItem{
 			URL:              item.URL,
 			Date:             item.Date,
@@ -333,7 +333,7 @@ func (a *App) DownloadMediaWithMetadata(req DownloadMediaWithMetadataRequest) (D
 		return DownloadMediaResponse{
 			Success:    false,
 			Downloaded: downloaded,
-			Skipped:     skipped,
+			Skipped:    skipped,
 			Failed:     failed,
 			Message:    err.Error(),
 		}, err
@@ -345,7 +345,7 @@ func (a *App) DownloadMediaWithMetadata(req DownloadMediaWithMetadataRequest) (D
 	return DownloadMediaResponse{
 		Success:    true,
 		Downloaded: downloaded,
-		Skipped:     skipped,
+		Skipped:    skipped,
 		Failed:     failed,
 		Message:    fmt.Sprintf("Downloaded %d files, %d skipped, %d failed", downloaded, skipped, failed),
 	}, nil
@@ -495,6 +495,31 @@ type ImportAccountResponse struct {
 	Success  bool   `json:"success"`
 	Username string `json:"username"`
 	Message  string `json:"message"`
+}
+
+// CheckFolderExists checks if a folder exists for the given username
+func (a *App) CheckFolderExists(basePath, username string) bool {
+	return backend.CheckFolderExists(basePath, username)
+}
+
+// CheckGifsFolderExists checks if a gifs subfolder exists for the given username
+func (a *App) CheckGifsFolderExists(basePath, username string) bool {
+	return backend.CheckGifsFolderExists(basePath, username)
+}
+
+// CheckGifsFolderHasMP4 checks if the gifs folder has any MP4 files to convert
+func (a *App) CheckGifsFolderHasMP4(basePath, username string) bool {
+	return backend.CheckGifsFolderHasMP4(basePath, username)
+}
+
+// GetFolderPath returns the full path for a username folder
+func (a *App) GetFolderPath(basePath, username string) string {
+	return backend.GetFolderPath(basePath, username)
+}
+
+// GetGifsFolderPath returns the full path for a username's gifs folder
+func (a *App) GetGifsFolderPath(basePath, username string) string {
+	return backend.GetGifsFolderPath(basePath, username)
 }
 
 // ImportAccountFromJSON imports account from JSON file (supports both old and new format)

@@ -34,8 +34,12 @@ import { ExtractTimeline, ExtractDateRange, SaveAccountToDBWithStatus, CleanupEx
 
 const HISTORY_KEY = "twitter_media_fetch_history";
 const MAX_HISTORY = 10;
-const CURRENT_VERSION = "4.1";
+const CURRENT_VERSION = "4.2";
 const BATCH_SIZE = 200; // Fetch in batches for progressive display and resume
+
+function formatNumberWithComma(num: number): string {
+  return num.toLocaleString();
+}
 
 function App() {
   const [currentPage, setCurrentPage] = useState<PageType>("main");
@@ -579,7 +583,7 @@ function App() {
         // If stopped by user, keep state for resume
         if (stopFetchRef.current) {
           logger.info(`Stopped at ${allTimeline.length} items - can resume later`);
-          toast.info(`Stopped at ${allTimeline.length} items`);
+          toast.info(`Stopped at ${formatNumberWithComma(allTimeline.length)} items`);
           setResumeInfo({ canResume: true, mediaCount: allTimeline.length });
         } else {
           // Completed - clear state
@@ -655,7 +659,7 @@ function App() {
         if (partialResponse) {
           setResult(partialResponse);
           setResumeInfo({ canResume: true, mediaCount: savedState.timeline.length });
-          toast.info(`Saved ${savedState.timeline.length} items - can resume`);
+          toast.info(`Saved ${formatNumberWithComma(savedState.timeline.length)} items - can resume`);
           
           // Also save partial data to database for persistence
           try {
@@ -776,7 +780,7 @@ function App() {
     // Set fetch type to multiple and navigate to home
     setFetchType("multiple");
     setCurrentPage("main");
-    toast.success(`Added ${accounts.length} account(s) to multiple fetch`);
+    toast.success(`Added ${formatNumberWithComma(accounts.length)} account(s) to multiple fetch`);
   };
 
   // Handle import txt file
@@ -812,7 +816,7 @@ function App() {
         });
 
         setMultipleAccounts(accounts);
-        toast.success(`Imported ${accounts.length} account(s)`);
+        toast.success(`Imported ${formatNumberWithComma(accounts.length)} account(s)`);
       } catch (error) {
         toast.error("Failed to read file");
       }
