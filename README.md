@@ -12,7 +12,7 @@ A GUI tool to download original-quality images and videos from Twitter/X account
 
 </div>
 
-### [Download](https://github.com/afkarxyz/SpotiFLAC/releases)
+### [Download](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases)
 
 - If you're familiar with userscripts, install it [**here**](https://greasyfork.org/en/scripts/551198)
 
