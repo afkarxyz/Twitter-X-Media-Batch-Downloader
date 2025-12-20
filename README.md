@@ -16,11 +16,11 @@ A GUI tool to download original-quality images and videos from Twitter/X account
 
 - If you're familiar with userscripts, install it [**here**](https://greasyfork.org/en/scripts/551198)
 
-- To install the Chrome extension version, click [**here**](https://www.patreon.com/posts/chrome-extension-139296789)
+- To install the Chrome extension version, click [**here**](https://chromewebstore.google.com/detail/aboccmnimgpjehlplnanplbhlccohhhn)
 
 ## Screenshot
 
-![Image](https://github.com/user-attachments/assets/d0ad4af2-5e50-413b-8d52-7dd54bff38c9)
+![Image](https://github.com/user-attachments/assets/a3ade39c-d611-49ce-81bb-121f30488ae2)
 
 ## How to Obtain Auth Token
 
