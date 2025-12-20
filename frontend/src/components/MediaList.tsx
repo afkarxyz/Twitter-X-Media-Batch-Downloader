@@ -741,7 +741,7 @@ export function MediaList({
               </span>
               <span className="flex items-center gap-1">
                 <MessageSquare className="h-3.5 w-3.5" />
-                {formatNumber(accountInfo.statuses_count)} tweets
+                {formatNumber(accountInfo.statuses_count)} posts
               </span>
               {accountInfo.date && (
                 <span className="flex items-center gap-1">

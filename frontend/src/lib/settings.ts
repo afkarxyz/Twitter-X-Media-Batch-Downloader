@@ -3,6 +3,8 @@ import { GetDefaults } from "../../wailsjs/go/main/App";
 export type FontFamily = "google-sans" | "inter" | "poppins" | "roboto" | "dm-sans" | "plus-jakarta-sans" | "manrope" | "space-grotesk" | "noto-sans" | "nunito-sans" | "figtree" | "raleway" | "public-sans" | "outfit" | "jetbrains-mono" | "geist-sans";
 export type GifQuality = "fast" | "better";
 export type GifResolution = "original" | "high" | "medium" | "low";
+export type FetchMode = "single" | "batch";
+export type MediaType = "all" | "image" | "video" | "gif" | "text";
 
 export interface Settings {
   downloadPath: string;
@@ -14,6 +16,9 @@ export interface Settings {
   gifResolution: GifResolution;
   proxy: string; // Proxy URL (e.g., http://proxy:port or socks5://proxy:port). Empty to use system proxy or no proxy.
   fetchTimeout: number; // Fetch timeout in seconds. Default: 60 seconds.
+  fetchMode: FetchMode; // Fetch mode: single (all at once) or batch (200 per request). Default: batch.
+  mediaType: MediaType; // Media type filter. Default: all.
+  includeRetweets: boolean; // Include retweets in fetch. Default: false.
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -26,6 +31,9 @@ export const DEFAULT_SETTINGS: Settings = {
   gifResolution: "original",
   proxy: "",
   fetchTimeout: 60, // Default: 60 seconds
+  fetchMode: "batch", // Default: batch mode (200 per request)
+  mediaType: "all", // Default: all media
+  includeRetweets: false, // Default: don't include retweets
 };
 
 export const FONT_OPTIONS: { value: FontFamily; label: string; fontFamily: string }[] = [

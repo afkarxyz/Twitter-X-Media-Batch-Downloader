@@ -34,7 +34,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Trash2, FileInput, FileOutput, Pencil, Tag, Shuffle, X, XCircle, Download, StopCircle, Globe, Lock, Bookmark, Heart, Image, Images, Video, Film, FileText, Filter, AlertCircle, MoreVertical, FileBraces, CloudBackup, Search, LayoutGrid, Grid3X3, List, ArrowUpDown, ArrowUp, FolderOpen } from "lucide-react";
+import { Trash2, FileInput, FileOutput, Pencil, Tag, Shuffle, X, XCircle, Download, StopCircle, Globe, Lock, Bookmark, Heart, Image, Images, Video, Film, FileText, Filter, AlertCircle, MoreVertical, FileBraces, CloudBackup, Search, LayoutGrid, Grid3X3, List, ArrowUpDown, ArrowUp, FolderOpen, Users, MessageSquare } from "lucide-react";
 import { toastWithSound as toast } from "@/lib/toast-with-sound";
 import { getSettings } from "@/lib/settings";
 import { openExternal } from "@/lib/utils";
@@ -123,7 +123,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
   const [filterMediaType, setFilterMediaType] = useState<string>("all");
   const [accountViewMode, setAccountViewMode] = useState<"public" | "private">("public");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "username-asc" | "username-desc" | "followers-high" | "followers-low" | "posts-high" | "posts-low" | "media-high" | "media-low">("newest");
   const [gridView, setGridView] = useState<"large" | "small" | "list">("list");
   const [editingAccount, setEditingAccount] = useState<AccountListItem | null>(null);
   const [editGroupName, setEditGroupName] = useState("");
@@ -255,10 +255,36 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
       return true;
     })
     .sort((a, b) => {
-      // Sort by last_fetched date
-      const dateA = new Date(a.last_fetched).getTime();
-      const dateB = new Date(b.last_fetched).getTime();
-      return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
+      switch (sortOrder) {
+        case "newest": {
+          const dateA = new Date(a.last_fetched).getTime();
+          const dateB = new Date(b.last_fetched).getTime();
+          return dateB - dateA;
+        }
+        case "oldest": {
+          const dateA = new Date(a.last_fetched).getTime();
+          const dateB = new Date(b.last_fetched).getTime();
+          return dateA - dateB;
+        }
+        case "username-asc":
+          return a.username.toLowerCase().localeCompare(b.username.toLowerCase());
+        case "username-desc":
+          return b.username.toLowerCase().localeCompare(a.username.toLowerCase());
+        case "followers-high":
+          return (b.followers_count || 0) - (a.followers_count || 0);
+        case "followers-low":
+          return (a.followers_count || 0) - (b.followers_count || 0);
+        case "posts-high":
+          return (b.statuses_count || 0) - (a.statuses_count || 0);
+        case "posts-low":
+          return (a.statuses_count || 0) - (b.statuses_count || 0);
+        case "media-high":
+          return (b.total_media || 0) - (a.total_media || 0);
+        case "media-low":
+          return (a.total_media || 0) - (b.total_media || 0);
+        default:
+          return 0;
+      }
     });
 
   // Intersection Observer for lazy loading
@@ -949,113 +975,129 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
 
           {/* Row 2: Sort, Filters, View Toggle */}
           <div className="flex items-center gap-2 pb-2">
-            {/* Sort Order */}
-            <Select value={sortOrder} onValueChange={(v) => setSortOrder(v as "newest" | "oldest")}>
-              <SelectTrigger className="w-auto">
-                <ArrowUpDown className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Sort" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="newest">Newest</SelectItem>
-                <SelectItem value="oldest">Oldest</SelectItem>
-              </SelectContent>
-            </Select>
+            {/* Sort Order - only for public accounts */}
+            {accountViewMode === "public" && (
+              <Select value={sortOrder} onValueChange={(v) => setSortOrder(v as typeof sortOrder)}>
+                <SelectTrigger className="w-auto">
+                  <ArrowUpDown className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Sort" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Newest</SelectItem>
+                  <SelectItem value="oldest">Oldest</SelectItem>
+                  <SelectItem value="username-asc">Username (A-Z)</SelectItem>
+                  <SelectItem value="username-desc">Username (Z-A)</SelectItem>
+                  <SelectItem value="followers-high">Followers (High-Low)</SelectItem>
+                  <SelectItem value="followers-low">Followers (Low-High)</SelectItem>
+                  <SelectItem value="posts-high">Posts (High-Low)</SelectItem>
+                  <SelectItem value="posts-low">Posts (Low-High)</SelectItem>
+                  <SelectItem value="media-high">Media Count (High-Low)</SelectItem>
+                  <SelectItem value="media-low">Media Count (Low-High)</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
             
-            {/* Media Type Filter */}
-            <Select value={filterMediaType} onValueChange={setFilterMediaType}>
-              <SelectTrigger className="w-auto">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Filter by type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">
-                  <span className="flex items-center gap-2">All Types</span>
-                </SelectItem>
-                <SelectItem value="all-media">
-                  <span className="flex items-center gap-2">
-                    <Images className="h-4 w-4 text-indigo-500" />
-                    All Media
-                  </span>
-                </SelectItem>
-                <SelectItem value="image">
-                  <span className="flex items-center gap-2">
-                    <Image className="h-4 w-4 text-blue-500" />
-                    Images
-                  </span>
-                </SelectItem>
-                <SelectItem value="video">
-                  <span className="flex items-center gap-2">
-                    <Video className="h-4 w-4 text-purple-500" />
-                    Videos
-                  </span>
-                </SelectItem>
-                <SelectItem value="gif">
-                  <span className="flex items-center gap-2">
-                    <Film className="h-4 w-4 text-green-500" />
-                    GIFs
-                  </span>
-                </SelectItem>
-                <SelectItem value="text">
-                  <span className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-orange-500" />
-                    Text
-                  </span>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* Group Filter */}
-            <Select value={filterGroup} onValueChange={setFilterGroup} disabled={groups.length === 0}>
-              <SelectTrigger className="w-auto">
-                <Tag className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Filter by group" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Groups</SelectItem>
-                <SelectItem value="ungrouped">Ungrouped</SelectItem>
-                {groups.map((group) => (
-                  <SelectItem key={group.name} value={group.name}>
+            {/* Media Type Filter - only for public accounts */}
+            {accountViewMode === "public" && (
+              <Select value={filterMediaType} onValueChange={setFilterMediaType}>
+                <SelectTrigger className="w-auto">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Filter by type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">
+                    <span className="flex items-center gap-2">All Types</span>
+                  </SelectItem>
+                  <SelectItem value="all-media">
                     <span className="flex items-center gap-2">
-                      <span
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: group.color }}
-                      />
-                      {group.name}
+                      <Images className="h-4 w-4 text-indigo-500" />
+                      All Media
                     </span>
                   </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  <SelectItem value="image">
+                    <span className="flex items-center gap-2">
+                      <Image className="h-4 w-4 text-blue-500" />
+                      Images
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="video">
+                    <span className="flex items-center gap-2">
+                      <Video className="h-4 w-4 text-purple-500" />
+                      Videos
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="gif">
+                    <span className="flex items-center gap-2">
+                      <Film className="h-4 w-4 text-green-500" />
+                      GIFs
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="text">
+                    <span className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-orange-500" />
+                      Text
+                    </span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+
+            {/* Group Filter - only for public accounts */}
+            {accountViewMode === "public" && (
+              <Select value={filterGroup} onValueChange={setFilterGroup} disabled={groups.length === 0}>
+                <SelectTrigger className="w-auto">
+                  <Tag className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Filter by group" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Groups</SelectItem>
+                  <SelectItem value="ungrouped">Ungrouped</SelectItem>
+                  {groups.map((group) => (
+                    <SelectItem key={group.name} value={group.name}>
+                      <span className="flex items-center gap-2">
+                        <span
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: group.color }}
+                        />
+                        {group.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
 
             <div className="flex-1" />
 
-            {/* Grid View Toggle */}
-            <div className="flex items-center border rounded-md">
-              <Button
-                variant={gridView === "large" ? "secondary" : "ghost"}
-                size="icon"
-                className="h-9 w-9 rounded-r-none"
-                onClick={() => setGridView("large")}
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={gridView === "small" ? "secondary" : "ghost"}
-                size="icon"
-                className="h-9 w-9 rounded-none border-x"
-                onClick={() => setGridView("small")}
-              >
-                <Grid3X3 className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={gridView === "list" ? "secondary" : "ghost"}
-                size="icon"
-                className="h-9 w-9 rounded-l-none"
-                onClick={() => setGridView("list")}
-              >
-                <List className="h-4 w-4" />
-              </Button>
-            </div>
+            {/* Grid View Toggle - only for public accounts */}
+            {accountViewMode === "public" && (
+              <div className="flex items-center border rounded-md">
+                <Button
+                  variant={gridView === "large" ? "secondary" : "ghost"}
+                  size="icon"
+                  className="h-9 w-9 rounded-r-none"
+                  onClick={() => setGridView("large")}
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={gridView === "small" ? "secondary" : "ghost"}
+                  size="icon"
+                  className="h-9 w-9 rounded-none border-x"
+                  onClick={() => setGridView("small")}
+                >
+                  <Grid3X3 className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={gridView === "list" ? "secondary" : "ghost"}
+                  size="icon"
+                  className="h-9 w-9 rounded-l-none"
+                  onClick={() => setGridView("list")}
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Bulk Download Progress */}
@@ -1146,7 +1188,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                         </button>
                       )}
                       <div className="text-sm text-muted-foreground mt-1">
-                        {formatNumberWithComma(account.total_media)}
+                        {formatNumberWithComma(account.total_media)} media
                       </div>
                     </div>
                     <div className="flex gap-1">
@@ -1186,10 +1228,12 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEditGroup(account)}>
-                            <Pencil className="h-4 w-4 mr-2" />
-                            Edit Group
-                          </DropdownMenuItem>
+                          {!isPrivateAccount(account.username) && (
+                            <DropdownMenuItem onClick={() => handleEditGroup(account)}>
+                              <Pencil className="h-4 w-4 mr-2" />
+                              Edit Group
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem
                             onClick={async () => {
                               const settings = getSettings();
@@ -1308,7 +1352,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                         </button>
                       )}
                       <div className="text-xs text-muted-foreground">
-                        {formatNumberWithComma(account.total_media)}
+                        {formatNumberWithComma(account.total_media)} media
                       </div>
                     </div>
                     <div className="flex gap-1">
@@ -1348,10 +1392,12 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEditGroup(account)}>
-                            <Pencil className="h-4 w-4 mr-2" />
-                            Edit Group
-                          </DropdownMenuItem>
+                          {!isPrivateAccount(account.username) && (
+                            <DropdownMenuItem onClick={() => handleEditGroup(account)}>
+                              <Pencil className="h-4 w-4 mr-2" />
+                              Edit Group
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem
                             onClick={async () => {
                               const settings = getSettings();
@@ -1435,7 +1481,23 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="truncate">{account.name}</span>
-                    <span className="text-muted-foreground">({formatNumberWithComma(account.total_media)})</span>
+                    {/* Stats Badges: Followers, Posts, Media */}
+                    {!isPrivateAccount(account.username) && (account.followers_count > 0 || account.statuses_count > 0) && (
+                      <>
+                        <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          {formatNumberWithComma(account.followers_count)}
+                        </Badge>
+                        <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                          <MessageSquare className="h-3 w-3" />
+                          {formatNumberWithComma(account.statuses_count)}
+                        </Badge>
+                      </>
+                    )}
+                    <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                      <Images className="h-3 w-3" />
+                      {formatNumberWithComma(account.total_media)}
+                    </Badge>
                     {/* Media Type Badge */}
                     <Badge
                       variant="secondary"
@@ -1544,10 +1606,12 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                       <TooltipContent>More Options</TooltipContent>
                     </Tooltip>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleEditGroup(account)}>
-                        <Pencil className="h-4 w-4 mr-2" />
-                        Edit Group
-                      </DropdownMenuItem>
+                      {!isPrivateAccount(account.username) && (
+                        <DropdownMenuItem onClick={() => handleEditGroup(account)}>
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Edit Group
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem
                         onClick={async () => {
                           const settings = getSettings();

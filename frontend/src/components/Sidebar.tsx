@@ -1,4 +1,10 @@
-import { Home, Settings, Bug, Database, LayoutGrid, Coffee, Github } from "lucide-react";
+import { HomeIcon } from "@/components/ui/home";
+import { SettingsIcon } from "@/components/ui/settings";
+import { ArchiveIcon } from "@/components/ui/archive";
+import { TerminalIcon } from "@/components/ui/terminal";
+import { GithubIcon } from "@/components/ui/github";
+import { BlocksIcon } from "@/components/ui/blocks";
+import { CoffeeIcon } from "@/components/ui/coffee";
 import {
   Tooltip,
   TooltipContent,
@@ -15,33 +21,76 @@ interface SidebarProps {
 }
 
 export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
-  const navItems = [
-    { id: "main" as PageType, icon: Home, label: "Home" },
-    { id: "settings" as PageType, icon: Settings, label: "Settings" },
-    { id: "database" as PageType, icon: Database, label: "Saved Accounts" },
-    { id: "debug" as PageType, icon: Bug, label: "Debug Logs" },
-  ];
-
   return (
     <div className="fixed left-0 top-0 h-full w-14 bg-card border-r border-border flex flex-col items-center py-14 z-30">
       <div className="flex flex-col gap-2 flex-1">
-        {navItems.map((item) => (
-          <Tooltip key={item.id} delayDuration={0}>
-            <TooltipTrigger asChild>
-              <Button
-                variant={currentPage === item.id ? "secondary" : "ghost"}
-                size="icon"
-                className="h-10 w-10"
-                onClick={() => onPageChange(item.id)}
-              >
-                <item.icon className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>{item.label}</p>
-            </TooltipContent>
-          </Tooltip>
-        ))}
+        {/* Home */}
+        <Tooltip delayDuration={0}>
+          <TooltipTrigger asChild>
+            <Button
+              variant={currentPage === "main" ? "secondary" : "ghost"}
+              size="icon"
+              className="h-10 w-10"
+              onClick={() => onPageChange("main")}
+            >
+              <HomeIcon size={20} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p>Home</p>
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Settings */}
+        <Tooltip delayDuration={0}>
+          <TooltipTrigger asChild>
+            <Button
+              variant={currentPage === "settings" ? "secondary" : "ghost"}
+              size="icon"
+              className="h-10 w-10"
+              onClick={() => onPageChange("settings")}
+            >
+              <SettingsIcon size={20} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p>Settings</p>
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Database - using animated archive icon */}
+        <Tooltip delayDuration={0}>
+          <TooltipTrigger asChild>
+            <Button
+              variant={currentPage === "database" ? "secondary" : "ghost"}
+              size="icon"
+              className="h-10 w-10"
+              onClick={() => onPageChange("database")}
+            >
+              <ArchiveIcon size={20} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p>Saved Accounts</p>
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Debug - using animated terminal icon */}
+        <Tooltip delayDuration={0}>
+          <TooltipTrigger asChild>
+            <Button
+              variant={currentPage === "debug" ? "secondary" : "ghost"}
+              size="icon"
+              className="h-10 w-10"
+              onClick={() => onPageChange("debug")}
+            >
+              <TerminalIcon size={20} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p>Debug Logs</p>
+          </TooltipContent>
+        </Tooltip>
       </div>
       
       {/* Bottom icons */}
@@ -54,7 +103,7 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
               className="h-10 w-10"
               onClick={() => openExternal("https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/issues")}
             >
-              <Github className="h-5 w-5" />
+              <GithubIcon size={20} />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="right">
@@ -69,7 +118,7 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
               className="h-10 w-10"
               onClick={() => openExternal("https://exyezed.cc/")}
             >
-              <LayoutGrid className="h-5 w-5" />
+              <BlocksIcon size={20} />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="right">
@@ -84,7 +133,7 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
               className="h-10 w-10"
               onClick={() => openExternal("https://ko-fi.com/afkarxyz")}
             >
-              <Coffee className="h-5 w-5" />
+              <CoffeeIcon size={20} />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="right">

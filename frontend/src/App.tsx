@@ -34,7 +34,7 @@ import { ExtractTimeline, ExtractDateRange, SaveAccountToDBWithStatus, CleanupEx
 
 const HISTORY_KEY = "twitter_media_fetch_history";
 const MAX_HISTORY = 10;
-const CURRENT_VERSION = "4.2";
+const CURRENT_VERSION = "4.3";
 const BATCH_SIZE = 200; // Fetch in batches for progressive display and resume
 
 function formatNumberWithComma(num: number): string {
@@ -429,7 +429,11 @@ function App() {
           }
         }
       } else {
-        // Timeline mode with batching for progressive display and resume
+        // Timeline mode - check fetch mode from settings
+        const settings = getSettings();
+        const isSingleMode = settings.fetchMode === "single";
+        const batchSize = isSingleMode ? 0 : BATCH_SIZE;
+        
         let timelineType = "timeline";
         if (isBookmarks) {
           timelineType = "bookmarks";
@@ -440,6 +444,8 @@ function App() {
         let hasMore = true;
         let page = 0;
 
+        // Single mode: one fetch, no loop
+        // Batch mode: loop until done or stopped
         while (hasMore && !stopFetchRef.current) {
           // Check timeout before each batch
           if (fetchStartTimeRef.current !== null) {
@@ -450,18 +456,67 @@ function App() {
               logger.warning(`Timeout reached (${timeoutSeconds}s). Stopping fetch...`);
               stopFetchRef.current = true;
               toast.warning("Fetch timeout reached. Stopping...");
+              
+              // IMPORTANT: Save state immediately before breaking out of loop
+              // This ensures no data is lost when timeout occurs
+              if (accountInfo && allTimeline.length > 0) {
+                saveFetchState({
+                  username: cleanUsername,
+                  cursor: cursor || "",
+                  timeline: allTimeline,
+                  accountInfo: accountInfo,
+                  totalFetched: allTimeline.length,
+                  completed: false,
+                  authToken: authToken.trim(),
+                  mediaType: mediaType || "all",
+                  retweets: retweets || false,
+                  timelineType: timelineType,
+                });
+                
+                // Also save to database immediately
+                const timeoutResponse: TwitterResponse = {
+                  account_info: accountInfo,
+                  timeline: allTimeline,
+                  total_urls: allTimeline.length,
+                  metadata: {
+                    new_entries: 0,
+                    page: page,
+                    batch_size: batchSize,
+                    has_more: hasMore,
+                    cursor: cursor,
+                    completed: false,
+                  },
+                  cursor: cursor,
+                  completed: false,
+                };
+                try {
+                  await SaveAccountToDBWithStatus(
+                    accountInfo.name,
+                    accountInfo.nick,
+                    accountInfo.profile_image,
+                    allTimeline.length,
+                    JSON.stringify(timeoutResponse),
+                    mediaType || "all",
+                    cursor || "",
+                    false
+                  );
+                  logger.info(`Saved ${allTimeline.length} items before timeout`);
+                } catch (err) {
+                  console.error("Failed to save timeout state to database:", err);
+                }
+              }
               break;
             }
           }
 
           const batchNum = page + 1;
-          logger.info(`Fetching batch ${batchNum}${cursor ? " (resuming)" : ""}...`);
+          logger.info(isSingleMode ? "Fetching all media..." : `Fetching batch ${batchNum}${cursor ? " (resuming)" : ""}...`);
 
           const response = await ExtractTimeline({
             username: isBookmarks ? "" : username.trim(),
             auth_token: authToken.trim(),
             timeline_type: timelineType,
-            batch_size: BATCH_SIZE,
+            batch_size: batchSize,
             page: page,
             media_type: mediaType || "all",
             retweets: retweets || false,
@@ -515,7 +570,7 @@ function App() {
               metadata: {
                 new_entries: data.timeline.length,
                 page: page,
-                batch_size: BATCH_SIZE,
+                batch_size: batchSize,
                 has_more: hasMore,
                 cursor: cursor,
                 completed: !hasMore,
@@ -527,23 +582,20 @@ function App() {
 
           logger.info(`Fetched ${allTimeline.length} items total`);
 
-          // Save state periodically (every 3 batches) or when stopping
-          // This reduces localStorage writes for better performance
-          // Note: cursor is already saved every batch above (lightweight)
-          if (page % 3 === 0 || !hasMore || stopFetchRef.current) {
-            saveFetchState({
-              username: cleanUsername,
-              cursor: cursor || "",
-              timeline: allTimeline,
-              accountInfo: accountInfo,
-              totalFetched: allTimeline.length,
-              completed: !hasMore,
-              authToken: authToken.trim(),
-              mediaType: mediaType || "all",
-              retweets: retweets || false,
-              timelineType: timelineType,
-            });
-          }
+          // Save state EVERY batch to ensure no data loss on timeout/error
+          // This is critical for large accounts where fetch can take a long time
+          saveFetchState({
+            username: cleanUsername,
+            cursor: cursor || "",
+            timeline: allTimeline,
+            accountInfo: accountInfo,
+            totalFetched: allTimeline.length,
+            completed: !hasMore,
+            authToken: authToken.trim(),
+            mediaType: mediaType || "all",
+            retweets: retweets || false,
+            timelineType: timelineType,
+          });
 
           // Save to database immediately after each batch for realtime persistence
           // This ensures data is saved even if fetch fails mid-way
@@ -555,7 +607,7 @@ function App() {
               metadata: {
                 new_entries: data.timeline.length,
                 page: page,
-                batch_size: BATCH_SIZE,
+                batch_size: batchSize,
                 has_more: hasMore,
                 cursor: cursor,
                 completed: !hasMore,
@@ -582,7 +634,8 @@ function App() {
 
         // If stopped by user, keep state for resume
         if (stopFetchRef.current) {
-          logger.info(`Stopped at ${allTimeline.length} items - can resume later`);
+          const elapsedSecs = fetchStartTimeRef.current ? Math.floor((Date.now() - fetchStartTimeRef.current) / 1000) : 0;
+          logger.info(`Stopped at ${allTimeline.length} items - can resume later (${elapsedSecs}s)`);
           toast.info(`Stopped at ${formatNumberWithComma(allTimeline.length)} items`);
           setResumeInfo({ canResume: true, mediaCount: allTimeline.length });
         } else {
@@ -601,7 +654,7 @@ function App() {
               metadata: {
                 new_entries: allTimeline.length,
                 page: page,
-                batch_size: BATCH_SIZE,
+                batch_size: batchSize,
                 has_more: false,
                 cursor: cursor,
                 completed: !stopFetchRef.current,
@@ -643,13 +696,15 @@ function App() {
         }
 
         if (!stopFetchRef.current) {
-          logger.success(`Found ${finalData.total_urls} media items`);
+          const elapsedSecs = fetchStartTimeRef.current ? Math.floor((Date.now() - fetchStartTimeRef.current) / 1000) : 0;
+          logger.success(`Found ${finalData.total_urls} media items (${elapsedSecs}s)`);
           toast.success(`${finalData.total_urls} media items found`);
         }
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to fetch: ${errorMsg}`);
+      const elapsedSecs = fetchStartTimeRef.current ? Math.floor((Date.now() - fetchStartTimeRef.current) / 1000) : 0;
+      logger.error(`Failed to fetch: ${errorMsg} (${elapsedSecs}s)`);
       toast.error("Failed to fetch media");
 
       // On error, check if we have partial data saved
@@ -959,7 +1014,11 @@ function App() {
           continue;
         }
 
-        // Fetch account
+        // Fetch account - check fetch mode from settings
+        const fetchSettings = getSettings();
+        const isSingleModeMultiple = fetchSettings.fetchMode === "single";
+        const batchSizeMultiple = isSingleModeMultiple ? 0 : BATCH_SIZE;
+        
         const cleanUsername = account.username.trim();
         let allTimeline: TwitterResponse["timeline"] = [];
         let accountInfo: TwitterResponse["account_info"] | null = null;
@@ -969,8 +1028,53 @@ function App() {
         let previousMediaCount = account.mediaCount || 0;
 
         while (hasMore && !stopAllRef.current) {
-          // Check if this specific account should be stopped
+          // Check if this specific account should be stopped (timeout)
           if (accountStopFlagsRef.current.get(accountId)) {
+            // IMPORTANT: Save state before breaking to prevent data loss
+            if (accountInfo && allTimeline.length > 0) {
+              saveFetchState({
+                username: cleanUsername,
+                cursor: cursor || "",
+                timeline: allTimeline,
+                accountInfo: accountInfo,
+                totalFetched: allTimeline.length,
+                completed: false,
+                authToken: authToken.trim(),
+                mediaType: fetchedMediaType || "all",
+                retweets: false,
+                timelineType: "timeline",
+              });
+              
+              // Also save to database
+              try {
+                await SaveAccountToDBWithStatus(
+                  accountInfo.name,
+                  accountInfo.nick,
+                  accountInfo.profile_image,
+                  allTimeline.length,
+                  JSON.stringify({
+                    account_info: accountInfo,
+                    timeline: allTimeline,
+                    total_urls: allTimeline.length,
+                    metadata: {
+                      new_entries: 0,
+                      page: page,
+                      batch_size: batchSizeMultiple,
+                      has_more: hasMore,
+                      cursor: cursor,
+                      completed: false,
+                    },
+                    cursor: cursor,
+                    completed: false,
+                  }),
+                  fetchedMediaType || "all",
+                  cursor || "",
+                  false
+                );
+              } catch (err) {
+                console.error("Failed to save timeout state to database:", err);
+              }
+            }
             break;
           }
 
@@ -978,7 +1082,7 @@ function App() {
             username: cleanUsername,
             auth_token: authToken.trim(),
             timeline_type: "timeline",
-            batch_size: BATCH_SIZE,
+            batch_size: batchSizeMultiple,
             page: page,
             media_type: fetchedMediaType || "all",
             retweets: false,
@@ -1037,6 +1141,22 @@ function App() {
           // Update previous count for next iteration
           previousMediaCount = currentMediaCount;
 
+          // Save fetch state EVERY batch to ensure no data loss on timeout/error
+          if (accountInfo) {
+            saveFetchState({
+              username: cleanUsername,
+              cursor: cursor || "",
+              timeline: allTimeline,
+              accountInfo: accountInfo,
+              totalFetched: allTimeline.length,
+              completed: !hasMore,
+              authToken: authToken.trim(),
+              mediaType: fetchedMediaType || "all",
+              retweets: false,
+              timelineType: "timeline",
+            });
+          }
+
           // Save to database after each batch
           if (accountInfo) {
             try {
@@ -1052,7 +1172,7 @@ function App() {
                   metadata: {
                     new_entries: data.timeline.length,
                     page: page,
-                    batch_size: BATCH_SIZE,
+                    batch_size: batchSizeMultiple,
                     has_more: hasMore,
                     cursor: cursor,
                     completed: !hasMore,
@@ -1070,6 +1190,10 @@ function App() {
           }
         }
 
+        // Calculate elapsed time before clearing
+        const startTime = accountStartTimesRef.current.get(accountId);
+        const elapsedSecs = startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
+
         // Clear timer
         clearInterval(timerInterval);
         accountTimersRef.current.delete(accountId);
@@ -1085,6 +1209,7 @@ function App() {
         
         if (wasTimeout) {
           // Timeout: incomplete if media was fetched, failed if no media
+          logger.warning(`@${account.username}: timeout - ${finalMediaCount} items (${elapsedSecs}s)`);
           setMultipleAccounts((prev) =>
             prev.map((acc) =>
               acc.id === accountId
@@ -1094,6 +1219,7 @@ function App() {
           );
         } else if (stopAllRef.current) {
           // Stopped by user: incomplete if media was fetched, failed if no media
+          logger.info(`@${account.username}: stopped - ${finalMediaCount} items (${elapsedSecs}s)`);
           setMultipleAccounts((prev) =>
             prev.map((acc) =>
               acc.id === accountId
@@ -1103,6 +1229,7 @@ function App() {
           );
         } else if (hasMore) {
           // Has more but stopped (e.g., API error): incomplete if media was fetched, failed if no media
+          logger.warning(`@${account.username}: incomplete - ${finalMediaCount} items (${elapsedSecs}s)`);
           setMultipleAccounts((prev) =>
             prev.map((acc) =>
               acc.id === accountId
@@ -1112,6 +1239,7 @@ function App() {
           );
         } else {
           // Completed successfully
+          logger.success(`@${account.username}: completed - ${finalMediaCount} items (${elapsedSecs}s)`);
           setMultipleAccounts((prev) =>
             prev.map((acc) =>
               acc.id === accountId
@@ -1121,6 +1249,10 @@ function App() {
           );
         }
       } catch (error) {
+        // Calculate elapsed time before clearing
+        const startTime = accountStartTimesRef.current.get(accountId);
+        const elapsedSecs = startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
+        
         // Clear timer on error
         const timerInterval = accountTimersRef.current.get(accountId);
         if (timerInterval) {
@@ -1162,7 +1294,7 @@ function App() {
               : acc
           )
         );
-        logger.error(`Failed to fetch @${account.username}: ${errorMsg}`);
+        logger.error(`@${account.username}: failed - ${errorMsg} (${elapsedSecs}s)`);
       }
     }
 
@@ -1246,6 +1378,11 @@ function App() {
       toast.error("Please enter your auth token");
       return;
     }
+
+    // Get fetch mode from settings
+    const retrySettings = getSettings();
+    const isSingleModeRetry = retrySettings.fetchMode === "single";
+    const batchSizeRetry = isSingleModeRetry ? 0 : BATCH_SIZE;
 
     // Check if we have a saved cursor (like resume in single fetch)
     const cleanUsername = account.username.trim();
@@ -1390,7 +1527,7 @@ function App() {
           username: cleanUsername,
           auth_token: authToken.trim(),
           timeline_type: "timeline",
-          batch_size: BATCH_SIZE,
+          batch_size: batchSizeRetry,
           page: page,
           media_type: fetchedMediaType || "all",
           retweets: false,
@@ -1480,7 +1617,7 @@ function App() {
                 metadata: {
                   new_entries: data.timeline.length,
                   page: page,
-                  batch_size: BATCH_SIZE,
+                  batch_size: batchSizeRetry,
                   has_more: hasMore,
                   cursor: cursor,
                   completed: !hasMore,
@@ -1498,6 +1635,10 @@ function App() {
         }
       }
 
+      // Calculate elapsed time before clearing
+      const startTime = accountStartTimesRef.current.get(accountId);
+      const elapsedSecs = startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
+
       // Clear timer
       clearInterval(timerInterval);
       accountTimersRef.current.delete(accountId);
@@ -1511,6 +1652,7 @@ function App() {
       const wasTimeout = accountStopFlagsRef.current.get(accountId);
 
       if (wasTimeout) {
+        logger.warning(`@${account.username}: timeout - ${finalMediaCount} items (${elapsedSecs}s)`);
         setMultipleAccounts((prev) =>
           prev.map((acc) =>
             acc.id === accountId
@@ -1519,6 +1661,7 @@ function App() {
           )
         );
       } else if (stopAllRef.current) {
+        logger.info(`@${account.username}: stopped - ${finalMediaCount} items (${elapsedSecs}s)`);
         setMultipleAccounts((prev) =>
           prev.map((acc) =>
             acc.id === accountId
@@ -1527,6 +1670,7 @@ function App() {
           )
         );
       } else if (hasMore) {
+        logger.warning(`@${account.username}: incomplete - ${finalMediaCount} items (${elapsedSecs}s)`);
         setMultipleAccounts((prev) =>
           prev.map((acc) =>
             acc.id === accountId
@@ -1536,6 +1680,7 @@ function App() {
         );
       } else {
         // Completed successfully - clear fetch state and cursor
+        logger.success(`@${account.username}: completed - ${finalMediaCount} items (${elapsedSecs}s)`);
         clearFetchState(cleanUsername);
         clearCursor(cleanUsername);
         setMultipleAccounts((prev) =>
@@ -1545,6 +1690,10 @@ function App() {
         );
       }
     } catch (error) {
+      // Calculate elapsed time before clearing
+      const startTime = accountStartTimesRef.current.get(accountId);
+      const elapsedSecs = startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
+      
       // Clear timer on error
       const timerInterval = accountTimersRef.current.get(accountId);
       if (timerInterval) {
@@ -1582,7 +1731,7 @@ function App() {
             : acc
         )
       );
-      logger.error(`Failed to fetch @${account.username}: ${errorMsg}`);
+      logger.error(`@${account.username}: failed - ${errorMsg} (${elapsedSecs}s)`);
     }
   };
 

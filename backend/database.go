@@ -27,17 +27,19 @@ type AccountDB struct {
 
 // AccountListItem represents a simplified account for listing
 type AccountListItem struct {
-	ID           int64  `json:"id"`
-	Username     string `json:"username"`
-	Name         string `json:"name"`
-	ProfileImage string `json:"profile_image"`
-	TotalMedia   int    `json:"total_media"`
-	LastFetched  string `json:"last_fetched"`
-	GroupName    string `json:"group_name"`
-	GroupColor   string `json:"group_color"`
-	MediaType    string `json:"media_type"`
-	Cursor       string `json:"cursor"`
-	Completed    bool   `json:"completed"`
+	ID             int64  `json:"id"`
+	Username       string `json:"username"`
+	Name           string `json:"name"`
+	ProfileImage   string `json:"profile_image"`
+	TotalMedia     int    `json:"total_media"`
+	LastFetched    string `json:"last_fetched"`
+	GroupName      string `json:"group_name"`
+	GroupColor     string `json:"group_color"`
+	MediaType      string `json:"media_type"`
+	Cursor         string `json:"cursor"`
+	Completed      bool   `json:"completed"`
+	FollowersCount int    `json:"followers_count"`
+	StatusesCount  int    `json:"statuses_count"`
 }
 
 var db *sql.DB
@@ -161,7 +163,8 @@ func GetAllAccounts() ([]AccountListItem, error) {
 		SELECT id, username, name, profile_image, total_media, last_fetched, 
 		       COALESCE(group_name, '') as group_name, COALESCE(group_color, '') as group_color,
 		       COALESCE(media_type, 'all') as media_type,
-		       COALESCE(cursor, '') as cursor, COALESCE(completed, 1) as completed
+		       COALESCE(cursor, '') as cursor, COALESCE(completed, 1) as completed,
+		       COALESCE(response_json, '') as response_json
 		FROM accounts
 		ORDER BY group_name ASC, last_fetched DESC
 	`)
@@ -175,11 +178,28 @@ func GetAllAccounts() ([]AccountListItem, error) {
 		var acc AccountListItem
 		var lastFetched time.Time
 		var completedInt int
-		if err := rows.Scan(&acc.ID, &acc.Username, &acc.Name, &acc.ProfileImage, &acc.TotalMedia, &lastFetched, &acc.GroupName, &acc.GroupColor, &acc.MediaType, &acc.Cursor, &completedInt); err != nil {
+		var responseJSON string
+		if err := rows.Scan(&acc.ID, &acc.Username, &acc.Name, &acc.ProfileImage, &acc.TotalMedia, &lastFetched, &acc.GroupName, &acc.GroupColor, &acc.MediaType, &acc.Cursor, &completedInt, &responseJSON); err != nil {
 			continue
 		}
 		acc.LastFetched = lastFetched.Format("2006-01-02 15:04")
 		acc.Completed = completedInt == 1
+
+		// Extract followers_count and statuses_count from response_json
+		if responseJSON != "" {
+			var parsed map[string]interface{}
+			if err := json.Unmarshal([]byte(responseJSON), &parsed); err == nil {
+				if accountInfo, ok := parsed["account_info"].(map[string]interface{}); ok {
+					if followers, ok := accountInfo["followers_count"].(float64); ok {
+						acc.FollowersCount = int(followers)
+					}
+					if statuses, ok := accountInfo["statuses_count"].(float64); ok {
+						acc.StatusesCount = int(statuses)
+					}
+				}
+			}
+		}
+
 		accounts = append(accounts, acc)
 	}
 
@@ -241,7 +261,6 @@ func ClearAllAccounts() error {
 	return err
 }
 
-
 // GetAccountByID returns a specific account by ID
 func GetAccountByID(id int64) (*AccountDB, error) {
 	if db == nil {
@@ -284,6 +303,7 @@ func DeleteAccount(id int64) error {
 	_, err := db.Exec("DELETE FROM accounts WHERE id = ?", id)
 	return err
 }
+
 // LegacyMediaEntry represents media entry in old format
 type LegacyMediaEntry struct {
 	TweetID string `json:"tweet_id"`

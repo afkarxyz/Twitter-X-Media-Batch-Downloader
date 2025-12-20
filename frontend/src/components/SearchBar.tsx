@@ -49,6 +49,7 @@ import { Settings as SettingsIcon } from "lucide-react";
 import { FetchHistory } from "@/components/FetchHistory";
 import type { HistoryItem } from "@/components/FetchHistory";
 import { cn } from "@/lib/utils";
+import { getSettings, updateSettings, type FetchMode as SettingsFetchMode, type MediaType as SettingsMediaType } from "@/lib/settings";
 
 export type FetchMode = "public" | "private";
 export type PrivateType = "bookmarks" | "likes";
@@ -148,8 +149,8 @@ export function SearchBar({
   const [useDateRange, setUseDateRange] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [mediaType, setMediaType] = useState("all");
-  const [retweets, setRetweets] = useState(false);
+  const [mediaType, setMediaType] = useState<SettingsMediaType>(getSettings().mediaType);
+  const [retweets, setRetweets] = useState(getSettings().includeRetweets);
   const [mode, setMode] = useState<FetchMode>(externalMode || "public");
   const [privateType, setPrivateType] = useState<PrivateType>(externalPrivateType || "bookmarks");
   
@@ -167,6 +168,7 @@ export function SearchBar({
   }, [externalPrivateType]);
   const [showAuthInput, setShowAuthInput] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [currentFetchMode, setCurrentFetchMode] = useState<SettingsFetchMode>(getSettings().fetchMode);
 
   // Separate auth tokens for public and private modes
   const [publicAuthToken, setPublicAuthToken] = useState("");
@@ -413,11 +415,11 @@ export function SearchBar({
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Clear resume data</TooltipContent>
+                    <TooltipContent>Clear Resume</TooltipContent>
                   </Tooltip>
                   <Button variant="secondary" onClick={handleResume} disabled={!hasAuthToken}>
                     <RotateCcw className="h-4 w-4" />
-                    Resume ({resumeInfo.mediaCount})
+                    Resume ({resumeInfo.mediaCount.toLocaleString()})
                   </Button>
                 </>
               )}
@@ -606,13 +608,35 @@ export function SearchBar({
       {showAdvanced && (
         <div className="p-3 border rounded-lg bg-muted/30 space-y-3">
           {/* Options Row */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
+            {/* Fetch Mode */}
+            <div className="flex items-center gap-2">
+              <Label htmlFor="fetch-mode" className="text-sm">
+                Fetch Mode
+              </Label>
+              <Select value={currentFetchMode} onValueChange={(value: SettingsFetchMode) => {
+                updateSettings({ fetchMode: value });
+                setCurrentFetchMode(value);
+              }}>
+                <SelectTrigger id="fetch-mode" className="w-auto h-8 bg-background">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="batch">Batch</SelectItem>
+                  <SelectItem value="single">Single</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Media Type */}
             <div className="flex items-center gap-2">
               <Label htmlFor="media-type" className="text-sm">
                 Media Type
               </Label>
-              <Select value={mediaType} onValueChange={setMediaType}>
+              <Select value={mediaType} onValueChange={(value: SettingsMediaType) => {
+                updateSettings({ mediaType: value });
+                setMediaType(value);
+              }}>
                 <SelectTrigger id="media-type" className="w-auto h-8 bg-background">
                   <SelectValue />
                 </SelectTrigger>
@@ -631,7 +655,11 @@ export function SearchBar({
               <Checkbox
                 id="retweets"
                 checked={retweets}
-                onCheckedChange={(checked) => setRetweets(checked as boolean)}
+                onCheckedChange={(checked) => {
+                  const value = checked as boolean;
+                  updateSettings({ includeRetweets: value });
+                  setRetweets(value);
+                }}
                 className="bg-background"
               />
               <Label htmlFor="retweets" className="text-sm cursor-pointer">
