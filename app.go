@@ -10,42 +10,36 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-// App struct
 type App struct {
 	ctx            context.Context
 	downloadCtx    context.Context
 	downloadCancel context.CancelFunc
 }
 
-// NewApp creates a new App application struct
 func NewApp() *App {
 	return &App{}
 }
 
-// startup is called when the app starts. The context is saved
-// so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
-	// Initialize database
-	backend.InitDB()
-	// Kill any leftover extractor processes from previous session
+
+	if err := backend.InitDB(); err != nil {
+		runtime.LogErrorf(ctx, "failed to initialize database: %v", err)
+	}
+
 	backend.KillAllExtractorProcesses()
 }
 
-// shutdown is called when the app is closing
 func (a *App) shutdown(ctx context.Context) {
 	backend.CloseDB()
-	// Kill any running extractor processes
+
 	backend.KillAllExtractorProcesses()
 }
 
-// CleanupExtractorProcesses kills all running extractor processes
-// Can be called from frontend when user wants to stop/reset
 func (a *App) CleanupExtractorProcesses() {
 	backend.KillAllExtractorProcesses()
 }
 
-// TimelineRequest represents the request structure for timeline extraction
 type TimelineRequest struct {
 	Username     string `json:"username"`
 	AuthToken    string `json:"auth_token"`
@@ -54,10 +48,9 @@ type TimelineRequest struct {
 	Page         int    `json:"page"`
 	MediaType    string `json:"media_type"`
 	Retweets     bool   `json:"retweets"`
-	Cursor       string `json:"cursor,omitempty"` // Resume from this cursor position
+	Cursor       string `json:"cursor,omitempty"`
 }
 
-// DateRangeRequest represents the request structure for date range extraction
 type DateRangeRequest struct {
 	Username    string `json:"username"`
 	AuthToken   string `json:"auth_token"`
@@ -67,9 +60,8 @@ type DateRangeRequest struct {
 	Retweets    bool   `json:"retweets"`
 }
 
-// ExtractTimeline extracts media from user timeline
 func (a *App) ExtractTimeline(req TimelineRequest) (string, error) {
-	// Username not required for bookmarks only
+
 	if req.Username == "" && req.TimelineType != "bookmarks" {
 		return "", fmt.Errorf("username is required")
 	}
@@ -101,7 +93,6 @@ func (a *App) ExtractTimeline(req TimelineRequest) (string, error) {
 	return string(jsonData), nil
 }
 
-// ExtractDateRange extracts media based on date range
 func (a *App) ExtractDateRange(req DateRangeRequest) (string, error) {
 	if req.Username == "" {
 		return "", fmt.Errorf("username is required")
@@ -138,13 +129,11 @@ func (a *App) ExtractDateRange(req DateRangeRequest) (string, error) {
 	return string(jsonData), nil
 }
 
-// OpenFolder opens a folder in the file explorer
 func (a *App) OpenFolder(path string) error {
 	if path == "" {
 		return fmt.Errorf("path is required")
 	}
 
-	// Clean the path to use correct separators for the OS
 	cleanPath := filepath.Clean(path)
 
 	err := backend.OpenFolderInExplorer(cleanPath)
@@ -155,51 +144,52 @@ func (a *App) OpenFolder(path string) error {
 	return nil
 }
 
-// SelectFolder opens a folder selection dialog and returns the selected path
 func (a *App) SelectFolder(defaultPath string) (string, error) {
 	return backend.SelectFolderDialog(a.ctx, defaultPath)
 }
 
-// GetDefaults returns the default configuration
 func (a *App) GetDefaults() map[string]string {
 	return map[string]string{
 		"downloadPath": backend.GetDefaultDownloadPath(),
 	}
 }
 
-// Quit closes the application
+func (a *App) IsExtractorInstalled() bool {
+	return backend.IsExtractorInstalled()
+}
+
+func (a *App) DownloadExtractor() error {
+	return backend.DownloadExtractor(nil)
+}
+
 func (a *App) Quit() {
 	panic("quit")
 }
 
-// DownloadMediaRequest represents the request for downloading media (legacy)
 type DownloadMediaRequest struct {
 	URLs      []string `json:"urls"`
 	OutputDir string   `json:"output_dir"`
 	Username  string   `json:"username"`
-	Proxy     string   `json:"proxy,omitempty"` // Optional proxy URL (e.g., http://proxy:port or socks5://proxy:port)
+	Proxy     string   `json:"proxy,omitempty"`
 }
 
-// MediaItemRequest represents a media item with metadata
 type MediaItemRequest struct {
 	URL              string                `json:"url"`
 	Date             string                `json:"date"`
 	TweetID          backend.TweetIDString `json:"tweet_id"`
 	Type             string                `json:"type"`
-	Content          string                `json:"content,omitempty"`           // Tweet text content (for text-only tweets)
-	OriginalFilename string                `json:"original_filename,omitempty"` // Original filename from API
-	AuthorUsername   string                `json:"author_username,omitempty"`   // Username of tweet author (for bookmarks and likes)
+	Content          string                `json:"content,omitempty"`
+	OriginalFilename string                `json:"original_filename,omitempty"`
+	AuthorUsername   string                `json:"author_username,omitempty"`
 }
 
-// DownloadMediaWithMetadataRequest represents the request for downloading media with metadata
 type DownloadMediaWithMetadataRequest struct {
 	Items     []MediaItemRequest `json:"items"`
 	OutputDir string             `json:"output_dir"`
 	Username  string             `json:"username"`
-	Proxy     string             `json:"proxy,omitempty"` // Optional proxy URL (e.g., http://proxy:port or socks5://proxy:port)
+	Proxy     string             `json:"proxy,omitempty"`
 }
 
-// DownloadMediaResponse represents the response for download operation
 type DownloadMediaResponse struct {
 	Success    bool   `json:"success"`
 	Downloaded int    `json:"downloaded"`
@@ -208,7 +198,6 @@ type DownloadMediaResponse struct {
 	Message    string `json:"message"`
 }
 
-// DownloadMedia downloads media files from URLs (legacy)
 func (a *App) DownloadMedia(req DownloadMediaRequest) (DownloadMediaResponse, error) {
 	if len(req.URLs) == 0 {
 		return DownloadMediaResponse{
@@ -222,7 +211,6 @@ func (a *App) DownloadMedia(req DownloadMediaRequest) (DownloadMediaResponse, er
 		outputDir = backend.GetDefaultDownloadPath()
 	}
 
-	// Create subfolder for username if provided
 	if req.Username != "" {
 		outputDir = filepath.Join(outputDir, req.Username)
 	}
@@ -247,21 +235,18 @@ func (a *App) DownloadMedia(req DownloadMediaRequest) (DownloadMediaResponse, er
 	}, nil
 }
 
-// DownloadProgress represents download progress event data
 type DownloadProgress struct {
 	Current int `json:"current"`
 	Total   int `json:"total"`
 	Percent int `json:"percent"`
 }
 
-// DownloadItemStatus represents per-item download status event data
 type DownloadItemStatus struct {
 	TweetID int64  `json:"tweet_id"`
 	Index   int    `json:"index"`
-	Status  string `json:"status"` // "success", "failed", "skipped"
+	Status  string `json:"status"`
 }
 
-// DownloadMediaWithMetadata downloads media files with proper naming and categorization
 func (a *App) DownloadMediaWithMetadata(req DownloadMediaWithMetadataRequest) (DownloadMediaResponse, error) {
 	if len(req.Items) == 0 {
 		return DownloadMediaResponse{
@@ -275,18 +260,15 @@ func (a *App) DownloadMediaWithMetadata(req DownloadMediaWithMetadataRequest) (D
 		outputDir = backend.GetDefaultDownloadPath()
 	}
 
-	// Convert request items to backend items
-	// For bookmarks and likes, use author_username from each item if available
 	items := make([]backend.MediaItem, len(req.Items))
 	for i, item := range req.Items {
-		// Use original filename from API if available, otherwise extract from URL
+
 		originalFilename := item.OriginalFilename
 		if originalFilename == "" {
-			// Fallback: extract from URL if not provided in API response
+
 			originalFilename = backend.ExtractOriginalFilename(item.URL)
 		}
 
-		// For bookmarks and likes, use author_username from item, otherwise use req.Username
 		username := req.Username
 		if item.AuthorUsername != "" {
 			username = item.AuthorUsername
@@ -303,10 +285,8 @@ func (a *App) DownloadMediaWithMetadata(req DownloadMediaWithMetadataRequest) (D
 		}
 	}
 
-	// Create cancellable context
 	a.downloadCtx, a.downloadCancel = context.WithCancel(context.Background())
 
-	// Progress callback
 	progressCallback := func(current, total int) {
 		percent := 0
 		if total > 0 {
@@ -319,7 +299,6 @@ func (a *App) DownloadMediaWithMetadata(req DownloadMediaWithMetadataRequest) (D
 		})
 	}
 
-	// Per-item status callback
 	itemStatusCallback := func(tweetID int64, index int, status string) {
 		runtime.EventsEmit(a.ctx, "download-item-status", DownloadItemStatus{
 			TweetID: tweetID,
@@ -339,7 +318,6 @@ func (a *App) DownloadMediaWithMetadata(req DownloadMediaWithMetadataRequest) (D
 		}, err
 	}
 
-	// Clear cancel function
 	a.downloadCancel = nil
 
 	return DownloadMediaResponse{
@@ -351,7 +329,6 @@ func (a *App) DownloadMediaWithMetadata(req DownloadMediaWithMetadataRequest) (D
 	}, nil
 }
 
-// StopDownload cancels the current download operation
 func (a *App) StopDownload() bool {
 	if a.downloadCancel != nil {
 		a.downloadCancel()
@@ -361,24 +338,18 @@ func (a *App) StopDownload() bool {
 	return false
 }
 
-// Database functions
-
-// SaveAccountToDB saves account data to database
 func (a *App) SaveAccountToDB(username, name, profileImage string, totalMedia int, responseJSON string, mediaType string) error {
 	return backend.SaveAccount(username, name, profileImage, totalMedia, responseJSON, mediaType)
 }
 
-// SaveAccountToDBWithStatus saves account data with cursor and completion status for resume capability
 func (a *App) SaveAccountToDBWithStatus(username, name, profileImage string, totalMedia int, responseJSON string, mediaType string, cursor string, completed bool) error {
 	return backend.SaveAccountWithStatus(username, name, profileImage, totalMedia, responseJSON, mediaType, cursor, completed)
 }
 
-// GetAllAccountsFromDB returns all saved accounts
 func (a *App) GetAllAccountsFromDB() ([]backend.AccountListItem, error) {
 	return backend.GetAllAccounts()
 }
 
-// GetAccountFromDB returns account data by ID
 func (a *App) GetAccountFromDB(id int64) (string, error) {
 	acc, err := backend.GetAccountByID(id)
 	if err != nil {
@@ -387,67 +358,53 @@ func (a *App) GetAccountFromDB(id int64) (string, error) {
 	return acc.ResponseJSON, nil
 }
 
-// DeleteAccountFromDB deletes an account from database
 func (a *App) DeleteAccountFromDB(id int64) error {
 	return backend.DeleteAccount(id)
 }
 
-// ClearAllAccountsFromDB deletes all accounts from database
 func (a *App) ClearAllAccountsFromDB() error {
 	return backend.ClearAllAccounts()
 }
 
-// ExportAccountJSON exports account to JSON file in specified directory
 func (a *App) ExportAccountJSON(id int64, outputDir string) (string, error) {
 	return backend.ExportAccountToFile(id, outputDir)
 }
 
-// ExportAccountsTXT exports selected accounts to TXT file in specified directory
 func (a *App) ExportAccountsTXT(ids []int64, outputDir string) (string, error) {
 	return backend.ExportAccountsToTXT(ids, outputDir)
 }
 
-// UpdateAccountGroup updates the group for an account
 func (a *App) UpdateAccountGroup(id int64, groupName, groupColor string) error {
 	return backend.UpdateAccountGroup(id, groupName, groupColor)
 }
 
-// GetAllGroups returns all unique groups
 func (a *App) GetAllGroups() ([]map[string]string, error) {
 	return backend.GetAllGroups()
 }
 
-// FFmpeg functions
-
-// IsFFmpegInstalled checks if ffmpeg is available
 func (a *App) IsFFmpegInstalled() bool {
 	return backend.IsFFmpegInstalled()
 }
 
-// DownloadFFmpeg downloads ffmpeg binary
 func (a *App) DownloadFFmpeg() error {
 	return backend.DownloadFFmpeg(nil)
 }
 
-// IsExifToolInstalled checks if exiftool is available
 func (a *App) IsExifToolInstalled() bool {
 	return backend.IsExifToolInstalled()
 }
 
-// DownloadExifTool downloads exiftool binary
 func (a *App) DownloadExifTool() error {
 	return backend.DownloadExifTool(nil)
 }
 
-// ConvertGIFsRequest represents request for converting GIFs
 type ConvertGIFsRequest struct {
 	FolderPath     string `json:"folder_path"`
-	Quality        string `json:"quality"`    // "fast" or "better"
-	Resolution     string `json:"resolution"` // "original", "high", "medium", "low"
+	Quality        string `json:"quality"`
+	Resolution     string `json:"resolution"`
 	DeleteOriginal bool   `json:"delete_original"`
 }
 
-// ConvertGIFsResponse represents response for GIF conversion
 type ConvertGIFsResponse struct {
 	Success   bool   `json:"success"`
 	Converted int    `json:"converted"`
@@ -455,7 +412,6 @@ type ConvertGIFsResponse struct {
 	Message   string `json:"message"`
 }
 
-// ConvertGIFs converts MP4 files in gifs folder to actual GIF format
 func (a *App) ConvertGIFs(req ConvertGIFsRequest) (ConvertGIFsResponse, error) {
 	if !backend.IsFFmpegInstalled() {
 		return ConvertGIFsResponse{
@@ -464,7 +420,6 @@ func (a *App) ConvertGIFs(req ConvertGIFsRequest) (ConvertGIFsResponse, error) {
 		}, nil
 	}
 
-	// Default values if not provided
 	quality := req.Quality
 	if quality == "" {
 		quality = "fast"
@@ -490,41 +445,34 @@ func (a *App) ConvertGIFs(req ConvertGIFsRequest) (ConvertGIFsResponse, error) {
 	}, nil
 }
 
-// ImportAccountResponse represents the response for import operation
 type ImportAccountResponse struct {
 	Success  bool   `json:"success"`
 	Username string `json:"username"`
 	Message  string `json:"message"`
 }
 
-// CheckFolderExists checks if a folder exists for the given username
 func (a *App) CheckFolderExists(basePath, username string) bool {
 	return backend.CheckFolderExists(basePath, username)
 }
 
-// CheckGifsFolderExists checks if a gifs subfolder exists for the given username
 func (a *App) CheckGifsFolderExists(basePath, username string) bool {
 	return backend.CheckGifsFolderExists(basePath, username)
 }
 
-// CheckGifsFolderHasMP4 checks if the gifs folder has any MP4 files to convert
 func (a *App) CheckGifsFolderHasMP4(basePath, username string) bool {
 	return backend.CheckGifsFolderHasMP4(basePath, username)
 }
 
-// GetFolderPath returns the full path for a username folder
 func (a *App) GetFolderPath(basePath, username string) string {
 	return backend.GetFolderPath(basePath, username)
 }
 
-// GetGifsFolderPath returns the full path for a username's gifs folder
 func (a *App) GetGifsFolderPath(basePath, username string) string {
 	return backend.GetGifsFolderPath(basePath, username)
 }
 
-// ImportAccountFromJSON imports account from JSON file (supports both old and new format)
 func (a *App) ImportAccountFromJSON() (ImportAccountResponse, error) {
-	// Open file dialog
+
 	filePath, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
 		Title: "Import Account JSON",
 		Filters: []runtime.FileFilter{
@@ -535,12 +483,10 @@ func (a *App) ImportAccountFromJSON() (ImportAccountResponse, error) {
 		return ImportAccountResponse{Success: false, Message: err.Error()}, err
 	}
 
-	// User cancelled
 	if filePath == "" {
 		return ImportAccountResponse{Success: false, Message: "Cancelled"}, nil
 	}
 
-	// Import the file
 	username, err := backend.ImportAccountFromFile(filePath)
 	if err != nil {
 		return ImportAccountResponse{Success: false, Message: err.Error()}, err

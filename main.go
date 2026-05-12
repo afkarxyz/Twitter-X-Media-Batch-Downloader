@@ -14,10 +14,9 @@ import (
 var assets embed.FS
 
 func main() {
-	// Create an instance of the app structure
+
 	app := NewApp()
 
-	// Create application with options
 	err := wails.Run(&options.App{
 		Title:     "Twitter/X Media Batch Downloader",
 		Width:     1024,

@@ -1,0 +1,344 @@
+name: Build Multi-Platform
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '24'
+  PNPM_VERSION: '10'
+  APP_NAME: TwitterXMediaBatchDownloader
+
+jobs:
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        continue-on-error: true
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: |
+          pnpm install
+          pnpm run generate-icon
+
+      - name: Install UPX
+        run: choco install upx -y
+
+      - name: Build application
+        run: wails build -platform windows/amd64
+
+      - name: Compress with UPX
+        run: upx --best --lzma "build\bin\${{ env.APP_NAME }}.exe"
+
+      - name: Prepare artifacts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item -Path "build\bin\${{ env.APP_NAME }}.exe" -Destination "dist\${{ env.APP_NAME }}.exe"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-portable
+          path: dist/${{ env.APP_NAME }}.exe
+          retention-days: 7
+
+  build-macos:
+    name: Build macOS
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Get pnpm store directory
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        continue-on-error: true
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: |
+          pnpm install
+          pnpm run generate-icon
+
+      - name: Build application
+        run: wails build -platform darwin/universal
+
+      - name: Create DMG
+        run: |
+          mkdir -p dist
+          brew install create-dmg || true
+
+          create-dmg \
+            --volname "${{ env.APP_NAME }}" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --icon "${{ env.APP_NAME }}.app" 175 120 \
+            --hide-extension "${{ env.APP_NAME }}.app" \
+            --app-drop-link 425 120 \
+            "dist/${{ env.APP_NAME }}.dmg" \
+            "build/bin/${{ env.APP_NAME }}.app" || \
+          hdiutil create -volname "${{ env.APP_NAME }}" -srcfolder "build/bin/${{ env.APP_NAME }}.app" -ov -format UDZO "dist/${{ env.APP_NAME }}.dmg"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-portable
+          path: dist/${{ env.APP_NAME }}.dmg
+          retention-days: 7
+
+  build-linux:
+    name: Build Linux
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Get pnpm store directory
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        continue-on-error: true
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libfuse2 imagemagick upx-ucl
+          sudo ln -sf /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.1.pc /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.0.pc
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: |
+          pnpm install
+          pnpm run generate-icon
+
+      - name: Build application
+        run: wails build -platform linux/amd64
+
+      - name: Compress with UPX
+        run: upx --best --lzma "build/bin/${{ env.APP_NAME }}"
+
+      - name: Cache appimagetool
+        id: cache-appimagetool
+        uses: actions/cache@v4
+        with:
+          path: appimagetool
+          key: appimagetool-x86_64-v2
+
+      - name: Download appimagetool
+        if: steps.cache-appimagetool.outputs.cache-hit != 'true'
+        run: |
+          wget --timeout=30 --tries=5 --retry-connrefused --waitretry=5 -O appimagetool "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage" || \
+          wget --timeout=30 --tries=5 --retry-connrefused --waitretry=5 -O appimagetool "https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage"
+
+      - name: Make appimagetool executable
+        run: chmod +x appimagetool
+
+      - name: Create AppImage
+        run: |
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+
+          cp "build/bin/${{ env.APP_NAME }}" AppDir/usr/bin/
+
+          cat > AppDir/twitterxmediabatchdownloader.desktop << 'EOF'
+          [Desktop Entry]
+          Name=Twitter/X Media Batch Downloader
+          Exec=TwitterXMediaBatchDownloader
+          Icon=twitterxmediabatchdownloader
+          Type=Application
+          Categories=Network;Utility;
+          Comment=Download Twitter/X media in batches
+          EOF
+
+          cp AppDir/twitterxmediabatchdownloader.desktop AppDir/usr/share/applications/
+
+          if [ -f "build/appicon.png" ]; then
+            convert build/appicon.png -resize 256x256 AppDir/twitterxmediabatchdownloader.png
+          elif [ -f "frontend/public/icon.svg" ]; then
+            convert -background none -size 256x256 frontend/public/icon.svg AppDir/twitterxmediabatchdownloader.png
+          else
+            echo "Warning: No icon found, building without icon"
+          fi
+
+          if [ -f "AppDir/twitterxmediabatchdownloader.png" ]; then
+            cp AppDir/twitterxmediabatchdownloader.png AppDir/usr/share/icons/hicolor/256x256/apps/
+            cp AppDir/twitterxmediabatchdownloader.png AppDir/.DirIcon
+          fi
+
+          cat > AppDir/AppRun << 'EOF'
+          #!/bin/sh
+          SELF=$(readlink -f "$0")
+          HERE=${SELF%/*}
+          export PATH="${HERE}/usr/bin/:${PATH}"
+          export LD_LIBRARY_PATH="${HERE}/usr/lib/:${LD_LIBRARY_PATH}"
+          exec "${HERE}/usr/bin/TwitterXMediaBatchDownloader" "$@"
+          EOF
+          chmod +x AppDir/AppRun
+
+          mkdir -p dist
+          ARCH=x86_64 ./appimagetool --no-appstream AppDir "dist/${{ env.APP_NAME }}.AppImage"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-portable
+          path: dist/${{ env.APP_NAME }}.AppImage
+          retention-days: 7
+
+  create-release:
+    name: Create Release
+    needs: [build-windows, build-macos, build-linux]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          prerelease: false
+          generate_release_notes: false
+          body: |
+            ## Changelog
+
+            ## Downloads
+
+            - `TwitterXMediaBatchDownloader.exe` - Windows
+            - `TwitterXMediaBatchDownloader.dmg` - macOS
+            - `TwitterXMediaBatchDownloader.AppImage` - Linux
+
+            <details>
+            <summary><b>Linux Requirements</b></summary>
+
+            The AppImage requires `webkit2gtk-4.1` to be installed on your system:
+
+            **Ubuntu/Debian:**
+            ```bash
+            sudo apt install libwebkit2gtk-4.1-0
+            ```
+
+            **Arch Linux:**
+            ```bash
+            sudo pacman -S webkit2gtk-4.1
+            ```
+
+            **Fedora:**
+            ```bash
+            sudo dnf install webkit2gtk4.1
+            ```
+
+            After installing the dependency, make the AppImage executable:
+            ```bash
+            chmod +x TwitterXMediaBatchDownloader.AppImage
+            ./TwitterXMediaBatchDownloader.AppImage
+            ```
+
+            </details>
+          files: |
+            artifacts/windows-portable/${{ env.APP_NAME }}.exe
+            artifacts/macos-portable/${{ env.APP_NAME }}.dmg
+            artifacts/linux-portable/${{ env.APP_NAME }}.AppImage
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

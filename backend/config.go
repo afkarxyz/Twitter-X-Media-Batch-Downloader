@@ -10,21 +10,18 @@ import (
 )
 
 func GetDefaultDownloadPath() string {
-	// Get user's home directory
+
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		// Fallback to Public Pictures if can't get home dir
+
 		return "C:\\Users\\Public\\Pictures"
 	}
 
-	// Return path to user's Pictures folder
 	return filepath.Join(homeDir, "Pictures")
 }
 
-// GetProxyURL gets proxy URL from environment variables or custom proxy setting
-// Priority: customProxy > HTTP_PROXY/HTTPS_PROXY > http_proxy/https_proxy
 func GetProxyURL(customProxy string) (*url.URL, error) {
-	// First, check custom proxy setting
+
 	if customProxy != "" {
 		proxyURL, err := url.Parse(customProxy)
 		if err != nil {
@@ -33,7 +30,6 @@ func GetProxyURL(customProxy string) (*url.URL, error) {
 		return proxyURL, nil
 	}
 
-	// Check environment variables (case-insensitive on Windows)
 	proxyEnv := os.Getenv("HTTPS_PROXY")
 	if proxyEnv == "" {
 		proxyEnv = os.Getenv("https_proxy")
@@ -53,10 +49,9 @@ func GetProxyURL(customProxy string) (*url.URL, error) {
 		return proxyURL, nil
 	}
 
-	return nil, nil // No proxy
+	return nil, nil
 }
 
-// CreateHTTPClient creates an HTTP client with proxy support
 func CreateHTTPClient(customProxy string, timeout time.Duration) (*http.Client, error) {
 	proxyURL, err := GetProxyURL(customProxy)
 	if err != nil {

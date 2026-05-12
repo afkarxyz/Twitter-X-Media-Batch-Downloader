@@ -15,9 +15,9 @@ func OpenFolderInExplorer(path string) error {
 
 	switch runtime.GOOS {
 	case "windows":
-		// Use cmd /c start to open explorer - more reliable
+
 		cmd = exec.Command("cmd", "/c", "start", "", path)
-	case "darwin": // macOS
+	case "darwin":
 		cmd = exec.Command("open", path)
 	case "linux":
 		cmd = exec.Command("xdg-open", path)
@@ -25,12 +25,12 @@ func OpenFolderInExplorer(path string) error {
 		cmd = exec.Command("xdg-open", path)
 	}
 
-	hideWindow(cmd) // Hide console window on Windows
+	hideWindow(cmd)
 	return cmd.Run()
 }
 
 func SelectFolderDialog(ctx context.Context, defaultPath string) (string, error) {
-	// If defaultPath is empty, use default download path
+
 	if defaultPath == "" {
 		defaultPath = GetDefaultDownloadPath()
 	}
@@ -45,7 +45,6 @@ func SelectFolderDialog(ctx context.Context, defaultPath string) (string, error)
 		return "", err
 	}
 
-	// If user cancelled, selectedPath will be empty
 	if selectedPath == "" {
 		return "", nil
 	}
@@ -53,7 +52,6 @@ func SelectFolderDialog(ctx context.Context, defaultPath string) (string, error)
 	return selectedPath, nil
 }
 
-// CheckFolderExists checks if a folder exists at the given path
 func CheckFolderExists(basePath, username string) bool {
 	folderPath := filepath.Join(basePath, username)
 	info, err := os.Stat(folderPath)
@@ -63,7 +61,6 @@ func CheckFolderExists(basePath, username string) bool {
 	return info.IsDir()
 }
 
-// CheckGifsFolderExists checks if a gifs subfolder exists for the given username
 func CheckGifsFolderExists(basePath, username string) bool {
 	gifsPath := filepath.Join(basePath, username, "gifs")
 	info, err := os.Stat(gifsPath)
@@ -73,7 +70,6 @@ func CheckGifsFolderExists(basePath, username string) bool {
 	return info.IsDir()
 }
 
-// CheckGifsFolderHasMP4 checks if the gifs folder has any MP4 files to convert
 func CheckGifsFolderHasMP4(basePath, username string) bool {
 	gifsPath := filepath.Join(basePath, username, "gifs")
 
@@ -93,12 +89,10 @@ func CheckGifsFolderHasMP4(basePath, username string) bool {
 	return false
 }
 
-// GetFolderPath returns the full path for a username folder
 func GetFolderPath(basePath, username string) string {
 	return filepath.Join(basePath, username)
 }
 
-// GetGifsFolderPath returns the full path for a username's gifs folder
 func GetGifsFolderPath(basePath, username string) string {
 	return filepath.Join(basePath, username, "gifs")
 }

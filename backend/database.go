@@ -8,10 +8,9 @@ import (
 	"path/filepath"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
-// AccountDB represents a saved account in the database
 type AccountDB struct {
 	ID           int64     `json:"id"`
 	Username     string    `json:"username"`
@@ -25,7 +24,6 @@ type AccountDB struct {
 	Completed    bool      `json:"completed"`
 }
 
-// AccountListItem represents a simplified account for listing
 type AccountListItem struct {
 	ID             int64  `json:"id"`
 	Username       string `json:"username"`
@@ -44,7 +42,6 @@ type AccountListItem struct {
 
 var db *sql.DB
 
-// GetDBPath returns the database file path
 func GetDBPath() string {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -53,23 +50,24 @@ func GetDBPath() string {
 	return filepath.Join(homeDir, ".twitterxmediabatchdownloader", "accounts.db")
 }
 
-// InitDB initializes the database connection
 func InitDB() error {
 	dbPath := GetDBPath()
 
-	// Create directory if not exists
 	dir := filepath.Dir(dbPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
 
 	var err error
-	db, err = sql.Open("sqlite3", dbPath)
+	db, err = sql.Open("sqlite", dbPath)
 	if err != nil {
 		return err
 	}
 
-	// Create tables
+	if err := db.Ping(); err != nil {
+		return err
+	}
+
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS accounts (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -91,33 +89,27 @@ func InitDB() error {
 		return err
 	}
 
-	// Add group columns if they don't exist (migration for existing databases)
 	db.Exec("ALTER TABLE accounts ADD COLUMN group_name TEXT DEFAULT ''")
 	db.Exec("ALTER TABLE accounts ADD COLUMN group_color TEXT DEFAULT ''")
 	db.Exec("ALTER TABLE accounts ADD COLUMN media_type TEXT DEFAULT 'all'")
 	db.Exec("ALTER TABLE accounts ADD COLUMN cursor TEXT DEFAULT ''")
 	db.Exec("ALTER TABLE accounts ADD COLUMN completed INTEGER DEFAULT 1")
 
-	// Migration: Update unique constraint for existing databases
-	// This allows same username with different media types
 	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_username_media_type ON accounts(username, media_type)")
 
 	return nil
 }
 
-// CloseDB closes the database connection
 func CloseDB() {
 	if db != nil {
 		db.Close()
 	}
 }
 
-// SaveAccount saves or updates an account in the database
 func SaveAccount(username, name, profileImage string, totalMedia int, responseJSON string, mediaType string) error {
 	return SaveAccountWithStatus(username, name, profileImage, totalMedia, responseJSON, mediaType, "", true)
 }
 
-// SaveAccountWithStatus saves or updates an account with cursor and completion status
 func SaveAccountWithStatus(username, name, profileImage string, totalMedia int, responseJSON string, mediaType string, cursor string, completed bool) error {
 	if db == nil {
 		if err := InitDB(); err != nil {
@@ -125,7 +117,6 @@ func SaveAccountWithStatus(username, name, profileImage string, totalMedia int, 
 		}
 	}
 
-	// Default to "all" if not specified
 	if mediaType == "" {
 		mediaType = "all"
 	}
@@ -151,7 +142,6 @@ func SaveAccountWithStatus(username, name, profileImage string, totalMedia int, 
 	return err
 }
 
-// GetAllAccounts returns all saved accounts
 func GetAllAccounts() ([]AccountListItem, error) {
 	if db == nil {
 		if err := InitDB(); err != nil {
@@ -185,7 +175,6 @@ func GetAllAccounts() ([]AccountListItem, error) {
 		acc.LastFetched = lastFetched.Format("2006-01-02 15:04")
 		acc.Completed = completedInt == 1
 
-		// Extract followers_count and statuses_count from response_json
 		if responseJSON != "" {
 			var parsed map[string]interface{}
 			if err := json.Unmarshal([]byte(responseJSON), &parsed); err == nil {
@@ -206,7 +195,6 @@ func GetAllAccounts() ([]AccountListItem, error) {
 	return accounts, nil
 }
 
-// UpdateAccountGroup updates the group for an account
 func UpdateAccountGroup(id int64, groupName, groupColor string) error {
 	if db == nil {
 		if err := InitDB(); err != nil {
@@ -218,7 +206,6 @@ func UpdateAccountGroup(id int64, groupName, groupColor string) error {
 	return err
 }
 
-// GetAllGroups returns all unique groups
 func GetAllGroups() ([]map[string]string, error) {
 	if db == nil {
 		if err := InitDB(); err != nil {
@@ -249,7 +236,6 @@ func GetAllGroups() ([]map[string]string, error) {
 	return groups, nil
 }
 
-// ClearAllAccounts deletes all accounts from the database
 func ClearAllAccounts() error {
 	if db == nil {
 		if err := InitDB(); err != nil {
@@ -261,7 +247,6 @@ func ClearAllAccounts() error {
 	return err
 }
 
-// GetAccountByID returns a specific account by ID
 func GetAccountByID(id int64) (*AccountDB, error) {
 	if db == nil {
 		if err := InitDB(); err != nil {
@@ -284,7 +269,6 @@ func GetAccountByID(id int64) (*AccountDB, error) {
 	acc.LastFetched = lastFetched
 	acc.Completed = completedInt == 1
 
-	// Convert legacy format if needed
 	if converted, err := ConvertLegacyToNewFormat(acc.ResponseJSON); err == nil {
 		acc.ResponseJSON = converted
 	}
@@ -292,7 +276,6 @@ func GetAccountByID(id int64) (*AccountDB, error) {
 	return &acc, nil
 }
 
-// DeleteAccount deletes an account from the database
 func DeleteAccount(id int64) error {
 	if db == nil {
 		if err := InitDB(); err != nil {
@@ -304,7 +287,6 @@ func DeleteAccount(id int64) error {
 	return err
 }
 
-// LegacyMediaEntry represents media entry in old format
 type LegacyMediaEntry struct {
 	TweetID string `json:"tweet_id"`
 	URL     string `json:"url"`
@@ -312,7 +294,6 @@ type LegacyMediaEntry struct {
 	Type    string `json:"type"`
 }
 
-// LegacyAccountFormat represents the old saved account format
 type LegacyAccountFormat struct {
 	Username       string             `json:"username"`
 	Nick           string             `json:"nick"`
@@ -327,20 +308,17 @@ type LegacyAccountFormat struct {
 	MediaList      []LegacyMediaEntry `json:"media_list"`
 }
 
-// ConvertLegacyToNewFormat converts old format to new TwitterResponse format
 func ConvertLegacyToNewFormat(jsonStr string) (string, error) {
-	// First check if it's already in new format (has account_info key)
+
 	var check map[string]interface{}
 	if err := json.Unmarshal([]byte(jsonStr), &check); err != nil {
 		return jsonStr, err
 	}
 
-	// If already has account_info, it's new format - return as is
 	if _, hasAccountInfo := check["account_info"]; hasAccountInfo {
 		return jsonStr, nil
 	}
 
-	// Check if it's legacy format (has username and media_list)
 	if _, hasUsername := check["username"]; !hasUsername {
 		return jsonStr, nil
 	}
@@ -348,13 +326,11 @@ func ConvertLegacyToNewFormat(jsonStr string) (string, error) {
 		return jsonStr, nil
 	}
 
-	// Parse as legacy format
 	var legacy LegacyAccountFormat
 	if err := json.Unmarshal([]byte(jsonStr), &legacy); err != nil {
 		return jsonStr, err
 	}
 
-	// Convert timeline entries
 	timeline := make([]map[string]interface{}, len(legacy.MediaList))
 	for i, media := range legacy.MediaList {
 		timeline[i] = map[string]interface{}{
@@ -366,7 +342,6 @@ func ConvertLegacyToNewFormat(jsonStr string) (string, error) {
 		}
 	}
 
-	// Build new format
 	newFormat := map[string]interface{}{
 		"account_info": map[string]interface{}{
 			"name":            legacy.Username,
@@ -387,7 +362,6 @@ func ConvertLegacyToNewFormat(jsonStr string) (string, error) {
 		},
 	}
 
-	// Convert back to JSON
 	newJSON, err := json.Marshal(newFormat)
 	if err != nil {
 		return jsonStr, err
@@ -396,20 +370,17 @@ func ConvertLegacyToNewFormat(jsonStr string) (string, error) {
 	return string(newJSON), nil
 }
 
-// ExportAccountToFile exports account JSON to a file
 func ExportAccountToFile(id int64, outputDir string) (string, error) {
 	acc, err := GetAccountByID(id)
 	if err != nil {
 		return "", err
 	}
 
-	// Create export directory if not exists
 	exportDir := filepath.Join(outputDir, "twitterxmediabatchdownloader_backups")
 	if err := os.MkdirAll(exportDir, 0755); err != nil {
 		return "", err
 	}
 
-	// Use username (nick) for filename
 	filename := acc.Username
 	if filename == "" {
 		filename = acc.Name
@@ -424,24 +395,21 @@ func ExportAccountToFile(id int64, outputDir string) (string, error) {
 	return filePath, nil
 }
 
-// ExportAccountsToTXT exports selected accounts to TXT file (one username per line)
 func ExportAccountsToTXT(ids []int64, outputDir string) (string, error) {
 	if len(ids) == 0 {
 		return "", fmt.Errorf("no accounts to export")
 	}
 
-	// Create export directory if not exists
 	exportDir := filepath.Join(outputDir, "twitterxmediabatchdownloader_backups")
 	if err := os.MkdirAll(exportDir, 0755); err != nil {
 		return "", err
 	}
 
-	// Get all accounts by IDs
 	var usernames []string
 	for _, id := range ids {
 		acc, err := GetAccountByID(id)
 		if err != nil {
-			continue // Skip if account not found
+			continue
 		}
 		if acc.Username != "" {
 			usernames = append(usernames, acc.Username)
@@ -452,7 +420,6 @@ func ExportAccountsToTXT(ids []int64, outputDir string) (string, error) {
 		return "", fmt.Errorf("no valid usernames found")
 	}
 
-	// Create TXT content (one username per line)
 	txtContent := ""
 	for i, username := range usernames {
 		if i > 0 {
@@ -461,7 +428,6 @@ func ExportAccountsToTXT(ids []int64, outputDir string) (string, error) {
 		txtContent += username
 	}
 
-	// Filename: twitterxmediabatchdownloader_multiple.txt
 	filePath := filepath.Join(exportDir, "twitterxmediabatchdownloader_multiple.txt")
 
 	if err := os.WriteFile(filePath, []byte(txtContent), 0644); err != nil {
@@ -471,7 +437,6 @@ func ExportAccountsToTXT(ids []int64, outputDir string) (string, error) {
 	return filePath, nil
 }
 
-// ImportAccountFromFile imports account from JSON file (supports both old and new format)
 func ImportAccountFromFile(filePath string) (string, error) {
 	if db == nil {
 		if err := InitDB(); err != nil {
@@ -479,7 +444,6 @@ func ImportAccountFromFile(filePath string) (string, error) {
 		}
 	}
 
-	// Read file
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return "", err
@@ -487,19 +451,16 @@ func ImportAccountFromFile(filePath string) (string, error) {
 
 	jsonStr := string(data)
 
-	// Convert legacy format if needed
 	convertedJSON, err := ConvertLegacyToNewFormat(jsonStr)
 	if err != nil {
 		return "", err
 	}
 
-	// Parse the converted JSON to extract account info
 	var parsed map[string]interface{}
 	if err := json.Unmarshal([]byte(convertedJSON), &parsed); err != nil {
 		return "", err
 	}
 
-	// Extract account info
 	accountInfo, ok := parsed["account_info"].(map[string]interface{})
 	if !ok {
 		return "", fmt.Errorf("invalid JSON format: missing account_info")
@@ -518,7 +479,6 @@ func ImportAccountFromFile(filePath string) (string, error) {
 		return "", fmt.Errorf("invalid JSON format: missing username")
 	}
 
-	// Save to database with default media type "all" for imported files
 	err = SaveAccount(username, name, profileImage, totalURLs, convertedJSON, "all")
 	if err != nil {
 		return "", err

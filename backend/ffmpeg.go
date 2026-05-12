@@ -15,14 +15,12 @@ import (
 	"github.com/ulikunitz/xz"
 )
 
-// FFmpeg download URLs
 const (
 	ffmpegWindowsURL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
 	ffmpegLinuxURL   = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz"
 	ffmpegMacOSURL   = "https://evermeet.cx/ffmpeg/getrelease/ffmpeg/zip"
 )
 
-// GetFFmpegPath returns the path to ffmpeg binary
 func GetFFmpegPath() string {
 	homeDir, _ := os.UserHomeDir()
 	baseDir := filepath.Join(homeDir, ".twitterxmediabatchdownloader")
@@ -35,7 +33,6 @@ func GetFFmpegPath() string {
 	}
 }
 
-// IsFFmpegInstalled checks if ffmpeg is available
 func IsFFmpegInstalled() bool {
 	ffmpegPath := GetFFmpegPath()
 	if _, err := os.Stat(ffmpegPath); err == nil {
@@ -44,7 +41,6 @@ func IsFFmpegInstalled() bool {
 	return false
 }
 
-// DownloadFFmpeg downloads ffmpeg binary for current platform
 func DownloadFFmpeg(progressCallback func(downloaded, total int64)) error {
 	var downloadURL string
 
@@ -59,7 +55,6 @@ func DownloadFFmpeg(progressCallback func(downloaded, total int64)) error {
 		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
 	}
 
-	// Create temp file for download
 	tempFile, err := os.CreateTemp("", "ffmpeg-*")
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %v", err)
@@ -68,7 +63,6 @@ func DownloadFFmpeg(progressCallback func(downloaded, total int64)) error {
 	defer os.Remove(tempPath)
 	defer tempFile.Close()
 
-	// Download file
 	resp, err := http.Get(downloadURL)
 	if err != nil {
 		return fmt.Errorf("failed to download ffmpeg: %v", err)
@@ -79,7 +73,6 @@ func DownloadFFmpeg(progressCallback func(downloaded, total int64)) error {
 		return fmt.Errorf("failed to download ffmpeg: status %d", resp.StatusCode)
 	}
 
-	// Copy with progress
 	total := resp.ContentLength
 	var downloaded int64
 	buf := make([]byte, 32*1024)
@@ -105,7 +98,6 @@ func DownloadFFmpeg(progressCallback func(downloaded, total int64)) error {
 	}
 	tempFile.Close()
 
-	// Extract ffmpeg binary
 	ffmpegPath := GetFFmpegPath()
 	baseDir := filepath.Dir(ffmpegPath)
 	if err := os.MkdirAll(baseDir, 0755); err != nil {
@@ -122,7 +114,6 @@ func DownloadFFmpeg(progressCallback func(downloaded, total int64)) error {
 	return nil
 }
 
-// extractFromZip extracts ffmpeg from zip archive
 func extractFromZip(zipPath, destPath string) error {
 	r, err := zip.OpenReader(zipPath)
 	if err != nil {
@@ -131,7 +122,7 @@ func extractFromZip(zipPath, destPath string) error {
 	defer r.Close()
 
 	for _, f := range r.File {
-		// Look for ffmpeg binary
+
 		name := filepath.Base(f.Name)
 		if name == "ffmpeg" || name == "ffmpeg.exe" {
 			rc, err := f.Open()
@@ -150,7 +141,6 @@ func extractFromZip(zipPath, destPath string) error {
 				return fmt.Errorf("failed to extract file: %v", err)
 			}
 
-			// Make executable on Unix
 			if runtime.GOOS != "windows" {
 				os.Chmod(destPath, 0755)
 			}
@@ -162,7 +152,6 @@ func extractFromZip(zipPath, destPath string) error {
 	return fmt.Errorf("ffmpeg binary not found in archive")
 }
 
-// extractFromTarXz extracts ffmpeg from tar.xz archive
 func extractFromTarXz(tarXzPath, destPath string) error {
 	file, err := os.Open(tarXzPath)
 	if err != nil {
@@ -186,7 +175,6 @@ func extractFromTarXz(tarXzPath, destPath string) error {
 			return fmt.Errorf("failed to read tar: %v", err)
 		}
 
-		// Look for ffmpeg binary
 		name := filepath.Base(header.Name)
 		if name == "ffmpeg" && header.Typeflag == tar.TypeReg {
 			out, err := os.Create(destPath)
@@ -207,9 +195,6 @@ func extractFromTarXz(tarXzPath, destPath string) error {
 	return fmt.Errorf("ffmpeg binary not found in archive")
 }
 
-// ConvertMP4ToGIF converts an MP4 file to GIF using ffmpeg
-// quality: "fast" for simple conversion, "better" for optimized palette
-// resolution: "original", "high" (800px), "medium" (600px), "low" (400px)
 func ConvertMP4ToGIF(inputPath, outputPath, quality, resolution string) error {
 	ffmpegPath := GetFFmpegPath()
 
@@ -220,7 +205,7 @@ func ConvertMP4ToGIF(inputPath, outputPath, quality, resolution string) error {
 	var args []string
 
 	if quality == "fast" {
-		// Fast mode: simple conversion with resolution scaling
+
 		var scaleFilter string
 		switch resolution {
 		case "high":
@@ -229,7 +214,7 @@ func ConvertMP4ToGIF(inputPath, outputPath, quality, resolution string) error {
 			scaleFilter = "scale=600:-1"
 		case "low":
 			scaleFilter = "scale=400:-1"
-		default: // original - no scaling
+		default:
 			scaleFilter = ""
 		}
 
@@ -250,7 +235,7 @@ func ConvertMP4ToGIF(inputPath, outputPath, quality, resolution string) error {
 			}
 		}
 	} else {
-		// Better mode: optimized palette with dithering
+
 		var filter string
 
 		switch resolution {
@@ -260,11 +245,10 @@ func ConvertMP4ToGIF(inputPath, outputPath, quality, resolution string) error {
 			filter = "scale=600:-1:flags=lanczos,palettegen=stats_mode=full[palette];[0:v]scale=600:-1:flags=lanczos[scaled];[scaled][palette]paletteuse=dither=sierra2_4a"
 		case "low":
 			filter = "scale=400:-1:flags=lanczos,palettegen=stats_mode=full[palette];[0:v]scale=400:-1:flags=lanczos[scaled];[scaled][palette]paletteuse=dither=sierra2_4a"
-		default: // original
+		default:
 			filter = "palettegen=stats_mode=full[palette];[0:v][palette]paletteuse=dither=sierra2_4a"
 		}
 
-		// Set FPS based on resolution
 		fps := "15"
 		if resolution == "medium" {
 			fps = "10"
@@ -282,7 +266,7 @@ func ConvertMP4ToGIF(inputPath, outputPath, quality, resolution string) error {
 	}
 
 	cmd := exec.Command(ffmpegPath, args...)
-	hideWindow(cmd) // Hide console window on Windows
+	hideWindow(cmd)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("ffmpeg error: %v, output: %s", err, string(output))
@@ -291,13 +275,11 @@ func ConvertMP4ToGIF(inputPath, outputPath, quality, resolution string) error {
 	return nil
 }
 
-// ConvertGIFsInFolder converts all MP4 files in gifs folder to actual GIF format
 func ConvertGIFsInFolder(folderPath, quality, resolution string, deleteOriginal bool) (converted int, failed int, err error) {
 	if !IsFFmpegInstalled() {
 		return 0, 0, fmt.Errorf("ffmpeg not installed")
 	}
 
-	// Clean the path to handle cross-platform path separators
 	cleanPath := filepath.Clean(folderPath)
 	gifsFolder := filepath.Join(cleanPath, "gifs")
 	if _, err := os.Stat(gifsFolder); os.IsNotExist(err) {
