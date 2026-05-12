@@ -1,6 +1,6 @@
 # Twitter/X Media Batch Downloader
 
-A GUI tool to download original-quality images and videos from Twitter/X accounts, powered by gallery-dl by @mikf
+A GUI tool to download original-quality images and videos from Twitter/X accounts.
 
 ![Windows](https://img.shields.io/badge/Windows-10%2B-0078D6?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiB2aWV3Qm94PSIwIDAgMjAgMjAiPjxwYXRoIGZpbGw9IiNmZmZmZmYiIGZpbGwtcnVsZT0iZXZlbm9kZCIgZD0iTTIwIDEwLjg3M1YyMEw4LjQ3OSAxOC41MzdsLjAwMS03LjY2NEgyMFptLTEzLjEyIDBsLS4wMDEgNy40NjFMMCAxNy40NjF2LTYuNTg4aDYuODhaTTIwIDkuMjczSDguNDhsLS4wMDEtNy44MUwyMCAwdjkuMjczWk02Ljg3OSAxLjY2NmwuMDAxIDcuNjA3SDBWMi41MzlsNi44NzktLjg3M1oiLz48L3N2Zz4=)
 ![macOS](https://img.shields.io/badge/macOS-10.13%2B-000000?style=for-the-badge&logo=apple&logoColor=white)
@@ -8,11 +8,11 @@ A GUI tool to download original-quality images and videos from Twitter/X account
 
 ### [Download](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases)
 
-![Image](https://github.com/user-attachments/assets/a3ade39c-d611-49ce-81bb-121f30488ae2)
+![Image](https://github.com/user-attachments/assets/554c728d-1e4b-4774-a52f-844af880fd94)
 
-- If you're familiar with userscripts, install it [**here**](https://greasyfork.org/en/scripts/551198)
+- If you're familiar with userscripts, install it [**here**](https://greasyfork.org/en/scripts/523157)
 
-- To install the Chrome extension version, click [**here**](https://chromewebstore.google.com/detail/aboccmnimgpjehlplnanplbhlccohhhn)
+- To install the Chrome extension version, click [**here**](https://chromewebstore.google.com/detail/cboceolmgkoobpfjiojkigmihijfgmdo)
 
 ## How to Obtain Auth Token
 
