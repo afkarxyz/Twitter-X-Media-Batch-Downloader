@@ -8,7 +8,7 @@ A GUI tool to download original-quality images and videos from Twitter/X account
 
 ### [Download](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases)
 
-![Image](https://github.com/user-attachments/assets/554c728d-1e4b-4774-a52f-844af880fd94)
+![Image](https://github.com/user-attachments/assets/6e793644-2962-4f81-a5e7-b47d887ec73a)
 
 - If you're familiar with userscripts, install it [**here**](https://greasyfork.org/en/scripts/523157)
 
