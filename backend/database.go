@@ -42,6 +42,15 @@ type AccountListItem struct {
 
 var db *sql.DB
 
+type accountMetricsPayload struct {
+	AccountInfo struct {
+		FollowersCount int `json:"followers_count"`
+		StatusesCount  int `json:"statuses_count"`
+	} `json:"account_info"`
+	Followers int `json:"followers"`
+	Posts     int `json:"posts"`
+}
+
 func GetDBPath() string {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -82,6 +91,8 @@ func InitDB() error {
 			media_type TEXT DEFAULT 'all',
 			cursor TEXT DEFAULT '',
 			completed INTEGER DEFAULT 1,
+			followers_count INTEGER DEFAULT 0,
+			statuses_count INTEGER DEFAULT 0,
 			UNIQUE(username, media_type)
 		)
 	`)
@@ -94,8 +105,14 @@ func InitDB() error {
 	db.Exec("ALTER TABLE accounts ADD COLUMN media_type TEXT DEFAULT 'all'")
 	db.Exec("ALTER TABLE accounts ADD COLUMN cursor TEXT DEFAULT ''")
 	db.Exec("ALTER TABLE accounts ADD COLUMN completed INTEGER DEFAULT 1")
+	db.Exec("ALTER TABLE accounts ADD COLUMN followers_count INTEGER DEFAULT 0")
+	db.Exec("ALTER TABLE accounts ADD COLUMN statuses_count INTEGER DEFAULT 0")
 
 	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_username_media_type ON accounts(username, media_type)")
+
+	if err := backfillAccountMetrics(); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -126,9 +143,11 @@ func SaveAccountWithStatus(username, name, profileImage string, totalMedia int, 
 		completedInt = 1
 	}
 
+	followersCount, statusesCount := extractAccountMetrics(responseJSON)
+
 	_, err := db.Exec(`
-		INSERT INTO accounts (username, name, profile_image, total_media, last_fetched, response_json, media_type, cursor, completed)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO accounts (username, name, profile_image, total_media, last_fetched, response_json, media_type, cursor, completed, followers_count, statuses_count)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(username, media_type) DO UPDATE SET
 			name = excluded.name,
 			profile_image = excluded.profile_image,
@@ -136,8 +155,10 @@ func SaveAccountWithStatus(username, name, profileImage string, totalMedia int, 
 			last_fetched = excluded.last_fetched,
 			response_json = excluded.response_json,
 			cursor = excluded.cursor,
-			completed = excluded.completed
-	`, username, name, profileImage, totalMedia, time.Now(), responseJSON, mediaType, cursor, completedInt)
+			completed = excluded.completed,
+			followers_count = excluded.followers_count,
+			statuses_count = excluded.statuses_count
+	`, username, name, profileImage, totalMedia, time.Now(), responseJSON, mediaType, cursor, completedInt, followersCount, statusesCount)
 
 	return err
 }
@@ -154,7 +175,8 @@ func GetAllAccounts() ([]AccountListItem, error) {
 		       COALESCE(group_name, '') as group_name, COALESCE(group_color, '') as group_color,
 		       COALESCE(media_type, 'all') as media_type,
 		       COALESCE(cursor, '') as cursor, COALESCE(completed, 1) as completed,
-		       COALESCE(response_json, '') as response_json
+		       COALESCE(followers_count, 0) as followers_count,
+		       COALESCE(statuses_count, 0) as statuses_count
 		FROM accounts
 		ORDER BY group_name ASC, last_fetched DESC
 	`)
@@ -168,31 +190,77 @@ func GetAllAccounts() ([]AccountListItem, error) {
 		var acc AccountListItem
 		var lastFetched time.Time
 		var completedInt int
-		var responseJSON string
-		if err := rows.Scan(&acc.ID, &acc.Username, &acc.Name, &acc.ProfileImage, &acc.TotalMedia, &lastFetched, &acc.GroupName, &acc.GroupColor, &acc.MediaType, &acc.Cursor, &completedInt, &responseJSON); err != nil {
+		if err := rows.Scan(&acc.ID, &acc.Username, &acc.Name, &acc.ProfileImage, &acc.TotalMedia, &lastFetched, &acc.GroupName, &acc.GroupColor, &acc.MediaType, &acc.Cursor, &completedInt, &acc.FollowersCount, &acc.StatusesCount); err != nil {
 			continue
 		}
 		acc.LastFetched = lastFetched.Format("2006-01-02 15:04")
 		acc.Completed = completedInt == 1
 
-		if responseJSON != "" {
-			var parsed map[string]interface{}
-			if err := json.Unmarshal([]byte(responseJSON), &parsed); err == nil {
-				if accountInfo, ok := parsed["account_info"].(map[string]interface{}); ok {
-					if followers, ok := accountInfo["followers_count"].(float64); ok {
-						acc.FollowersCount = int(followers)
-					}
-					if statuses, ok := accountInfo["statuses_count"].(float64); ok {
-						acc.StatusesCount = int(statuses)
-					}
-				}
-			}
-		}
-
 		accounts = append(accounts, acc)
 	}
 
 	return accounts, nil
+}
+
+func extractAccountMetrics(responseJSON string) (followersCount int, statusesCount int) {
+	if responseJSON == "" {
+		return 0, 0
+	}
+
+	var payload accountMetricsPayload
+	if err := json.Unmarshal([]byte(responseJSON), &payload); err != nil {
+		return 0, 0
+	}
+
+	followersCount = payload.AccountInfo.FollowersCount
+	statusesCount = payload.AccountInfo.StatusesCount
+
+	if followersCount == 0 {
+		followersCount = payload.Followers
+	}
+	if statusesCount == 0 {
+		statusesCount = payload.Posts
+	}
+
+	return followersCount, statusesCount
+}
+
+func backfillAccountMetrics() error {
+	rows, err := db.Query(`
+		SELECT id, COALESCE(response_json, '') as response_json
+		FROM accounts
+		WHERE COALESCE(response_json, '') != ''
+		  AND (COALESCE(followers_count, 0) = 0 OR COALESCE(statuses_count, 0) = 0)
+	`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	stmt, err := db.Prepare(`
+		UPDATE accounts
+		SET followers_count = ?, statuses_count = ?
+		WHERE id = ?
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for rows.Next() {
+		var id int64
+		var responseJSON string
+		if err := rows.Scan(&id, &responseJSON); err != nil {
+			continue
+		}
+
+		followersCount, statusesCount := extractAccountMetrics(responseJSON)
+		if _, err := stmt.Exec(followersCount, statusesCount, id); err != nil {
+			return err
+		}
+	}
+
+	return rows.Err()
 }
 
 func UpdateAccountGroup(id int64, groupName, groupColor string) error {
@@ -266,6 +334,41 @@ func GetAccountByID(id int64) (*AccountDB, error) {
 	if err != nil {
 		return nil, err
 	}
+	acc.LastFetched = lastFetched
+	acc.Completed = completedInt == 1
+
+	if converted, err := ConvertLegacyToNewFormat(acc.ResponseJSON); err == nil {
+		acc.ResponseJSON = converted
+	}
+
+	return &acc, nil
+}
+
+func GetAccountByUsernameAndMediaType(username, mediaType string) (*AccountDB, error) {
+	if db == nil {
+		if err := InitDB(); err != nil {
+			return nil, err
+		}
+	}
+
+	if mediaType == "" {
+		mediaType = "all"
+	}
+
+	var acc AccountDB
+	var lastFetched time.Time
+	var completedInt int
+	err := db.QueryRow(`
+		SELECT id, username, name, profile_image, total_media, last_fetched, response_json,
+		       COALESCE(media_type, 'all') as media_type,
+		       COALESCE(cursor, '') as cursor, COALESCE(completed, 1) as completed
+		FROM accounts
+		WHERE LOWER(username) = LOWER(?) AND COALESCE(media_type, 'all') = ?
+	`, username, mediaType).Scan(&acc.ID, &acc.Username, &acc.Name, &acc.ProfileImage, &acc.TotalMedia, &lastFetched, &acc.ResponseJSON, &acc.MediaType, &acc.Cursor, &completedInt)
+	if err != nil {
+		return nil, err
+	}
+
 	acc.LastFetched = lastFetched
 	acc.Completed = completedInt == 1
 

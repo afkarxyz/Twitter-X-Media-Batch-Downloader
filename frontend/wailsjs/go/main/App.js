@@ -6,6 +6,10 @@ export function CheckFolderExists(arg1, arg2) {
   return window['go']['main']['App']['CheckFolderExists'](arg1, arg2);
 }
 
+export function CheckFoldersExist(arg1, arg2) {
+  return window['go']['main']['App']['CheckFoldersExist'](arg1, arg2);
+}
+
 export function CheckGifsFolderExists(arg1, arg2) {
   return window['go']['main']['App']['CheckGifsFolderExists'](arg1, arg2);
 }
@@ -20,6 +24,10 @@ export function CleanupExtractorProcesses() {
 
 export function ClearAllAccountsFromDB() {
   return window['go']['main']['App']['ClearAllAccountsFromDB']();
+}
+
+export function ClearStoredAuthToken(arg1) {
+  return window['go']['main']['App']['ClearStoredAuthToken'](arg1);
 }
 
 export function ConvertGIFs(arg1) {
@@ -82,12 +90,32 @@ export function GetDefaults() {
   return window['go']['main']['App']['GetDefaults']();
 }
 
+export function GetExifToolVersionStatus() {
+  return window['go']['main']['App']['GetExifToolVersionStatus']();
+}
+
+export function GetExtractorVersionStatus() {
+  return window['go']['main']['App']['GetExtractorVersionStatus']();
+}
+
+export function GetFFmpegVersionStatus() {
+  return window['go']['main']['App']['GetFFmpegVersionStatus']();
+}
+
 export function GetFolderPath(arg1, arg2) {
   return window['go']['main']['App']['GetFolderPath'](arg1, arg2);
 }
 
 export function GetGifsFolderPath(arg1, arg2) {
   return window['go']['main']['App']['GetGifsFolderPath'](arg1, arg2);
+}
+
+export function GetSavedAccountFromDB(arg1, arg2) {
+  return window['go']['main']['App']['GetSavedAccountFromDB'](arg1, arg2);
+}
+
+export function GetStoredAuthToken(arg1) {
+  return window['go']['main']['App']['GetStoredAuthToken'](arg1);
 }
 
 export function ImportAccountFromJSON() {
@@ -124,6 +152,10 @@ export function SaveAccountToDBWithStatus(arg1, arg2, arg3, arg4, arg5, arg6, ar
 
 export function SelectFolder(arg1) {
   return window['go']['main']['App']['SelectFolder'](arg1);
+}
+
+export function SetStoredAuthToken(arg1, arg2) {
+  return window['go']['main']['App']['SetStoredAuthToken'](arg1, arg2);
 }
 
 export function StopDownload() {

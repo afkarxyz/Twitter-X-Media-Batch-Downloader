@@ -1,0 +1,68 @@
+name: Bug Report
+description: Report a bug in Twitter/X Media Batch Downloader
+title: "[Bug Report] "
+labels: ["bug"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > **WARNING: Issues that do not follow this template will be deleted without review.**
+        >
+        > **Please keep `[Bug Report]` in the issue title and only continue after it.**
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      placeholder: e.g. Fetching @username/media stops after a few items, or GIF conversion fails with no clear error.
+    validations:
+      required: true
+
+  - type: input
+    id: target
+    attributes:
+      label: X/Twitter URL or Username
+      placeholder: e.g. https://x.com/username/media or @username
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      placeholder: |
+        1. Open ...
+        2. Enter ...
+        3. Click ...
+        4. See error ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error Message / Logs / Screenshot
+      placeholder: e.g. failed to extract timeline: parse_error ...
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: "### Environment"
+
+  - type: input
+    id: version
+    attributes:
+      label: Twitter/X Media Batch Downloader Version
+      placeholder: e.g. v4.4
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: e.g. Windows 11 23H2
+    validations:
+      required: true

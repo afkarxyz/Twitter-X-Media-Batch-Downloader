@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,7 @@ import { Trash2, FileInput, FileOutput, Pencil, Tag, Shuffle, X, XCircle, Downlo
 import { toastWithSound as toast } from "@/lib/toast-with-sound";
 import { getSettings } from "@/lib/settings";
 import { openExternal } from "@/lib/utils";
-import { GetAllAccountsFromDB, GetAccountFromDB, DeleteAccountFromDB, SaveAccountToDB, ExportAccountJSON, ExportAccountsTXT, UpdateAccountGroup, GetAllGroups, DownloadMediaWithMetadata, StopDownload, CheckFolderExists, OpenFolder, GetFolderPath, } from "../../wailsjs/go/main/App";
+import { GetAllAccountsFromDB, GetAccountFromDB, DeleteAccountFromDB, SaveAccountToDB, ExportAccountJSON, ExportAccountsTXT, UpdateAccountGroup, GetAllGroups, DownloadMediaWithMetadata, StopDownload, CheckFoldersExist, OpenFolder, GetFolderPath, } from "../../wailsjs/go/main/App";
 import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
 import { main } from "../../wailsjs/go/models";
 interface DownloadProgress {
@@ -66,6 +66,11 @@ interface DatabaseViewProps {
 }
 const INITIAL_LOAD_COUNT = 12;
 const LOAD_MORE_COUNT = 12;
+
+function getContentScrollElement(): HTMLElement | null {
+    return document.getElementById("app-content-scroll");
+}
+
 export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewProps) {
     const [accounts, setAccounts] = useState<AccountListItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -92,26 +97,16 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
     const stopBulkDownloadRef = useRef(false);
     const loadMoreRef = useRef<HTMLDivElement>(null);
     const [folderExistence, setFolderExistence] = useState<Map<number, boolean>>(new Map());
-    const checkFolderExistence = async (accountsList: AccountListItem[]) => {
-        const settings = getSettings();
-        const basePath = settings.downloadPath;
-        if (!basePath)
-            return;
-        const folderMap = new Map<number, boolean>();
-        for (const account of accountsList) {
-            let folderName = account.username;
-            if (account.username === "bookmarks") {
-                folderName = "My Bookmarks";
-            }
-            else if (account.username === "likes") {
-                folderName = "My Likes";
-            }
-            const exists = await CheckFolderExists(basePath, folderName);
-            folderMap.set(account.id, exists);
+    const getFolderNameForAccount = (username: string) => {
+        if (username === "bookmarks") {
+            return "My Bookmarks";
         }
-        setFolderExistence(folderMap);
+        if (username === "likes") {
+            return "My Likes";
+        }
+        return username;
     };
-    const loadAccounts = async () => {
+    const loadAccounts = useCallback(async () => {
         setLoading(true);
         try {
             const data = await GetAllAccountsFromDB();
@@ -119,9 +114,6 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
             const groupsData = await GetAllGroups();
             if (groupsData) {
                 setGroups(groupsData.map((g) => ({ name: g.name || "", color: g.color || "" })));
-            }
-            if (data && data.length > 0) {
-                checkFolderExistence(data);
             }
         }
         catch (error) {
@@ -131,19 +123,24 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
         finally {
             setLoading(false);
         }
-    };
-    useEffect(() => {
-        loadAccounts();
     }, []);
+    useEffect(() => {
+        void loadAccounts();
+    }, [loadAccounts]);
     useEffect(() => {
         setVisibleCount(INITIAL_LOAD_COUNT);
     }, [gridView, searchQuery, filterGroup, filterMediaType, accountViewMode, sortOrder]);
     useEffect(() => {
+        const scrollElement = getContentScrollElement();
+        if (!scrollElement) {
+            return;
+        }
         const handleScroll = () => {
-            setShowScrollTop(window.scrollY > 300);
+            setShowScrollTop(scrollElement.scrollTop > 300);
         };
-        window.addEventListener("scroll", handleScroll);
-        return () => window.removeEventListener("scroll", handleScroll);
+        handleScroll();
+        scrollElement.addEventListener("scroll", handleScroll);
+        return () => scrollElement.removeEventListener("scroll", handleScroll);
     }, []);
     useEffect(() => {
         const unsubscribe = EventsOn("download-progress", (progress: DownloadProgress) => {
@@ -155,72 +152,116 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
         };
     }, []);
     const scrollToTop = () => {
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        getContentScrollElement()?.scrollTo({ top: 0, behavior: "smooth" });
     };
     const isPrivateAccount = (username: string) => username === "bookmarks" || username === "likes";
-    const publicAccounts = accounts.filter((acc) => !isPrivateAccount(acc.username));
-    const privateAccounts = accounts.filter((acc) => isPrivateAccount(acc.username));
-    const baseAccounts = accountViewMode === "public" ? publicAccounts : privateAccounts;
-    const filteredAccounts = baseAccounts
-        .filter((acc) => {
-        if (searchQuery) {
-            const query = searchQuery.toLowerCase();
-            const matchesUsername = acc.username.toLowerCase().includes(query);
-            const matchesName = acc.name.toLowerCase().includes(query);
-            if (!matchesUsername && !matchesName)
-                return false;
-        }
-        if (filterGroup !== "all") {
-            if (filterGroup === "ungrouped" && acc.group_name)
-                return false;
-            if (filterGroup !== "ungrouped" && acc.group_name !== filterGroup)
-                return false;
-        }
-        if (filterMediaType !== "all") {
-            const accMediaType = acc.media_type || "all";
-            if (filterMediaType === "all-media") {
-                if (accMediaType !== "all")
+    const currentDownloadPath = getSettings().downloadPath || "";
+    const publicAccounts = useMemo(() => accounts.filter((acc) => !isPrivateAccount(acc.username)), [accounts]);
+    const privateAccounts = useMemo(() => accounts.filter((acc) => isPrivateAccount(acc.username)), [accounts]);
+    const filteredAccounts = useMemo(() => {
+        const baseAccounts = accountViewMode === "public" ? publicAccounts : privateAccounts;
+        return baseAccounts
+            .filter((acc) => {
+            if (searchQuery) {
+                const query = searchQuery.toLowerCase();
+                const matchesUsername = acc.username.toLowerCase().includes(query);
+                const matchesName = acc.name.toLowerCase().includes(query);
+                if (!matchesUsername && !matchesName)
                     return false;
             }
-            else {
-                if (accMediaType !== filterMediaType)
+            if (filterGroup !== "all") {
+                if (filterGroup === "ungrouped" && acc.group_name)
+                    return false;
+                if (filterGroup !== "ungrouped" && acc.group_name !== filterGroup)
                     return false;
             }
-        }
-        return true;
-    })
-        .sort((a, b) => {
-        switch (sortOrder) {
-            case "newest": {
-                const dateA = new Date(a.last_fetched).getTime();
-                const dateB = new Date(b.last_fetched).getTime();
-                return dateB - dateA;
+            if (filterMediaType !== "all") {
+                const accMediaType = acc.media_type || "all";
+                if (filterMediaType === "all-media") {
+                    if (accMediaType !== "all")
+                        return false;
+                }
+                else if (accMediaType !== filterMediaType) {
+                    return false;
+                }
             }
-            case "oldest": {
-                const dateA = new Date(a.last_fetched).getTime();
-                const dateB = new Date(b.last_fetched).getTime();
-                return dateA - dateB;
+            return true;
+        })
+            .sort((a, b) => {
+            switch (sortOrder) {
+                case "newest": {
+                    const dateA = new Date(a.last_fetched).getTime();
+                    const dateB = new Date(b.last_fetched).getTime();
+                    return dateB - dateA;
+                }
+                case "oldest": {
+                    const dateA = new Date(a.last_fetched).getTime();
+                    const dateB = new Date(b.last_fetched).getTime();
+                    return dateA - dateB;
+                }
+                case "username-asc":
+                    return a.username.toLowerCase().localeCompare(b.username.toLowerCase());
+                case "username-desc":
+                    return b.username.toLowerCase().localeCompare(a.username.toLowerCase());
+                case "followers-high":
+                    return (b.followers_count || 0) - (a.followers_count || 0);
+                case "followers-low":
+                    return (a.followers_count || 0) - (b.followers_count || 0);
+                case "posts-high":
+                    return (b.statuses_count || 0) - (a.statuses_count || 0);
+                case "posts-low":
+                    return (a.statuses_count || 0) - (b.statuses_count || 0);
+                case "media-high":
+                    return (b.total_media || 0) - (a.total_media || 0);
+                case "media-low":
+                    return (a.total_media || 0) - (b.total_media || 0);
+                default:
+                    return 0;
             }
-            case "username-asc":
-                return a.username.toLowerCase().localeCompare(b.username.toLowerCase());
-            case "username-desc":
-                return b.username.toLowerCase().localeCompare(a.username.toLowerCase());
-            case "followers-high":
-                return (b.followers_count || 0) - (a.followers_count || 0);
-            case "followers-low":
-                return (a.followers_count || 0) - (b.followers_count || 0);
-            case "posts-high":
-                return (b.statuses_count || 0) - (a.statuses_count || 0);
-            case "posts-low":
-                return (a.statuses_count || 0) - (b.statuses_count || 0);
-            case "media-high":
-                return (b.total_media || 0) - (a.total_media || 0);
-            case "media-low":
-                return (a.total_media || 0) - (b.total_media || 0);
-            default:
-                return 0;
+        });
+    }, [accountViewMode, filterGroup, filterMediaType, privateAccounts, publicAccounts, searchQuery, sortOrder]);
+    const visibleAccounts = useMemo(() => filteredAccounts.slice(0, visibleCount), [filteredAccounts, visibleCount]);
+    const visibleAccountsKey = visibleAccounts
+        .map((account) => `${account.id}:${account.username}`)
+        .join("|");
+    useEffect(() => {
+        const basePath = currentDownloadPath;
+        if (!basePath) {
+            setFolderExistence(new Map());
+            return;
         }
-    });
+
+        if (visibleAccounts.length === 0) {
+            return;
+        }
+
+        let active = true;
+        const loadVisibleFolderExistence = async () => {
+            try {
+                const folderNames = visibleAccounts.map((account) => getFolderNameForAccount(account.username));
+                const results = await CheckFoldersExist(basePath, folderNames);
+                if (!active) {
+                    return;
+                }
+
+                setFolderExistence((prev) => {
+                    const next = new Map(prev);
+                    for (const account of visibleAccounts) {
+                        next.set(account.id, results[getFolderNameForAccount(account.username)] ?? false);
+                    }
+                    return next;
+                });
+            }
+            catch (error) {
+                console.error("Failed to check visible folders:", error);
+            }
+        };
+
+        void loadVisibleFolderExistence();
+        return () => {
+            active = false;
+        };
+    }, [currentDownloadPath, visibleAccounts, visibleAccountsKey]);
     useEffect(() => {
         const currentRef = loadMoreRef.current;
         if (!currentRef)
@@ -247,9 +288,10 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
             await UpdateAccountGroup(editingAccount.id, editGroupName, editGroupColor);
             toast.success(`Updated group for @${editingAccount.username}`);
             setEditingAccount(null);
-            loadAccounts();
+            await loadAccounts();
         }
         catch (error) {
+            console.error("Failed to update group:", error);
             toast.error("Failed to update group");
         }
     };
@@ -257,9 +299,10 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
         try {
             await DeleteAccountFromDB(id);
             toast.success(`Deleted @${username}`);
-            loadAccounts();
+            await loadAccounts();
         }
         catch (error) {
+            console.error(`Failed to delete @${username}:`, error);
             toast.error("Failed to delete account");
         }
     };
@@ -269,6 +312,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
             onLoadAccount(responseJSON, username);
         }
         catch (error) {
+            console.error(`Failed to load @${username} from database:`, error);
             toast.error("Failed to load account data");
         }
     };
@@ -286,6 +330,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
             await OpenFolder(folderPath);
         }
         catch (error) {
+            console.error(`Failed to open folder for @${username}:`, error);
             toast.error("Failed to open folder");
         }
     };
@@ -335,7 +380,13 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                 proxy: settings.proxy || "",
             });
             const response = await DownloadMediaWithMetadata(request);
-            if (response.success) {
+            if (response.cancelled) {
+                const message = response.downloaded > 0 || response.skipped > 0
+                    ? `Download stopped for @${username} after ${response.downloaded + response.skipped} items`
+                    : `Download stopped for @${username}`;
+                toast.info(message);
+            }
+            else if (response.success) {
                 const parts: string[] = [];
                 if (response.downloaded > 0) {
                     parts.push(`${response.downloaded} file${response.downloaded !== 1 ? 's' : ''} downloaded`);
@@ -448,6 +499,11 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                     proxy: settings.proxy || "",
                 });
                 const response = await DownloadMediaWithMetadata(request);
+                if (response.cancelled) {
+                    toast.info(`Stopped while downloading @${account.username}`);
+                    stopBulkDownloadRef.current = true;
+                    break;
+                }
                 if (response.success) {
                     totalDownloaded += response.downloaded;
                     totalSkipped += response.skipped || 0;
@@ -521,6 +577,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
             toast.success(`Exported ${exported} account(s) to ${outputDir}\\twitterxmediabatchdownloader_backups`);
         }
         catch (error) {
+            console.error("Failed to export JSON backups:", error);
             toast.error("Failed to export");
         }
     };
@@ -537,6 +594,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
             toast.success(`Exported ${formatNumberWithComma(idsToExport.length)} account(s) to ${outputDir}\\twitterxmediabatchdownloader_backups\\twitterxmediabatchdownloader_multiple.txt`);
         }
         catch (error) {
+            console.error("Failed to export TXT backup:", error);
             toast.error("Failed to export");
         }
     };
@@ -782,9 +840,10 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                 toast.success(`Deleted ${formatNumberWithComma(idsToDelete.length)} account${idsToDelete.length !== 1 ? 's' : ''}`);
                 setClearAllDialogOpen(false);
                 setSelectedIds(new Set());
-                loadAccounts();
+                await loadAccounts();
             }
             catch (error) {
+                console.error("Failed to delete selected accounts:", error);
                 toast.error("Failed to delete accounts");
             }
         }}>
@@ -993,6 +1052,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                             toast.success(`Exported @${account.username}`);
                         }
                         catch (error) {
+                            console.error(`Failed to export @${account.username}:`, error);
                             toast.error("Failed to export");
                         }
                     }}>
@@ -1081,6 +1141,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                             toast.success(`Exported @${account.username}`);
                         }
                         catch (error) {
+                            console.error(`Failed to export @${account.username}:`, error);
                             toast.error("Failed to export");
                         }
                     }}>
@@ -1209,6 +1270,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                         toast.success(`Exported @${account.username} to ${outputDir}\\twitterxmediabatchdownloader_backups`);
                     }
                     catch (error) {
+                        console.error(`Failed to export @${account.username}:`, error);
                         toast.error("Failed to export");
                     }
                 }}>

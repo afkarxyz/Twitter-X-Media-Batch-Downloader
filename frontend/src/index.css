@@ -72,6 +72,13 @@
 }
 
 @layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    overflow: hidden;
+  }
+
   * {
     @apply border-border outline-ring/50;
   }
@@ -232,6 +239,28 @@
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--primary) var(--secondary);
+}
+
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+
+input[type="number"] {
+  color-scheme: light;
+}
+
+.dark input[type="number"] {
+  color-scheme: dark;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  margin: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  opacity: 1;
 }
 
 /* Custom scrollbar class untuk komponen tertentu */

@@ -2,7 +2,15 @@ class AudioManager {
     private audioContext: AudioContext | null = null;
     private getAudioContext(): AudioContext {
         if (!this.audioContext) {
-            this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const AudioContextConstructor = window.AudioContext || (window as Window & {
+                webkitAudioContext?: typeof AudioContext;
+            }).webkitAudioContext;
+            if (!AudioContextConstructor) {
+                throw new Error("Web Audio API is not supported in this browser");
+            }
+            const context = new AudioContextConstructor();
+            this.audioContext = context;
+            return context;
         }
         return this.audioContext;
     }

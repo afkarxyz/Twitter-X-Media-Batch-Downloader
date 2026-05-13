@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"twitterxmediabatchdownloader/backend"
@@ -154,12 +155,28 @@ func (a *App) GetDefaults() map[string]string {
 	}
 }
 
+func (a *App) GetStoredAuthToken(slot string) (string, error) {
+	return backend.GetStoredAuthToken(slot)
+}
+
+func (a *App) SetStoredAuthToken(slot, token string) error {
+	return backend.SetStoredAuthToken(slot, token)
+}
+
+func (a *App) ClearStoredAuthToken(slot string) error {
+	return backend.ClearStoredAuthToken(slot)
+}
+
 func (a *App) IsExtractorInstalled() bool {
 	return backend.IsExtractorInstalled()
 }
 
 func (a *App) DownloadExtractor() error {
 	return backend.DownloadExtractor(nil)
+}
+
+func (a *App) GetExtractorVersionStatus() backend.ExtractorVersionStatus {
+	return backend.GetExtractorVersionStatus()
 }
 
 func (a *App) Quit() {
@@ -192,6 +209,7 @@ type DownloadMediaWithMetadataRequest struct {
 
 type DownloadMediaResponse struct {
 	Success    bool   `json:"success"`
+	Cancelled  bool   `json:"cancelled"`
 	Downloaded int    `json:"downloaded"`
 	Skipped    int    `json:"skipped"`
 	Failed     int    `json:"failed"`
@@ -201,8 +219,9 @@ type DownloadMediaResponse struct {
 func (a *App) DownloadMedia(req DownloadMediaRequest) (DownloadMediaResponse, error) {
 	if len(req.URLs) == 0 {
 		return DownloadMediaResponse{
-			Success: false,
-			Message: "No URLs provided",
+			Success:   false,
+			Cancelled: false,
+			Message:   "No URLs provided",
 		}, fmt.Errorf("no URLs provided")
 	}
 
@@ -219,6 +238,7 @@ func (a *App) DownloadMedia(req DownloadMediaRequest) (DownloadMediaResponse, er
 	if err != nil {
 		return DownloadMediaResponse{
 			Success:    false,
+			Cancelled:  false,
 			Downloaded: downloaded,
 			Skipped:    0,
 			Failed:     failed,
@@ -228,6 +248,7 @@ func (a *App) DownloadMedia(req DownloadMediaRequest) (DownloadMediaResponse, er
 
 	return DownloadMediaResponse{
 		Success:    true,
+		Cancelled:  false,
 		Downloaded: downloaded,
 		Skipped:    0,
 		Failed:     failed,
@@ -250,8 +271,9 @@ type DownloadItemStatus struct {
 func (a *App) DownloadMediaWithMetadata(req DownloadMediaWithMetadataRequest) (DownloadMediaResponse, error) {
 	if len(req.Items) == 0 {
 		return DownloadMediaResponse{
-			Success: false,
-			Message: "No items provided",
+			Success:   false,
+			Cancelled: false,
+			Message:   "No items provided",
 		}, fmt.Errorf("no items provided")
 	}
 
@@ -286,6 +308,10 @@ func (a *App) DownloadMediaWithMetadata(req DownloadMediaWithMetadataRequest) (D
 	}
 
 	a.downloadCtx, a.downloadCancel = context.WithCancel(context.Background())
+	defer func() {
+		a.downloadCtx = nil
+		a.downloadCancel = nil
+	}()
 
 	progressCallback := func(current, total int) {
 		percent := 0
@@ -309,8 +335,20 @@ func (a *App) DownloadMediaWithMetadata(req DownloadMediaWithMetadataRequest) (D
 
 	downloaded, skipped, failed, err := backend.DownloadMediaWithMetadataProgressAndStatus(items, outputDir, req.Username, progressCallback, itemStatusCallback, a.downloadCtx, req.Proxy)
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return DownloadMediaResponse{
+				Success:    false,
+				Cancelled:  true,
+				Downloaded: downloaded,
+				Skipped:    skipped,
+				Failed:     failed,
+				Message:    "Download stopped",
+			}, nil
+		}
+
 		return DownloadMediaResponse{
 			Success:    false,
+			Cancelled:  false,
 			Downloaded: downloaded,
 			Skipped:    skipped,
 			Failed:     failed,
@@ -318,10 +356,9 @@ func (a *App) DownloadMediaWithMetadata(req DownloadMediaWithMetadataRequest) (D
 		}, err
 	}
 
-	a.downloadCancel = nil
-
 	return DownloadMediaResponse{
 		Success:    true,
+		Cancelled:  false,
 		Downloaded: downloaded,
 		Skipped:    skipped,
 		Failed:     failed,
@@ -358,6 +395,14 @@ func (a *App) GetAccountFromDB(id int64) (string, error) {
 	return acc.ResponseJSON, nil
 }
 
+func (a *App) GetSavedAccountFromDB(username, mediaType string) (string, error) {
+	acc, err := backend.GetAccountByUsernameAndMediaType(username, mediaType)
+	if err != nil {
+		return "", err
+	}
+	return acc.ResponseJSON, nil
+}
+
 func (a *App) DeleteAccountFromDB(id int64) error {
 	return backend.DeleteAccount(id)
 }
@@ -382,6 +427,10 @@ func (a *App) GetAllGroups() ([]map[string]string, error) {
 	return backend.GetAllGroups()
 }
 
+func (a *App) CheckFoldersExist(basePath string, usernames []string) map[string]bool {
+	return backend.CheckFoldersExist(basePath, usernames)
+}
+
 func (a *App) IsFFmpegInstalled() bool {
 	return backend.IsFFmpegInstalled()
 }
@@ -390,12 +439,20 @@ func (a *App) DownloadFFmpeg() error {
 	return backend.DownloadFFmpeg(nil)
 }
 
+func (a *App) GetFFmpegVersionStatus() backend.DependencyVersionStatus {
+	return backend.GetFFmpegVersionStatus()
+}
+
 func (a *App) IsExifToolInstalled() bool {
 	return backend.IsExifToolInstalled()
 }
 
 func (a *App) DownloadExifTool() error {
 	return backend.DownloadExifTool(nil)
+}
+
+func (a *App) GetExifToolVersionStatus() backend.DependencyVersionStatus {
+	return backend.GetExifToolVersionStatus()
 }
 
 type ConvertGIFsRequest struct {

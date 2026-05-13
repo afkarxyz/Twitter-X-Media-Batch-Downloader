@@ -17,6 +17,19 @@ import (
 )
 
 const extractorReleaseAPIURL = "https://api.github.com/repos/afkarxyz/xtractor-binaries/releases/latest"
+const extractorReleasesAPIURL = "https://api.github.com/repos/afkarxyz/xtractor-binaries/releases"
+const extractorReleasePageSize = 20
+
+type ExtractorVersionStatus struct {
+	Installed        bool   `json:"installed"`
+	InstalledVersion string `json:"installed_version,omitempty"`
+	LatestVersion    string `json:"latest_version,omitempty"`
+}
+
+type extractorVersionMetadata struct {
+	Version   string `json:"version"`
+	AssetName string `json:"asset_name,omitempty"`
+}
 
 type githubRelease struct {
 	TagName string               `json:"tag_name"`
@@ -32,6 +45,25 @@ type githubReleaseAsset struct {
 func IsExtractorInstalled() bool {
 	info, err := os.Stat(getExtractorPath())
 	return err == nil && !info.IsDir()
+}
+
+func GetExtractorVersionStatus() ExtractorVersionStatus {
+	status := ExtractorVersionStatus{
+		Installed: IsExtractorInstalled(),
+	}
+
+	assetName, assetErr := getExtractorAssetName()
+	if status.Installed && assetErr == nil {
+		if installedVersion, err := getInstalledExtractorVersion(assetName); err == nil {
+			status.InstalledVersion = installedVersion
+		}
+	}
+
+	if latestRelease, err := fetchLatestExtractorRelease(); err == nil {
+		status.LatestVersion = normalizeExtractorVersion(latestRelease.TagName)
+	}
+
+	return status
 }
 
 func DownloadExtractor(progressCallback func(downloaded, total int64)) error {
@@ -82,6 +114,10 @@ func DownloadExtractor(progressCallback func(downloaded, total int64)) error {
 	}
 
 	_ = removeLegacyExtractorBinary()
+	_ = writeExtractorVersionMetadata(extractorVersionMetadata{
+		Version:   normalizeExtractorVersion(release.TagName),
+		AssetName: asset.Name,
+	})
 
 	return nil
 }
@@ -157,12 +193,10 @@ func fetchLatestExtractorRelease() (*githubRelease, error) {
 		return nil, fmt.Errorf("failed to configure xtractor network client: %v", err)
 	}
 
-	req, err := http.NewRequest(http.MethodGet, extractorReleaseAPIURL, nil)
+	req, err := newExtractorGitHubRequest(extractorReleaseAPIURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create xtractor release request: %v", err)
+		return nil, err
 	}
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "Twitter-X-Media-Batch-Downloader")
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -180,6 +214,46 @@ func fetchLatestExtractorRelease() (*githubRelease, error) {
 	}
 
 	return &release, nil
+}
+
+func fetchExtractorReleases(limit int) ([]githubRelease, error) {
+	client, err := CreateHTTPClient("", 60*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure xtractor release client: %v", err)
+	}
+
+	req, err := newExtractorGitHubRequest(fmt.Sprintf("%s?per_page=%d", extractorReleasesAPIURL, limit))
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch xtractor releases: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to fetch xtractor releases: status %d", resp.StatusCode)
+	}
+
+	var releases []githubRelease
+	if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
+		return nil, fmt.Errorf("failed to decode xtractor releases: %v", err)
+	}
+
+	return releases, nil
+}
+
+func newExtractorGitHubRequest(url string) (*http.Request, error) {
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create xtractor GitHub request: %v", err)
+	}
+
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", "Twitter-X-Media-Batch-Downloader")
+	return req, nil
 }
 
 func findExtractorAsset(assets []githubReleaseAsset, assetName string) (*githubReleaseAsset, error) {
@@ -346,6 +420,177 @@ func findExtractorBinaryEntry(entries []*zip.File) (*zip.File, error) {
 	}
 
 	return nil, fmt.Errorf("xtractor binary not found in archive")
+}
+
+func getInstalledExtractorVersion(assetName string) (string, error) {
+	metadata, err := readExtractorVersionMetadata()
+	if err == nil {
+		version := normalizeExtractorVersion(metadata.Version)
+		if version != "" && (metadata.AssetName == "" || strings.EqualFold(metadata.AssetName, assetName)) {
+			return version, nil
+		}
+	}
+
+	version, err := resolveInstalledExtractorVersionByHash(assetName)
+	if err != nil {
+		return "", err
+	}
+
+	version = normalizeExtractorVersion(version)
+	if version != "" {
+		_ = writeExtractorVersionMetadata(extractorVersionMetadata{
+			Version:   version,
+			AssetName: assetName,
+		})
+	}
+
+	return version, nil
+}
+
+func resolveInstalledExtractorVersionByHash(assetName string) (string, error) {
+	exePath, err := requireExtractorPath()
+	if err != nil {
+		return "", err
+	}
+
+	installedHash, err := hashFileSHA256(exePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to hash installed xtractor: %v", err)
+	}
+
+	releases, err := fetchExtractorReleases(extractorReleasePageSize)
+	if err != nil {
+		return "", err
+	}
+
+	for _, release := range releases {
+		asset, err := findExtractorAsset(release.Assets, assetName)
+		if err != nil {
+			continue
+		}
+
+		matches, err := archiveMatchesExtractorHash(asset.BrowserDownloadURL, installedHash)
+		if err != nil {
+			continue
+		}
+
+		if matches {
+			return release.TagName, nil
+		}
+	}
+
+	return "", nil
+}
+
+func archiveMatchesExtractorHash(downloadURL, installedHash string) (bool, error) {
+	tempFile, err := os.CreateTemp("", "xtractor-version-*.zip")
+	if err != nil {
+		return false, fmt.Errorf("failed to create temp archive for version check: %v", err)
+	}
+
+	tempPath := tempFile.Name()
+	defer os.Remove(tempPath)
+	defer tempFile.Close()
+
+	if err := downloadExtractorArchive(downloadURL, tempFile, nil); err != nil {
+		return false, err
+	}
+
+	if err := tempFile.Close(); err != nil {
+		return false, fmt.Errorf("failed to finalize version archive: %v", err)
+	}
+
+	archiveHash, err := hashExtractorBinaryInArchive(tempPath)
+	if err != nil {
+		return false, err
+	}
+
+	return archiveHash == installedHash, nil
+}
+
+func hashExtractorBinaryInArchive(zipPath string) (string, error) {
+	reader, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to open xtractor archive for version check: %v", err)
+	}
+	defer reader.Close()
+
+	entry, err := findExtractorBinaryEntry(reader.File)
+	if err != nil {
+		return "", err
+	}
+
+	in, err := entry.Open()
+	if err != nil {
+		return "", fmt.Errorf("failed to open xtractor binary from archive for version check: %v", err)
+	}
+	defer in.Close()
+
+	return hashReaderSHA256(in)
+}
+
+func hashFileSHA256(filePath string) (string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to open xtractor binary: %v", err)
+	}
+	defer file.Close()
+
+	return hashReaderSHA256(file)
+}
+
+func hashReaderSHA256(reader io.Reader) (string, error) {
+	hash := sha256.New()
+	if _, err := io.Copy(hash, reader); err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+func getExtractorVersionMetadataPath() string {
+	return filepath.Join(filepath.Dir(getExtractorPath()), "xtractor-version.json")
+}
+
+func readExtractorVersionMetadata() (extractorVersionMetadata, error) {
+	data, err := os.ReadFile(getExtractorVersionMetadataPath())
+	if err != nil {
+		return extractorVersionMetadata{}, err
+	}
+
+	var metadata extractorVersionMetadata
+	if err := json.Unmarshal(data, &metadata); err != nil {
+		return extractorVersionMetadata{}, err
+	}
+
+	return metadata, nil
+}
+
+func writeExtractorVersionMetadata(metadata extractorVersionMetadata) error {
+	metadata.Version = normalizeExtractorVersion(metadata.Version)
+	if metadata.Version == "" {
+		return nil
+	}
+
+	path := getExtractorVersionMetadataPath()
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return fmt.Errorf("failed to create xtractor metadata directory: %v", err)
+	}
+
+	data, err := json.Marshal(metadata)
+	if err != nil {
+		return fmt.Errorf("failed to encode xtractor metadata: %v", err)
+	}
+
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("failed to write xtractor metadata: %v", err)
+	}
+
+	return nil
+}
+
+func normalizeExtractorVersion(version string) string {
+	return strings.TrimSpace(version)
 }
 
 func getLegacyExtractorPath() string {

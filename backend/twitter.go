@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -9,7 +10,52 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 )
+
+var activeExtractorCommands = struct {
+	sync.Mutex
+	byPID map[int]*exec.Cmd
+}{
+	byPID: make(map[int]*exec.Cmd),
+}
+
+func registerExtractorCommand(cmd *exec.Cmd) {
+	if cmd == nil || cmd.Process == nil {
+		return
+	}
+
+	activeExtractorCommands.Lock()
+	activeExtractorCommands.byPID[cmd.Process.Pid] = cmd
+	activeExtractorCommands.Unlock()
+}
+
+func unregisterExtractorCommand(cmd *exec.Cmd) {
+	if cmd == nil || cmd.Process == nil {
+		return
+	}
+
+	activeExtractorCommands.Lock()
+	delete(activeExtractorCommands.byPID, cmd.Process.Pid)
+	activeExtractorCommands.Unlock()
+}
+
+func runTrackedExtractorCommand(cmd *exec.Cmd) ([]byte, error) {
+	var output bytes.Buffer
+	cmd.Stdout = &output
+	cmd.Stderr = &output
+
+	hideWindow(cmd)
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+
+	registerExtractorCommand(cmd)
+	defer unregisterExtractorCommand(cmd)
+
+	err := cmd.Wait()
+	return output.Bytes(), err
+}
 
 func getExecutableName() string {
 	if runtime.GOOS == "windows" {
@@ -26,26 +72,18 @@ func getLegacyExecutableName() string {
 }
 
 func KillAllExtractorProcesses() {
-	names := []string{getExecutableName(), getLegacyExecutableName()}
-	seen := make(map[string]bool)
+	activeExtractorCommands.Lock()
+	commands := make([]*exec.Cmd, 0, len(activeExtractorCommands.byPID))
+	for _, cmd := range activeExtractorCommands.byPID {
+		commands = append(commands, cmd)
+	}
+	activeExtractorCommands.byPID = make(map[int]*exec.Cmd)
+	activeExtractorCommands.Unlock()
 
-	for _, exeName := range names {
-		if seen[exeName] {
-			continue
+	for _, cmd := range commands {
+		if cmd != nil && cmd.Process != nil {
+			_ = cmd.Process.Kill()
 		}
-		seen[exeName] = true
-
-		var cmd *exec.Cmd
-		if runtime.GOOS == "windows" {
-
-			cmd = exec.Command("taskkill", "/F", "/IM", exeName)
-		} else {
-
-			cmd = exec.Command("pkill", "-f", exeName)
-		}
-
-		hideWindow(cmd)
-		cmd.CombinedOutput()
 	}
 }
 
@@ -506,12 +544,7 @@ func ExtractTimeline(req TimelineRequest) (*TwitterResponse, error) {
 		"PYTHONIOENCODING=utf-8",
 		"PYTHONUTF8=1",
 	)
-	hideWindow(cmd)
-	output, err := cmd.CombinedOutput()
-
-	if cmd.Process != nil {
-		cmd.Process.Kill()
-	}
+	output, err := runTrackedExtractorCommand(cmd)
 
 	if err != nil {
 		outputStr := string(output)
@@ -533,7 +566,7 @@ func ExtractTimeline(req TimelineRequest) (*TwitterResponse, error) {
 		return nil, fmt.Errorf("json_error: Failed to parse JSON response: %v", err)
 	}
 
-	var timeline []TimelineEntry
+	timeline := make([]TimelineEntry, 0)
 	accountInfo := AccountInfo{
 		Name: req.Username,
 		Nick: req.Username,
@@ -556,7 +589,6 @@ func ExtractTimeline(req TimelineRequest) (*TwitterResponse, error) {
 
 	if isTextOnly {
 
-		timeline = make([]TimelineEntry, 0)
 		for _, meta := range cliResponse.Metadata {
 			if !mediaTweetIDs[int64(meta.TweetID)] {
 				timeline = append(timeline, convertMetadataToTimelineEntry(meta))
@@ -695,12 +727,7 @@ func ExtractDateRange(req DateRangeRequest) (*TwitterResponse, error) {
 		"PYTHONIOENCODING=utf-8",
 		"PYTHONUTF8=1",
 	)
-	hideWindow(cmd)
-	output, err := cmd.CombinedOutput()
-
-	if cmd.Process != nil {
-		cmd.Process.Kill()
-	}
+	output, err := runTrackedExtractorCommand(cmd)
 
 	if err != nil {
 		outputStr := string(output)

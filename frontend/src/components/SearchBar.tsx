@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { InputWithContext } from "@/components/ui/input-with-context";
 import { Label } from "@/components/ui/label";
-import { XCircle, Calendar, StopCircle, Globe, Lock, Bookmark, Heart, Key, Eye, EyeOff, ChevronDown, ChevronUp, Info, RotateCcw, Trash2, Clock, CloudDownload, User, Users, FileText, Hourglass, CheckCircle, AlertCircle, } from "lucide-react";
+import { XCircle, Calendar, StopCircle, Globe, Lock, Bookmark, Heart, Cookie, Eye, EyeOff, ChevronDown, ChevronUp, Info, RotateCcw, Trash2, Clock, CloudDownload, User, Users, FileText, Hourglass, CheckCircle, AlertCircle, SlidersHorizontal, } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 function formatNumberWithComma(num: number): string {
     return num.toLocaleString();
@@ -10,16 +10,18 @@ function formatNumberWithComma(num: number): string {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger, } from "@/components/ui/tooltip";
-import { Settings as SettingsIcon } from "lucide-react";
 import { FetchHistory } from "@/components/FetchHistory";
 import type { HistoryItem } from "@/components/FetchHistory";
 import { cn } from "@/lib/utils";
 import { getSettings, updateSettings, type FetchMode as SettingsFetchMode, type MediaType as SettingsMediaType } from "@/lib/settings";
+import { GetStoredAuthToken, SetStoredAuthToken } from "../../wailsjs/go/main/App";
 export type FetchMode = "public" | "private";
 export type PrivateType = "bookmarks" | "likes";
 export type FetchType = "single" | "multiple";
-const PUBLIC_AUTH_TOKEN_KEY = "twitter_public_auth_token";
-const PRIVATE_AUTH_TOKEN_KEY = "twitter_private_auth_token";
+const LEGACY_PUBLIC_AUTH_TOKEN_KEY = "twitter_public_auth_token";
+const LEGACY_PRIVATE_AUTH_TOKEN_KEY = "twitter_private_auth_token";
+let sessionPublicAuthToken = "";
+let sessionPrivateAuthToken = "";
 export interface MultipleAccount {
     id: string;
     username: string;
@@ -59,10 +61,10 @@ interface SearchBarProps {
     onFetchTypeChange?: (type: FetchType) => void;
     multipleAccounts?: MultipleAccount[];
     onImportFile?: () => void;
-    onFetchAll?: () => void;
+    onFetchAll?: (authToken: string) => void;
     onStopAll?: () => void;
     onStopAccount?: (accountId: string) => void;
-    onRetryAccount?: (accountId: string) => void;
+    onRetryAccount?: (accountId: string, authToken: string) => void;
     isFetchingAll?: boolean;
     mode?: FetchMode;
     privateType?: PrivateType;
@@ -74,38 +76,77 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
     const [endDate, setEndDate] = useState("");
     const [mediaType, setMediaType] = useState<SettingsMediaType>(getSettings().mediaType);
     const [retweets, setRetweets] = useState(getSettings().includeRetweets);
-    const [mode, setMode] = useState<FetchMode>(externalMode || "public");
-    const [privateType, setPrivateType] = useState<PrivateType>(externalPrivateType || "bookmarks");
-    useEffect(() => {
-        if (externalMode !== undefined) {
-            setMode(externalMode);
-        }
-    }, [externalMode]);
-    useEffect(() => {
-        if (externalPrivateType !== undefined) {
-            setPrivateType(externalPrivateType);
-        }
-    }, [externalPrivateType]);
+    const mode = externalMode || "public";
+    const privateType = externalPrivateType || "bookmarks";
     const [showAuthInput, setShowAuthInput] = useState(false);
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [currentFetchMode, setCurrentFetchMode] = useState<SettingsFetchMode>(getSettings().fetchMode);
-    const [publicAuthToken, setPublicAuthToken] = useState("");
-    const [privateAuthToken, setPrivateAuthToken] = useState("");
+    const [publicAuthToken, setPublicAuthToken] = useState(() => sessionPublicAuthToken || localStorage.getItem(LEGACY_PUBLIC_AUTH_TOKEN_KEY) || "");
+    const [privateAuthToken, setPrivateAuthToken] = useState(() => sessionPrivateAuthToken || localStorage.getItem(LEGACY_PRIVATE_AUTH_TOKEN_KEY) || "");
     const [showPublicToken, setShowPublicToken] = useState(false);
     const [showPrivateToken, setShowPrivateToken] = useState(false);
     useEffect(() => {
-        const savedPublicToken = localStorage.getItem(PUBLIC_AUTH_TOKEN_KEY) || "";
-        const savedPrivateToken = localStorage.getItem(PRIVATE_AUTH_TOKEN_KEY) || "";
-        setPublicAuthToken(savedPublicToken);
-        setPrivateAuthToken(savedPrivateToken);
+        let active = true;
+        const syncStoredTokens = async () => {
+            const legacyPublicToken = localStorage.getItem(LEGACY_PUBLIC_AUTH_TOKEN_KEY) || "";
+            const legacyPrivateToken = localStorage.getItem(LEGACY_PRIVATE_AUTH_TOKEN_KEY) || "";
+            try {
+                if (legacyPublicToken) {
+                    await SetStoredAuthToken("public", legacyPublicToken);
+                }
+                if (legacyPrivateToken) {
+                    await SetStoredAuthToken("private", legacyPrivateToken);
+                }
+            }
+            catch (error) {
+                console.error("Failed to migrate legacy auth token:", error);
+            }
+            finally {
+                localStorage.removeItem(LEGACY_PUBLIC_AUTH_TOKEN_KEY);
+                localStorage.removeItem(LEGACY_PRIVATE_AUTH_TOKEN_KEY);
+            }
+
+            try {
+                const [storedPublicToken, storedPrivateToken] = await Promise.all([
+                    GetStoredAuthToken("public"),
+                    GetStoredAuthToken("private"),
+                ]);
+                if (!active) {
+                    return;
+                }
+                sessionPublicAuthToken = storedPublicToken || "";
+                setPublicAuthToken(storedPublicToken || "");
+                sessionPrivateAuthToken = storedPrivateToken || "";
+                setPrivateAuthToken(storedPrivateToken || "");
+            }
+            catch (error) {
+                console.error("Failed to load auth token from secure storage:", error);
+            }
+        };
+        void syncStoredTokens();
+        return () => {
+            active = false;
+        };
     }, []);
-    const handlePublicTokenChange = (value: string) => {
+    const handlePublicTokenChange = async (value: string) => {
+        sessionPublicAuthToken = value;
         setPublicAuthToken(value);
-        localStorage.setItem(PUBLIC_AUTH_TOKEN_KEY, value);
+        try {
+            await SetStoredAuthToken("public", value);
+        }
+        catch (error) {
+            console.error("Failed to store public auth token securely:", error);
+        }
     };
-    const handlePrivateTokenChange = (value: string) => {
+    const handlePrivateTokenChange = async (value: string) => {
+        sessionPrivateAuthToken = value;
         setPrivateAuthToken(value);
-        localStorage.setItem(PRIVATE_AUTH_TOKEN_KEY, value);
+        try {
+            await SetStoredAuthToken("private", value);
+        }
+        catch (error) {
+            console.error("Failed to store private auth token securely:", error);
+        }
     };
     const handleFetch = () => {
         const authToken = mode === "public" ? publicAuthToken : privateAuthToken;
@@ -145,7 +186,6 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
         </div>
         {fetchType === "single" && (<div className="flex gap-0.5 p-0.5 bg-muted rounded-lg w-fit">
             <button type="button" onClick={() => {
-                setMode("public");
                 onModeChange?.("public");
             }} className={cn("flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all cursor-pointer", mode === "public"
                 ? "bg-background text-foreground shadow-sm"
@@ -154,7 +194,6 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
               Public
             </button>
             <button type="button" onClick={() => {
-                setMode("private");
                 onModeChange?.("private");
             }} className={cn("flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all cursor-pointer", mode === "private"
                 ? "bg-background text-foreground shadow-sm"
@@ -193,7 +232,7 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
               <FileText className="h-4 w-4"/>
               Import TXT File
             </Button>
-            <Button variant="default" onClick={onFetchAll} disabled={multipleAccounts.length === 0 || isFetchingAll} className="flex items-center gap-2 flex-1">
+            <Button variant="default" onClick={() => onFetchAll?.(publicAuthToken)} disabled={multipleAccounts.length === 0 || isFetchingAll} className="flex items-center gap-2 flex-1">
               {isFetchingAll ? (<>
                   <Spinner />
                   Fetching All...
@@ -212,7 +251,7 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
       
       {fetchType === "single" && (mode === "public" || isLikesMode) && (<div className="space-y-2">
           <Label htmlFor="username">
-            {isLikesMode ? "Your Username" : "Username"}
+            X/Twitter URL or Username
           </Label>
 
           <div className="flex gap-2">
@@ -227,7 +266,7 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
             <div className="flex items-center gap-2">
               {loading && (<>
                   
-                  {(remainingTime !== null || elapsedTime > 0) && (<div className="flex items-center gap-1.5 px-3 py-1.5 border rounded-md bg-muted/50 text-sm w-[85px]">
+                  {(remainingTime !== null || elapsedTime > 0) && (<div className="flex items-center gap-1.5 px-3 py-1.5 border rounded-md bg-muted/50 text-sm w-21.25">
                       <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0"/>
                       <span className="font-mono">
                         {remainingTime !== null && remainingTime >= 0
@@ -272,14 +311,14 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
       <div className="flex items-center gap-2">
         
         <button type="button" onClick={() => setShowAuthInput(!showAuthInput)} className="flex items-center gap-2 px-4 py-2 border rounded-lg text-sm font-medium hover:bg-muted/50 transition-colors cursor-pointer">
-          <Key className={cn("h-4 w-4", hasAuthToken ? "text-green-500" : "text-destructive")}/>
+          <Cookie className={cn("h-4 w-4", hasAuthToken ? "text-green-500" : "text-destructive")}/>
           Auth Token
           {showAuthInput ? <ChevronUp className="h-4 w-4"/> : <ChevronDown className="h-4 w-4"/>}
         </button>
 
         
         <button type="button" onClick={() => setShowAdvanced(!showAdvanced)} className="flex items-center gap-2 px-4 py-2 border rounded-lg text-sm font-medium hover:bg-muted/50 transition-colors cursor-pointer">
-          <SettingsIcon className="h-4 w-4"/>
+          <SlidersHorizontal className="h-4 w-4"/>
           Advanced Settings
           {showAdvanced ? <ChevronUp className="h-4 w-4"/> : <ChevronDown className="h-4 w-4"/>}
         </button>
@@ -287,7 +326,6 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
         
         {mode === "private" && fetchType === "single" && (<>
             <button type="button" onClick={() => {
-                setPrivateType("bookmarks");
                 onModeChange?.("private", "bookmarks");
             }} className={cn("flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all cursor-pointer", privateType === "bookmarks"
                 ? "border-primary bg-primary/10 text-primary"
@@ -296,7 +334,6 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
               My Bookmarks
             </button>
             <button type="button" onClick={() => {
-                setPrivateType("likes");
                 onModeChange?.("private", "likes");
             }} className={cn("flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all cursor-pointer", privateType === "likes"
                 ? "border-primary bg-primary/10 text-primary"
@@ -310,7 +347,7 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
         {isBookmarksMode && (<div className="flex items-center gap-2 ml-auto">
             {loading && (<>
                 
-                {(remainingTime !== null || elapsedTime > 0) && (<div className="flex items-center gap-1.5 px-3 py-1.5 border rounded-md bg-muted/50 text-sm w-[85px]">
+                {(remainingTime !== null || elapsedTime > 0) && (<div className="flex items-center gap-1.5 px-3 py-1.5 border rounded-md bg-muted/50 text-sm w-21.25">
                     <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0"/>
                     <span className="font-mono">
                       {remainingTime !== null && remainingTime >= 0
@@ -362,8 +399,8 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
                 ? handlePublicTokenChange(e.target.value)
                 : handlePrivateTokenChange(e.target.value)} className="pr-10 bg-background"/>
               <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors" onClick={() => mode === "public"
-                ? setShowPublicToken(!showPublicToken)
-                : setShowPrivateToken(!showPrivateToken)}>
+                  ? setShowPublicToken(!showPublicToken)
+                  : setShowPrivateToken(!showPrivateToken)}>
                 {(mode === "public" ? showPublicToken : showPrivateToken) ? (<EyeOff className="h-4 w-4"/>) : (<Eye className="h-4 w-4"/>)}
               </button>
             </div>
@@ -439,9 +476,9 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
 
                 
                 {useDateRange && (<>
-                    <InputWithContext id="start-date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-[140px] h-8 bg-background"/>
+                    <InputWithContext id="start-date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-35 h-8 bg-background"/>
                     <span className="text-sm text-muted-foreground">-</span>
-                    <InputWithContext id="end-date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-[140px] h-8 bg-background"/>
+                    <InputWithContext id="end-date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-35 h-8 bg-background"/>
                   </>)}
               </>)}
           </div>
@@ -483,7 +520,7 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
       
       {fetchType === "multiple" && multipleAccounts.length > 0 && (<div className="space-y-2">
           <p className="text-sm text-muted-foreground">Accounts to Fetch ({formatNumberWithComma(multipleAccounts.length)})</p>
-          <div className="space-y-2 max-h-[400px] overflow-y-auto">
+          <div className="space-y-2 max-h-100 overflow-y-auto">
             {multipleAccounts.map((account) => (<div key={account.id} className="p-3 border rounded-lg bg-card">
                 <div className="flex items-center gap-3">
                   {account.accountInfo ? (<img src={account.accountInfo.profile_image} alt={account.accountInfo.nick} className="w-10 h-10 rounded-full"/>) : (<div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
@@ -509,7 +546,7 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
                   </div>
                   <div className="flex items-center gap-2">
                     {account.status === "fetching" && (<>
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 border rounded-md bg-muted/50 text-sm w-[85px]">
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 border rounded-md bg-muted/50 text-sm w-21.25">
                           <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0"/>
                           <span className="font-mono">
                             {account.remainingTime !== null && account.remainingTime >= 0
@@ -535,7 +572,7 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
                           <AlertCircle className="h-3 w-3"/>
                           Incomplete
                         </span>
-                        <Button variant="outline" size="sm" onClick={() => onRetryAccount?.(account.id)} disabled={isFetchingAll} className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => onRetryAccount?.(account.id, publicAuthToken)} disabled={isFetchingAll} className="flex items-center gap-2">
                           <RotateCcw className="h-3.5 w-3.5"/>
                           Retry
                         </Button>
@@ -545,7 +582,7 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
                           <XCircle className="h-3 w-3"/>
                           Failed
                         </span>
-                        <Button variant="outline" size="sm" onClick={() => onRetryAccount?.(account.id)} disabled={isFetchingAll} className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => onRetryAccount?.(account.id, publicAuthToken)} disabled={isFetchingAll} className="flex items-center gap-2">
                           <RotateCcw className="h-3.5 w-3.5"/>
                           Retry
                         </Button>

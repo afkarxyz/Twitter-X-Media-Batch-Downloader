@@ -1,0 +1,34 @@
+name: Feature Request
+description: Request a feature for Twitter/X Media Batch Downloader
+title: "[Feature Request] "
+labels: ["enhancement"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > **WARNING: Issues that do not follow this template will be deleted without review.**
+        >
+        > **Please keep `[Feature Request]` in the issue title and only continue after it.**
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      placeholder: e.g. Add an option to rotate between multiple auth tokens or export filtered results directly from Saved Accounts.
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Why is this needed?
+      placeholder: e.g. I manage multiple accounts and want a faster way to retry only failed fetches without re-running the whole batch.
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      placeholder: e.g. Mockup, similar app behavior, workflow notes, or screenshots if needed.

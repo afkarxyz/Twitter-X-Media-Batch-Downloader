@@ -61,6 +61,25 @@ func CheckFolderExists(basePath, username string) bool {
 	return info.IsDir()
 }
 
+func CheckFoldersExist(basePath string, usernames []string) map[string]bool {
+	results := make(map[string]bool, len(usernames))
+	if basePath == "" {
+		return results
+	}
+
+	checked := make(map[string]bool, len(usernames))
+	for _, username := range usernames {
+		if _, alreadyChecked := checked[username]; alreadyChecked {
+			continue
+		}
+		exists := CheckFolderExists(basePath, username)
+		checked[username] = exists
+		results[username] = exists
+	}
+
+	return results
+}
+
 func CheckGifsFolderExists(basePath, username string) bool {
 	gifsPath := filepath.Join(basePath, username, "gifs")
 	info, err := os.Stat(gifsPath)

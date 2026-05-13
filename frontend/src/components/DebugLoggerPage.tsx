@@ -18,14 +18,13 @@ function formatTime(date: Date): string {
     });
 }
 export function DebugLoggerPage() {
-    const [logs, setLogs] = useState<LogEntry[]>([]);
+    const [logs, setLogs] = useState<LogEntry[]>(() => logger.getLogs());
     const [copied, setCopied] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
         const unsubscribe = logger.subscribe(() => {
             setLogs(logger.getLogs());
         });
-        setLogs(logger.getLogs());
         return () => {
             unsubscribe();
         };

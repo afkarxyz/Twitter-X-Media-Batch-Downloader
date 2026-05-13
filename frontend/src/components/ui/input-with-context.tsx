@@ -9,6 +9,13 @@ const InputWithContext = React.forwardRef<HTMLInputElement, InputWithContextProp
     const inputRef = React.useRef<HTMLInputElement>(null);
     const [hasSelection, setHasSelection] = React.useState(false);
     const [canPaste, setCanPaste] = React.useState(false);
+    const [uncontrolledHasValue, setUncontrolledHasValue] = React.useState(() => {
+        const defaultValue = props.defaultValue;
+        return defaultValue !== undefined && defaultValue !== null && String(defaultValue).length > 0;
+    });
+    const hasValue = props.value !== undefined && props.value !== null
+        ? String(props.value).length > 0
+        : uncontrolledHasValue;
     React.useImperativeHandle(ref, () => inputRef.current as HTMLInputElement);
     const updateSelectionState = () => {
         const input = inputRef.current;
@@ -49,6 +56,9 @@ const InputWithContext = React.forwardRef<HTMLInputElement, InputWithContextProp
                 }
                 if (onValueChange) {
                     onValueChange(newValue);
+                }
+                if (props.value === undefined) {
+                    setUncontrolledHasValue(newValue.length > 0);
                 }
                 input.focus();
             }
@@ -96,6 +106,9 @@ const InputWithContext = React.forwardRef<HTMLInputElement, InputWithContextProp
             if (onValueChange) {
                 onValueChange(newValue);
             }
+            if (props.value === undefined) {
+                setUncontrolledHasValue(newValue.length > 0);
+            }
             input.focus();
             await checkClipboard();
         }
@@ -117,6 +130,9 @@ const InputWithContext = React.forwardRef<HTMLInputElement, InputWithContextProp
         }
         if (onValueChange) {
             onValueChange(e.target.value);
+        }
+        if (props.value === undefined) {
+            setUncontrolledHasValue(e.target.value.length > 0);
         }
     };
     return (<ContextMenu onOpenChange={(open) => {
@@ -144,7 +160,7 @@ const InputWithContext = React.forwardRef<HTMLInputElement, InputWithContextProp
             <span className="ml-auto text-xs text-muted-foreground">Ctrl+V</span>
           </ContextMenuItem>
           <ContextMenuSeparator />
-          <ContextMenuItem onSelect={handleSelectAll} disabled={!inputRef.current?.value || props.disabled}>
+          <ContextMenuItem onSelect={handleSelectAll} disabled={!hasValue || props.disabled}>
             <Type className="mr-2 h-4 w-4"/>
             Select All
             <span className="ml-auto text-xs text-muted-foreground">Ctrl+A</span>

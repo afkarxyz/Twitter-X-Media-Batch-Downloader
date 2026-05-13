@@ -5,6 +5,8 @@ import {backend} from '../models';
 
 export function CheckFolderExists(arg1:string,arg2:string):Promise<boolean>;
 
+export function CheckFoldersExist(arg1:string,arg2:Array<string>):Promise<Record<string, boolean>>;
+
 export function CheckGifsFolderExists(arg1:string,arg2:string):Promise<boolean>;
 
 export function CheckGifsFolderHasMP4(arg1:string,arg2:string):Promise<boolean>;
@@ -12,6 +14,8 @@ export function CheckGifsFolderHasMP4(arg1:string,arg2:string):Promise<boolean>;
 export function CleanupExtractorProcesses():Promise<void>;
 
 export function ClearAllAccountsFromDB():Promise<void>;
+
+export function ClearStoredAuthToken(arg1:string):Promise<void>;
 
 export function ConvertGIFs(arg1:main.ConvertGIFsRequest):Promise<main.ConvertGIFsResponse>;
 
@@ -43,9 +47,19 @@ export function GetAllGroups():Promise<Array<Record<string, string>>>;
 
 export function GetDefaults():Promise<Record<string, string>>;
 
+export function GetExifToolVersionStatus():Promise<backend.DependencyVersionStatus>;
+
+export function GetExtractorVersionStatus():Promise<backend.ExtractorVersionStatus>;
+
+export function GetFFmpegVersionStatus():Promise<backend.DependencyVersionStatus>;
+
 export function GetFolderPath(arg1:string,arg2:string):Promise<string>;
 
 export function GetGifsFolderPath(arg1:string,arg2:string):Promise<string>;
+
+export function GetSavedAccountFromDB(arg1:string,arg2:string):Promise<string>;
+
+export function GetStoredAuthToken(arg1:string):Promise<string>;
 
 export function ImportAccountFromJSON():Promise<main.ImportAccountResponse>;
 
@@ -64,6 +78,8 @@ export function SaveAccountToDB(arg1:string,arg2:string,arg3:string,arg4:number,
 export function SaveAccountToDBWithStatus(arg1:string,arg2:string,arg3:string,arg4:number,arg5:string,arg6:string,arg7:string,arg8:boolean):Promise<void>;
 
 export function SelectFolder(arg1:string):Promise<string>;
+
+export function SetStoredAuthToken(arg1:string,arg2:string):Promise<void>;
 
 export function StopDownload():Promise<boolean>;
 

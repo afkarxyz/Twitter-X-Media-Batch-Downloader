@@ -175,6 +175,12 @@ func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir str
 				}
 
 				var status string
+				markCompleted := func() {
+					completed := atomic.AddInt64(&completedCount, 1)
+					if progress != nil {
+						progress(int(completed), total)
+					}
+				}
 
 				if _, err := os.Stat(task.outputPath); err == nil {
 					status = "skipped"
@@ -183,6 +189,7 @@ func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir str
 						itemStatus(task.item.TweetID, task.index, status)
 					}
 					atomic.AddInt64(&skippedCount, 1)
+					markCompleted()
 					continue
 				} else if task.item.Type == "text" {
 
@@ -214,10 +221,7 @@ func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir str
 					itemStatus(task.item.TweetID, task.index, status)
 				}
 
-				completed := atomic.AddInt64(&completedCount, 1)
-				if progress != nil {
-					progress(int(completed), total)
-				}
+				markCompleted()
 			}
 		}()
 	}

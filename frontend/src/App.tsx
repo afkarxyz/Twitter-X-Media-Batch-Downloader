@@ -1,10 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { getSettings, applyThemeMode, applyFont } from "@/lib/settings";
 import { applyTheme } from "@/lib/themes";
+import { compareVersionNumbers } from "@/lib/version";
 import { toastWithSound as toast } from "@/lib/toast-with-sound";
 import { logger } from "@/lib/logger";
-import { saveFetchState, getFetchState, clearFetchState, getResumableInfo, stateToResponse, mergeTimelines, saveCursor, getCursor, clearCursor, type FetchState, } from "@/lib/fetch-state";
+import { saveFetchState, getFetchState, clearFetchState, getResumableInfo, mergeTimelines, saveCursor, getCursor, clearCursor, type FetchState, } from "@/lib/fetch-state";
 import { TitleBar } from "@/components/TitleBar";
 import { Sidebar, type PageType } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
@@ -13,10 +16,11 @@ import { MediaList } from "@/components/MediaList";
 import { DatabaseView } from "@/components/DatabaseView";
 import { SettingsPage } from "@/components/SettingsPage";
 import { DebugLoggerPage } from "@/components/DebugLoggerPage";
+import { SupportPage } from "@/components/SupportPage";
 import { DependencySetupDialog } from "@/components/DependencySetupDialog";
 import type { HistoryItem } from "@/components/FetchHistory";
 import type { TwitterResponse } from "@/types/api";
-import { ExtractTimeline, ExtractDateRange, SaveAccountToDBWithStatus, CleanupExtractorProcesses, GetAllAccountsFromDB } from "../wailsjs/go/main/App";
+import { ExtractTimeline, ExtractDateRange, SaveAccountToDBWithStatus, CleanupExtractorProcesses, GetAllAccountsFromDB, GetSavedAccountFromDB } from "../wailsjs/go/main/App";
 const HISTORY_KEY = "twitter_media_fetch_history";
 const MAX_HISTORY = 10;
 const CURRENT_VERSION = __APP_VERSION__;
@@ -24,6 +28,28 @@ const BATCH_SIZE = 200;
 function formatNumberWithComma(num: number): string {
     return num.toLocaleString();
 }
+
+function normalizeTimeline(timeline: TwitterResponse["timeline"] | null | undefined): TwitterResponse["timeline"] {
+    return Array.isArray(timeline) ? timeline : [];
+}
+
+function normalizeTwitterResponse(data: TwitterResponse): TwitterResponse {
+    return {
+        ...data,
+        timeline: normalizeTimeline(data.timeline),
+    };
+}
+
+async function loadSavedAccountResponse(username: string, mediaType: string): Promise<TwitterResponse | null> {
+    try {
+        const savedResponseJSON = await GetSavedAccountFromDB(username, mediaType);
+        return normalizeTwitterResponse(JSON.parse(savedResponseJSON) as TwitterResponse);
+    }
+    catch {
+        return null;
+    }
+}
+
 function App() {
     const [currentPage, setCurrentPage] = useState<PageType>("main");
     const [username, setUsername] = useState("");
@@ -48,6 +74,10 @@ function App() {
     const [isFetchingAll, setIsFetchingAll] = useState(false);
     const [searchMode, setSearchMode] = useState<FetchMode>("public");
     const [searchPrivateType, setSearchPrivateType] = useState<PrivateType>("bookmarks");
+    const [hasUnsavedSettings, setHasUnsavedSettings] = useState(false);
+    const [pendingPageChange, setPendingPageChange] = useState<PageType | null>(null);
+    const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] = useState(false);
+    const [resetSettingsFn, setResetSettingsFn] = useState<(() => void) | null>(null);
     const stopAllRef = useRef(false);
     const accountTimersRef = useRef<Map<string, number>>(new Map());
     const accountStartTimesRef = useRef<Map<string, number>>(new Map());
@@ -83,7 +113,7 @@ function App() {
         const settings = getSettings();
         applyThemeMode(settings.themeMode);
         applyTheme(settings.theme);
-        applyFont(settings.fontFamily);
+        applyFont(settings.fontFamily, settings.customFonts);
         const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
         const handleChange = () => {
             const currentSettings = getSettings();
@@ -107,7 +137,7 @@ function App() {
             if (data.published_at) {
                 setReleaseDate(data.published_at);
             }
-            if (latestVersion && latestVersion > CURRENT_VERSION) {
+            if (latestVersion && compareVersionNumbers(latestVersion, CURRENT_VERSION) > 0) {
                 setHasUpdate(true);
             }
         }
@@ -188,7 +218,8 @@ function App() {
         try {
             await CleanupExtractorProcesses();
         }
-        catch {
+        catch (cleanupError) {
+            console.error("Failed to stop extractor processes:", cleanupError);
         }
     }, []);
     useEffect(() => {
@@ -254,7 +285,8 @@ function App() {
         try {
             await CleanupExtractorProcesses();
         }
-        catch {
+        catch (cleanupError) {
+            console.error("Failed to clean extractor processes before fetch:", cleanupError);
         }
         const fetchTarget = isBookmarks
             ? "your bookmarks"
@@ -262,6 +294,7 @@ function App() {
                 ? "your likes"
                 : `@${username}`;
         const cleanUsername = isBookmarks ? "bookmarks" : isLikes ? "likes" : username.trim();
+        const requestedMediaType = mediaType || "all";
         let existingState: FetchState | null = null;
         let cursor: string | undefined;
         let allTimeline: TwitterResponse["timeline"] = [];
@@ -270,17 +303,18 @@ function App() {
             existingState = getFetchState(cleanUsername);
             if (existingState && existingState.cursor && !existingState.completed) {
                 cursor = existingState.cursor;
-                allTimeline = existingState.timeline;
-                accountInfo = existingState.accountInfo;
-                logger.info(`Resuming ${fetchTarget} from ${allTimeline.length} items...`);
-                if (accountInfo) {
-                    setResult({
-                        account_info: accountInfo,
-                        timeline: allTimeline,
-                        total_urls: allTimeline.length,
-                        metadata: { new_entries: 0, page: 0, batch_size: 0, has_more: true },
-                    });
+                const savedResponse = await loadSavedAccountResponse(cleanUsername, existingState.mediaType || requestedMediaType);
+                if (!savedResponse) {
+                    clearFetchState(cleanUsername);
+                    clearCursor(cleanUsername);
+                    toast.error("Resume data is no longer available");
+                    setLoading(false);
+                    return;
                 }
+                allTimeline = savedResponse.timeline;
+                accountInfo = savedResponse.account_info;
+                logger.info(`Resuming ${fetchTarget} from ${existingState.totalFetched} items...`);
+                setResult(savedResponse);
             }
             else {
                 toast.error("No resumable fetch found");
@@ -314,21 +348,13 @@ function App() {
                     auth_token: authToken.trim(),
                     start_date: startDate,
                     end_date: endDate,
-                    media_filter: mediaType || "all",
+                    media_filter: requestedMediaType,
                     retweets: retweets || false,
                 });
-                finalData = JSON.parse(response);
+                finalData = normalizeTwitterResponse(JSON.parse(response) as TwitterResponse);
                 if (finalData && finalData.account_info) {
                     try {
-                        await SaveAccountToDBWithStatus(finalData.account_info.name, finalData.account_info.nick, finalData.account_info.profile_image, finalData.total_urls, JSON.stringify(finalData), mediaType || "all", finalData.cursor || "", finalData.completed ?? true);
-                    }
-                    catch (err) {
-                        reportDatabaseSaveError("date range data", err);
-                    }
-                }
-                if (finalData && finalData.account_info) {
-                    try {
-                        await SaveAccountToDBWithStatus(finalData.account_info.name, finalData.account_info.nick, finalData.account_info.profile_image, finalData.total_urls, JSON.stringify(finalData), mediaType || "all", finalData.cursor || "", finalData.completed ?? true);
+                        await SaveAccountToDBWithStatus(finalData.account_info.name, finalData.account_info.nick, finalData.account_info.profile_image, finalData.total_urls, JSON.stringify(finalData), requestedMediaType, finalData.cursor || "", finalData.completed ?? true);
                     }
                     catch (err) {
                         reportDatabaseSaveError("date range data", err);
@@ -361,12 +387,9 @@ function App() {
                                 saveFetchState({
                                     username: cleanUsername,
                                     cursor: cursor || "",
-                                    timeline: allTimeline,
-                                    accountInfo: accountInfo,
                                     totalFetched: allTimeline.length,
                                     completed: false,
-                                    authToken: authToken.trim(),
-                                    mediaType: mediaType || "all",
+                                    mediaType: requestedMediaType,
                                     retweets: retweets || false,
                                     timelineType: timelineType,
                                 });
@@ -386,7 +409,7 @@ function App() {
                                     completed: false,
                                 };
                                 try {
-                                    await SaveAccountToDBWithStatus(accountInfo.name, accountInfo.nick, accountInfo.profile_image, allTimeline.length, JSON.stringify(timeoutResponse), mediaType || "all", cursor || "", false);
+                                    await SaveAccountToDBWithStatus(accountInfo.name, accountInfo.nick, accountInfo.profile_image, allTimeline.length, JSON.stringify(timeoutResponse), requestedMediaType, cursor || "", false);
                                     logger.info(`Saved ${allTimeline.length} items before timeout`);
                                 }
                                 catch (err) {
@@ -404,11 +427,11 @@ function App() {
                         timeline_type: timelineType,
                         batch_size: batchSize,
                         page: page,
-                        media_type: mediaType || "all",
+                        media_type: requestedMediaType,
                         retweets: retweets || false,
                         cursor: cursor,
                     });
-                    const data: TwitterResponse = JSON.parse(response);
+                    const data = normalizeTwitterResponse(JSON.parse(response) as TwitterResponse);
                     if (!accountInfo && data.account_info) {
                         accountInfo = data.account_info;
                         if (isBookmarks) {
@@ -454,12 +477,9 @@ function App() {
                     saveFetchState({
                         username: cleanUsername,
                         cursor: cursor || "",
-                        timeline: allTimeline,
-                        accountInfo: accountInfo,
                         totalFetched: allTimeline.length,
                         completed: !hasMore,
-                        authToken: authToken.trim(),
-                        mediaType: mediaType || "all",
+                        mediaType: requestedMediaType,
                         retweets: retweets || false,
                         timelineType: timelineType,
                     });
@@ -480,7 +500,7 @@ function App() {
                             completed: !hasMore,
                         };
                         try {
-                            await SaveAccountToDBWithStatus(accountInfo.name, accountInfo.nick, accountInfo.profile_image, allTimeline.length, JSON.stringify(currentResponse), mediaType || "all", cursor || "", !hasMore);
+                            await SaveAccountToDBWithStatus(accountInfo.name, accountInfo.nick, accountInfo.profile_image, allTimeline.length, JSON.stringify(currentResponse), requestedMediaType, cursor || "", !hasMore);
                         }
                         catch (err) {
                             reportDatabaseSaveError("fetch progress", err);
@@ -523,7 +543,7 @@ function App() {
                 }
                 if (!useDateRange) {
                     try {
-                        await SaveAccountToDBWithStatus(finalData.account_info.name, finalData.account_info.nick, finalData.account_info.profile_image, finalData.total_urls, JSON.stringify(finalData), mediaType || "all", finalData.cursor || "", finalData.completed ?? true);
+                        await SaveAccountToDBWithStatus(finalData.account_info.name, finalData.account_info.nick, finalData.account_info.profile_image, finalData.total_urls, JSON.stringify(finalData), requestedMediaType, finalData.cursor || "", finalData.completed ?? true);
                     }
                     catch (err) {
                         reportDatabaseSaveError("final fetch status", err);
@@ -547,14 +567,14 @@ function App() {
                 toast.error("Failed to fetch media");
             }
             const savedState = getFetchState(cleanUsername);
-            if (savedState && savedState.timeline.length > 0) {
-                const partialResponse = stateToResponse(savedState);
+            if (savedState && savedState.totalFetched > 0) {
+                const partialResponse = await loadSavedAccountResponse(cleanUsername, savedState.mediaType || requestedMediaType);
                 if (partialResponse) {
                     setResult(partialResponse);
-                    setResumeInfo({ canResume: true, mediaCount: savedState.timeline.length });
-                    toast.info(`Saved ${formatNumberWithComma(savedState.timeline.length)} items - can resume`);
+                    setResumeInfo({ canResume: true, mediaCount: savedState.totalFetched });
+                    toast.info(`Saved ${formatNumberWithComma(savedState.totalFetched)} items - can resume`);
                     try {
-                        await SaveAccountToDBWithStatus(partialResponse.account_info.name, partialResponse.account_info.nick, partialResponse.account_info.profile_image, partialResponse.total_urls, JSON.stringify(partialResponse), mediaType || "all", savedState.cursor || "", false);
+                        await SaveAccountToDBWithStatus(partialResponse.account_info.name, partialResponse.account_info.nick, partialResponse.account_info.profile_image, partialResponse.total_urls, JSON.stringify(partialResponse), savedState.mediaType || requestedMediaType, savedState.cursor || "", false);
                     }
                     catch (dbErr) {
                         reportDatabaseSaveError("partial fetch data", dbErr);
@@ -575,13 +595,14 @@ function App() {
     const handleClearResume = () => {
         if (username.trim()) {
             clearFetchState(username.trim());
+            clearCursor(username.trim());
             setResumeInfo(null);
             toast.info("Resume data cleared");
         }
     };
     const handleLoadFromDB = (responseJSON: string, loadedUsername: string) => {
         try {
-            const data: TwitterResponse = JSON.parse(responseJSON);
+            const data = normalizeTwitterResponse(JSON.parse(responseJSON) as TwitterResponse);
             setResult(data);
             setUsername(loadedUsername);
             setCurrentPage("main");
@@ -603,6 +624,7 @@ function App() {
             toast.success(`Loaded @${loadedUsername} from database`);
         }
         catch (error) {
+            console.error("Failed to parse saved data:", error);
             toast.error("Failed to parse saved data");
         }
     };
@@ -677,26 +699,27 @@ function App() {
                 toast.success(`Imported ${formatNumberWithComma(accounts.length)} account(s)`);
             }
             catch (error) {
+                console.error("Failed to read imported account list:", error);
                 toast.error("Failed to read file");
             }
         };
         input.click();
     };
-    const handleFetchAll = async () => {
+    const handleFetchAll = async (authToken: string) => {
         if (multipleAccounts.length === 0) {
             toast.error("No accounts to fetch");
             return;
         }
         setIsFetchingAll(true);
         stopAllRef.current = false;
-        const PUBLIC_AUTH_TOKEN_KEY = "twitter_public_auth_token";
-        const authToken = localStorage.getItem(PUBLIC_AUTH_TOKEN_KEY) || "";
         if (!authToken.trim()) {
             toast.error("Please enter your auth token");
             setIsFetchingAll(false);
             return;
         }
         const settings = getSettings();
+        const selectedMediaType = settings.mediaType || "all";
+        setFetchedMediaType(selectedMediaType);
         const timeoutSeconds = settings.fetchTimeout || 60;
         setMultipleAccounts((prev) => prev.map((acc) => ({
             ...acc,
@@ -708,7 +731,7 @@ function App() {
             error: undefined,
             showDiff: false,
         })));
-        let currentAccounts = [...multipleAccounts];
+        const currentAccounts = [...multipleAccounts];
         for (let i = 0; i < currentAccounts.length; i++) {
             if (stopAllRef.current) {
                 break;
@@ -785,12 +808,9 @@ function App() {
                             saveFetchState({
                                 username: cleanUsername,
                                 cursor: cursor || "",
-                                timeline: allTimeline,
-                                accountInfo: accountInfo,
                                 totalFetched: allTimeline.length,
                                 completed: false,
-                                authToken: authToken.trim(),
-                                mediaType: fetchedMediaType || "all",
+                                mediaType: selectedMediaType,
                                 retweets: false,
                                 timelineType: "timeline",
                             });
@@ -809,7 +829,7 @@ function App() {
                                     },
                                     cursor: cursor,
                                     completed: false,
-                                }), fetchedMediaType || "all", cursor || "", false);
+                                }), selectedMediaType, cursor || "", false);
                             }
                             catch (err) {
                                 reportDatabaseSaveError("multi-account timeout state", err);
@@ -823,11 +843,11 @@ function App() {
                         timeline_type: "timeline",
                         batch_size: batchSizeMultiple,
                         page: page,
-                        media_type: fetchedMediaType || "all",
+                        media_type: selectedMediaType,
                         retweets: false,
                         cursor: cursor,
                     });
-                    const data: TwitterResponse = JSON.parse(response);
+                    const data = normalizeTwitterResponse(JSON.parse(response) as TwitterResponse);
                     if (!accountInfo && data.account_info) {
                         accountInfo = data.account_info;
                     }
@@ -864,12 +884,9 @@ function App() {
                         saveFetchState({
                             username: cleanUsername,
                             cursor: cursor || "",
-                            timeline: allTimeline,
-                            accountInfo: accountInfo,
                             totalFetched: allTimeline.length,
                             completed: !hasMore,
-                            authToken: authToken.trim(),
-                            mediaType: fetchedMediaType || "all",
+                            mediaType: selectedMediaType,
                             retweets: false,
                             timelineType: "timeline",
                         });
@@ -890,7 +907,7 @@ function App() {
                                 },
                                 cursor: cursor,
                                 completed: !hasMore,
-                            }), fetchedMediaType || "all", cursor || "", !hasMore);
+                                }), selectedMediaType, cursor || "", !hasMore);
                         }
                         catch (err) {
                             reportDatabaseSaveError("multi-account progress", err);
@@ -1004,17 +1021,44 @@ function App() {
         CleanupExtractorProcesses().catch(() => { });
         toast.info("Stopped account fetch");
     };
-    const handleRetryAccount = async (accountId: string) => {
+    const handlePageChange = (page: PageType) => {
+        if (currentPage === "settings" && hasUnsavedSettings && page !== "settings") {
+            setPendingPageChange(page);
+            setShowUnsavedChangesDialog(true);
+            return;
+        }
+        setCurrentPage(page);
+    };
+    const handleDiscardChanges = () => {
+        setShowUnsavedChangesDialog(false);
+        if (resetSettingsFn) {
+            resetSettingsFn();
+        }
+        const savedSettings = getSettings();
+        applyThemeMode(savedSettings.themeMode);
+        applyTheme(savedSettings.theme);
+        applyFont(savedSettings.fontFamily, savedSettings.customFonts);
+        setHasUnsavedSettings(false);
+        if (pendingPageChange) {
+            setCurrentPage(pendingPageChange);
+            setPendingPageChange(null);
+        }
+    };
+    const handleCancelNavigation = () => {
+        setShowUnsavedChangesDialog(false);
+        setPendingPageChange(null);
+    };
+    const handleRetryAccount = async (accountId: string, authToken: string) => {
         const account = multipleAccounts.find((acc) => acc.id === accountId);
         if (!account)
             return;
-        const PUBLIC_AUTH_TOKEN_KEY = "twitter_public_auth_token";
-        const authToken = localStorage.getItem(PUBLIC_AUTH_TOKEN_KEY) || "";
         if (!authToken.trim()) {
             toast.error("Please enter your auth token");
             return;
         }
         const retrySettings = getSettings();
+        const selectedMediaType = retrySettings.mediaType || fetchedMediaType || "all";
+        setFetchedMediaType(selectedMediaType);
         const isSingleModeRetry = retrySettings.fetchMode === "single";
         const batchSizeRetry = isSingleModeRetry ? 0 : BATCH_SIZE;
         const cleanUsername = account.username.trim();
@@ -1026,12 +1070,22 @@ function App() {
         existingState = getFetchState(cleanUsername);
         if (existingState && existingState.cursor && !existingState.completed) {
             cursor = existingState.cursor;
-            allTimeline = existingState.timeline;
-            if (existingState.accountInfo) {
-                accountInfo = existingState.accountInfo;
+            const savedResponse = await loadSavedAccountResponse(cleanUsername, existingState.mediaType || selectedMediaType);
+            if (savedResponse) {
+                allTimeline = savedResponse.timeline;
+                accountInfo = savedResponse.account_info;
+                previousMediaCount = existingState.totalFetched;
+                logger.info(`Resuming @${cleanUsername} from ${existingState.totalFetched} items...`);
             }
-            previousMediaCount = existingState.timeline.length;
-            logger.info(`Resuming @${cleanUsername} from ${allTimeline.length} items...`);
+            else {
+                clearFetchState(cleanUsername);
+                clearCursor(cleanUsername);
+                logger.info(`Saved retry state for @${cleanUsername} was missing. Starting from beginning...`);
+                cursor = undefined;
+                allTimeline = [];
+                accountInfo = null;
+                previousMediaCount = 0;
+            }
         }
         else {
             if (!cursor) {
@@ -1044,7 +1098,7 @@ function App() {
                 else {
                     try {
                         const accounts = await GetAllAccountsFromDB();
-                        const dbAccount = accounts.find((acc) => acc.username.toLowerCase() === cleanUsername.toLowerCase());
+                        const dbAccount = accounts.find((acc) => acc.username.toLowerCase() === cleanUsername.toLowerCase() && (acc.media_type || "all") === selectedMediaType);
                         if (dbAccount?.cursor) {
                             cursor = dbAccount.cursor;
                             previousMediaCount = account.mediaCount || 0;
@@ -1130,11 +1184,11 @@ function App() {
                     timeline_type: "timeline",
                     batch_size: batchSizeRetry,
                     page: page,
-                    media_type: fetchedMediaType || "all",
+                    media_type: selectedMediaType,
                     retweets: false,
                     cursor: cursor,
                 });
-                const data: TwitterResponse = JSON.parse(response);
+                const data = normalizeTwitterResponse(JSON.parse(response) as TwitterResponse);
                 if (!accountInfo && data.account_info) {
                     accountInfo = data.account_info;
                 }
@@ -1165,12 +1219,9 @@ function App() {
                     saveFetchState({
                         username: cleanUsername,
                         cursor: cursor || "",
-                        timeline: allTimeline,
-                        accountInfo: accountInfo,
                         totalFetched: allTimeline.length,
                         completed: !hasMore,
-                        authToken: authToken.trim(),
-                        mediaType: fetchedMediaType || "all",
+                        mediaType: selectedMediaType,
                         retweets: false,
                         timelineType: "timeline",
                     });
@@ -1197,7 +1248,7 @@ function App() {
                             },
                             cursor: cursor,
                             completed: !hasMore,
-                        }), fetchedMediaType || "all", cursor || "", !hasMore);
+                        }), selectedMediaType, cursor || "", !hasMore);
                     }
                     catch (err) {
                         reportDatabaseSaveError("retry progress", err);
@@ -1271,11 +1322,13 @@ function App() {
     const renderPage = () => {
         switch (currentPage) {
             case "settings":
-                return <SettingsPage />;
+                return <SettingsPage onUnsavedChangesChange={setHasUnsavedSettings} onResetRequest={setResetSettingsFn}/>;
             case "debug":
                 return <DebugLoggerPage />;
             case "database":
                 return (<DatabaseView onBack={() => setCurrentPage("main")} onLoadAccount={handleLoadFromDB} onUpdateSelected={handleUpdateSelected}/>);
+            case "support":
+                return <SupportPage />;
             default:
                 return (<>
             <Header version={CURRENT_VERSION} hasUpdate={hasUpdate} releaseDate={releaseDate}/>
@@ -1294,17 +1347,43 @@ function App() {
         }
     };
     return (<TooltipProvider>
-      <div className="min-h-screen bg-background flex flex-col">
+      <div className="h-screen overflow-hidden bg-background">
         <DependencySetupDialog />
         <TitleBar />
-        <Sidebar currentPage={currentPage} onPageChange={setCurrentPage}/>
-        
-        
-        <div className="flex-1 ml-14 mt-10 p-4 md:p-8">
-          <div className="max-w-5xl mx-auto">
-            {renderPage()}
+        <Sidebar currentPage={currentPage} onPageChange={handlePageChange}/>
+
+        <div id="app-content-scroll" className="fixed top-10 right-0 bottom-0 left-14 overflow-y-auto overflow-x-hidden">
+          <div className="p-4 md:p-8">
+            <div className="max-w-5xl mx-auto">
+              {renderPage()}
+            </div>
           </div>
         </div>
+
+        <Dialog open={showUnsavedChangesDialog} onOpenChange={(open) => {
+            if (open) {
+                setShowUnsavedChangesDialog(true);
+                return;
+            }
+            handleCancelNavigation();
+        }}>
+          <DialogContent className="sm:max-w-[425px] [&>button]:hidden">
+            <DialogHeader>
+              <DialogTitle>Unsaved Changes</DialogTitle>
+              <DialogDescription>
+                You have unsaved changes in Settings. If you leave now, your changes will be lost.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={handleCancelNavigation}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleDiscardChanges}>
+                Discard Changes
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </TooltipProvider>);
 }

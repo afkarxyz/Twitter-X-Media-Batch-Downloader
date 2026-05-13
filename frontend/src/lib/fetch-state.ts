@@ -1,19 +1,32 @@
-import type { TwitterResponse, TimelineEntry, AccountInfo } from "@/types/api";
+import type { TimelineEntry } from "@/types/api";
 const FETCH_STATE_KEY = "twitter_fetch_state";
 const CURSOR_STATE_KEY = "twitter_cursor_state";
 export interface FetchState {
     username: string;
     cursor: string;
-    timeline: TimelineEntry[];
-    accountInfo: AccountInfo | null;
     totalFetched: number;
     completed: boolean;
     lastUpdated: number;
-    authToken: string;
     mediaType: string;
     retweets: boolean;
     timelineType: string;
 }
+
+function normalizeFetchState(state: FetchState | null | undefined): FetchState | null {
+    if (!state) {
+        return null;
+    }
+
+    return {
+        ...state,
+        cursor: state.cursor || "",
+        totalFetched: state.totalFetched ?? 0,
+        mediaType: state.mediaType || "all",
+        retweets: state.retweets ?? false,
+        timelineType: state.timelineType || "timeline",
+    };
+}
+
 export function saveFetchState(state: Partial<FetchState> & {
     username: string;
 }): void {
@@ -22,12 +35,9 @@ export function saveFetchState(state: Partial<FetchState> & {
         const updated: FetchState = {
             username: state.username,
             cursor: state.cursor || "",
-            timeline: state.timeline || existing?.timeline || [],
-            accountInfo: state.accountInfo || existing?.accountInfo || null,
             totalFetched: state.totalFetched ?? existing?.totalFetched ?? 0,
             completed: state.completed ?? false,
             lastUpdated: Date.now(),
-            authToken: state.authToken || existing?.authToken || "",
             mediaType: state.mediaType || existing?.mediaType || "all",
             retweets: state.retweets ?? existing?.retweets ?? false,
             timelineType: state.timelineType || existing?.timelineType || "timeline",
@@ -43,7 +53,7 @@ export function saveFetchState(state: Partial<FetchState> & {
 export function getFetchState(username: string): FetchState | null {
     try {
         const allStates = getAllFetchStates();
-        return allStates[username.toLowerCase()] || null;
+        return normalizeFetchState(allStates[username.toLowerCase()]);
     }
     catch (error) {
         console.error("Failed to get fetch state:", error);
@@ -54,7 +64,17 @@ export function getAllFetchStates(): Record<string, FetchState> {
     try {
         const stored = localStorage.getItem(FETCH_STATE_KEY);
         if (stored) {
-            return JSON.parse(stored);
+            const parsed = JSON.parse(stored);
+            if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+                const normalized: Record<string, FetchState> = {};
+                for (const [key, value] of Object.entries(parsed as Record<string, FetchState | null | undefined>)) {
+                    const state = normalizeFetchState(value);
+                    if (state) {
+                        normalized[key] = state;
+                    }
+                }
+                return normalized;
+            }
         }
     }
     catch (error) {
@@ -66,7 +86,7 @@ export function hasResumableFetch(username: string): boolean {
     const state = getFetchState(username);
     if (!state)
         return false;
-    return !!state.cursor && !state.completed && state.timeline.length > 0;
+    return !!state.cursor && !state.completed && state.totalFetched > 0;
 }
 export function getResumableInfo(username: string): {
     canResume: boolean;
@@ -79,7 +99,7 @@ export function getResumableInfo(username: string): {
     }
     return {
         canResume: true,
-        mediaCount: state.timeline.length,
+        mediaCount: state.totalFetched,
         lastUpdated: new Date(state.lastUpdated),
     };
 }
@@ -107,25 +127,6 @@ export function clearAllIncompleteFetchStates(): void {
     catch (error) {
         console.error("Failed to clear fetch states:", error);
     }
-}
-export function stateToResponse(state: FetchState): TwitterResponse | null {
-    if (!state.accountInfo)
-        return null;
-    return {
-        account_info: state.accountInfo,
-        total_urls: state.timeline.length,
-        timeline: state.timeline,
-        metadata: {
-            new_entries: state.timeline.length,
-            page: 0,
-            batch_size: 0,
-            has_more: !state.completed,
-            cursor: state.cursor,
-            completed: state.completed,
-        },
-        cursor: state.cursor,
-        completed: state.completed,
-    };
 }
 export function saveCursor(username: string, cursor: string): void {
     try {
@@ -176,7 +177,9 @@ export function clearCursor(username: string): void {
     }
 }
 export function mergeTimelines(existing: TimelineEntry[], newEntries: TimelineEntry[]): TimelineEntry[] {
-    const seenIds = new Set(existing.map((e) => e.tweet_id));
-    const unique = newEntries.filter((e) => !seenIds.has(e.tweet_id));
-    return [...existing, ...unique];
+    const existingTimeline = Array.isArray(existing) ? existing : [];
+    const incomingTimeline = Array.isArray(newEntries) ? newEntries : [];
+    const seenIds = new Set(existingTimeline.map((e) => e.tweet_id));
+    const unique = incomingTimeline.filter((e) => !seenIds.has(e.tweet_id));
+    return [...existingTimeline, ...unique];
 }

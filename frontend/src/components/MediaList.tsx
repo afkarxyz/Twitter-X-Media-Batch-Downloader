@@ -11,6 +11,7 @@ import type { TimelineEntry, AccountInfo } from "@/types/api";
 import { logger } from "@/lib/logger";
 import { toastWithSound as toast } from "@/lib/toast-with-sound";
 import { getSettings } from "@/lib/settings";
+import { getCachedDependencyStatus, getCachedMediaFolderStatus, setCachedDependencyStatus, setCachedMediaFolderStatus } from "@/lib/runtime-cache";
 import { openExternal } from "@/lib/utils";
 import { DownloadMediaWithMetadata, OpenFolder, IsFFmpegInstalled, ConvertGIFs, StopDownload, CheckFolderExists, CheckGifsFolderHasMP4 } from "../../wailsjs/go/main/App";
 import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
@@ -32,9 +33,15 @@ interface MediaListProps {
     fetchedMediaType?: string;
     newMediaCount?: number | null;
 }
+const MEDIA_LIST_PAGE_SIZE = 30;
+
+function getContentScrollElement(): HTMLElement | null {
+    return document.getElementById("app-content-scroll");
+}
+
 function getThumbnailUrl(url: string): string {
     if (url.includes("video.twimg.com/tweet_video/")) {
-        const match = url.match(/tweet_video\/([^\/]+)\.mp4/);
+        const match = url.match(/tweet_video\/([^/]+)\.mp4/);
         if (match && match[1]) {
             const filename = match[1];
             return `https://pbs.twimg.com/tweet_video_thumb/${filename}?format=jpg&name=360x360`;
@@ -161,7 +168,23 @@ function formatJoinDate(dateStr: string): string {
         return dateStr;
     }
 }
+
+function getAccountFolderName(accountInfo: AccountInfo): string {
+    if (accountInfo.nick === "My Bookmarks" || accountInfo.name === "bookmarks") {
+        return "My Bookmarks";
+    }
+    if (accountInfo.nick === "My Likes" || accountInfo.name === "likes") {
+        return "My Likes";
+    }
+    return accountInfo.name;
+}
+
 export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType = "all", newMediaCount = null, }: MediaListProps) {
+    const settings = getSettings();
+    const folderName = getAccountFolderName(accountInfo);
+    const cachedMediaFolderStatus = settings.downloadPath
+        ? getCachedMediaFolderStatus(settings.downloadPath, folderName)
+        : null;
     const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
     const [sortBy, setSortBy] = useState<string>("date-desc");
     const [filterType, setFilterType] = useState<string>("all");
@@ -170,23 +193,28 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
     const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
     const [hasDownloaded, setHasDownloaded] = useState(false);
     const [isConverting, setIsConverting] = useState(false);
-    const [ffmpegInstalled, setFfmpegInstalled] = useState(false);
+    const [ffmpegInstalled, setFfmpegInstalled] = useState(() => getCachedDependencyStatus("ffmpeg").installed ?? false);
     const [showScrollTop, setShowScrollTop] = useState(false);
-    const [folderExists, setFolderExists] = useState(false);
-    const [gifsFolderHasMP4, setGifsFolderHasMP4] = useState(false);
+    const [folderExists, setFolderExists] = useState(cachedMediaFolderStatus?.folderExists ?? false);
+    const [gifsFolderHasMP4, setGifsFolderHasMP4] = useState(cachedMediaFolderStatus?.gifsFolderHasMP4 ?? false);
     const [previewIndex, setPreviewIndex] = useState<number | null>(null);
     const [downloadedItems, setDownloadedItems] = useState<Set<string>>(new Set());
     const [failedItems, setFailedItems] = useState<Set<string>>(new Set());
     const [skippedItems, setSkippedItems] = useState<Set<string>>(new Set());
     const [downloadingItem, setDownloadingItem] = useState<string | null>(null);
-    const [visibleCount, setVisibleCount] = useState<number>(10);
+    const [visibleCount, setVisibleCount] = useState<number>(MEDIA_LIST_PAGE_SIZE);
     const loadMoreRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
+        const scrollElement = getContentScrollElement();
+        if (!scrollElement) {
+            return;
+        }
         const handleScroll = () => {
-            setShowScrollTop(window.scrollY > 300);
+            setShowScrollTop(scrollElement.scrollTop > 300);
         };
-        window.addEventListener("scroll", handleScroll);
-        return () => window.removeEventListener("scroll", handleScroll);
+        handleScroll();
+        scrollElement.addEventListener("scroll", handleScroll);
+        return () => scrollElement.removeEventListener("scroll", handleScroll);
     }, []);
     const filteredTimeline = useMemo(() => {
         let filtered = [...timeline];
@@ -221,55 +249,50 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
         return filtered;
     }, [timeline, filterType, sortBy]);
     useEffect(() => {
-        setVisibleCount(10);
+        setVisibleCount(MEDIA_LIST_PAGE_SIZE);
     }, [filteredTimeline.length]);
     useEffect(() => {
         const checkFoldersAndFFmpeg = async () => {
             const settings = getSettings();
             const basePath = settings.downloadPath;
             const installed = await IsFFmpegInstalled();
+            setCachedDependencyStatus("ffmpeg", { installed });
             setFfmpegInstalled(installed);
             if (!basePath || !accountInfo.name)
                 return;
-            let folderName = accountInfo.name;
-            if (accountInfo.nick === "My Bookmarks" || accountInfo.name === "bookmarks") {
-                folderName = "My Bookmarks";
-            }
-            else if (accountInfo.nick === "My Likes" || accountInfo.name === "likes") {
-                folderName = "My Likes";
-            }
             const exists = await CheckFolderExists(basePath, folderName);
+            const hasMP4 = exists ? await CheckGifsFolderHasMP4(basePath, folderName) : false;
+            setCachedMediaFolderStatus(basePath, folderName, {
+                folderExists: exists,
+                gifsFolderHasMP4: hasMP4,
+            });
             setFolderExists(exists);
-            if (exists) {
-                const hasMP4 = await CheckGifsFolderHasMP4(basePath, folderName);
-                setGifsFolderHasMP4(hasMP4);
-            }
-            else {
-                setGifsFolderHasMP4(false);
-            }
+            setGifsFolderHasMP4(hasMP4);
         };
         checkFoldersAndFFmpeg();
-    }, [accountInfo.name, accountInfo.nick, hasDownloaded]);
+    }, [accountInfo.name, accountInfo.nick, folderName, hasDownloaded]);
     useEffect(() => {
-        if (!loadMoreRef.current)
+        const sentinel = loadMoreRef.current;
+        if (!sentinel || visibleCount >= filteredTimeline.length)
             return;
         const observer = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting) {
+            if (entries.some((entry) => entry.isIntersecting)) {
                 setVisibleCount((prev) => {
                     const filteredLength = filteredTimeline.length;
-                    return Math.min(prev + 10, filteredLength);
+                    return Math.min(prev + MEDIA_LIST_PAGE_SIZE, filteredLength);
                 });
             }
-        }, { threshold: 0.1 });
-        observer.observe(loadMoreRef.current);
+        }, {
+            rootMargin: "400px 0px",
+            threshold: 0,
+        });
+        observer.observe(sentinel);
         return () => {
-            if (loadMoreRef.current) {
-                observer.unobserve(loadMoreRef.current);
-            }
+            observer.disconnect();
         };
-    }, [filteredTimeline.length]);
+    }, [visibleCount, filteredTimeline.length]);
     const scrollToTop = () => {
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        getContentScrollElement()?.scrollTo({ top: 0, behavior: "smooth" });
     };
     const openPreview = (index: number) => {
         setPreviewIndex(index);
@@ -442,7 +465,14 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
                 proxy: settings.proxy || "",
             });
             const response = await DownloadMediaWithMetadata(request);
-            if (response.success) {
+            if (response.cancelled) {
+                logger.info(response.message || "Download stopped");
+                toast.info(response.message || "Download stopped");
+                if (response.downloaded > 0 || response.skipped > 0) {
+                    setHasDownloaded(true);
+                }
+            }
+            else if (response.success) {
                 const parts: string[] = [];
                 if (response.downloaded > 0) {
                     parts.push(`${response.downloaded} file${response.downloaded !== 1 ? 's' : ''} downloaded`);
@@ -464,7 +494,17 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
                 }
                 setHasDownloaded(true);
                 const installed = await IsFFmpegInstalled();
+                setCachedDependencyStatus("ffmpeg", { installed });
                 setFfmpegInstalled(installed);
+                if (settings.downloadPath) {
+                    const hasMP4 = await CheckGifsFolderHasMP4(settings.downloadPath, folderName);
+                    setCachedMediaFolderStatus(settings.downloadPath, folderName, {
+                        folderExists: true,
+                        gifsFolderHasMP4: hasMP4,
+                    });
+                    setFolderExists(true);
+                    setGifsFolderHasMP4(hasMP4);
+                }
             }
             else {
                 logger.error(response.message);
@@ -551,15 +591,11 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
             if (response.success) {
                 logger.success(`Converted ${response.converted} GIFs`);
                 toast.success(`${response.converted} GIFs converted`);
-                const settings = getSettings();
-                let folderName = accountInfo.name;
-                if (accountInfo.nick === "My Bookmarks" || accountInfo.name === "bookmarks") {
-                    folderName = "My Bookmarks";
-                }
-                else if (accountInfo.nick === "My Likes" || accountInfo.name === "likes") {
-                    folderName = "My Likes";
-                }
                 const hasMP4 = await CheckGifsFolderHasMP4(settings.downloadPath, folderName);
+                setCachedMediaFolderStatus(settings.downloadPath, folderName, {
+                    folderExists: true,
+                    gifsFolderHasMP4: hasMP4,
+                });
                 setGifsFolderHasMP4(hasMP4);
             }
             else {
@@ -800,7 +836,10 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
                                 proxy: settings.proxy || "",
                             });
                             const response = await DownloadMediaWithMetadata(request);
-                            if (response.success) {
+                            if (response.cancelled) {
+                                toast.info(response.message || "Download stopped");
+                            }
+                            else if (response.success) {
                                 setHasDownloaded(true);
                             }
                             else {
@@ -870,7 +909,10 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
                                 proxy: settings.proxy || "",
                             });
                             const response = await DownloadMediaWithMetadata(request);
-                            if (response.success) {
+                            if (response.cancelled) {
+                                toast.info(response.message || "Download stopped");
+                            }
+                            else if (response.success) {
                                 setHasDownloaded(true);
                             }
                             else {
@@ -946,8 +988,13 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
         </div>)}
 
       
-      {visibleCount < filteredTimeline.length && (<div ref={loadMoreRef} className="h-20 flex items-center justify-center w-full">
+      {visibleCount < filteredTimeline.length && (<div ref={loadMoreRef} className="flex w-full flex-col items-center justify-center gap-3 py-6">
           <Spinner />
+          <Button variant="outline" size="sm" onClick={() => {
+                setVisibleCount((prev) => Math.min(prev + MEDIA_LIST_PAGE_SIZE, filteredTimeline.length));
+            }}>
+            Load More ({formatNumberWithComma(Math.max(filteredTimeline.length - visibleCount, 0))} remaining)
+          </Button>
         </div>)}
 
       
@@ -1035,7 +1082,10 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
                                 proxy: settings.proxy || "",
                             });
                             const response = await DownloadMediaWithMetadata(request);
-                            if (response.success) {
+                            if (response.cancelled) {
+                                toast.info(response.message || "Download stopped");
+                            }
+                            else if (response.success) {
                                 setHasDownloaded(true);
                             }
                             else {

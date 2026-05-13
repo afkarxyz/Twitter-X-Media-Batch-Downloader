@@ -36,6 +36,38 @@ export namespace backend {
 	        this.statuses_count = source["statuses_count"];
 	    }
 	}
+	export class DependencyVersionStatus {
+	    installed: boolean;
+	    installed_version?: string;
+	    latest_version?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DependencyVersionStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.installed = source["installed"];
+	        this.installed_version = source["installed_version"];
+	        this.latest_version = source["latest_version"];
+	    }
+	}
+	export class ExtractorVersionStatus {
+	    installed: boolean;
+	    installed_version?: string;
+	    latest_version?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ExtractorVersionStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.installed = source["installed"];
+	        this.installed_version = source["installed_version"];
+	        this.latest_version = source["latest_version"];
+	    }
+	}
 
 }
 
@@ -119,6 +151,7 @@ export namespace main {
 	}
 	export class DownloadMediaResponse {
 	    success: boolean;
+	    cancelled: boolean;
 	    downloaded: number;
 	    skipped: number;
 	    failed: number;
@@ -131,6 +164,7 @@ export namespace main {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.success = source["success"];
+	        this.cancelled = source["cancelled"];
 	        this.downloaded = source["downloaded"];
 	        this.skipped = source["skipped"];
 	        this.failed = source["failed"];
