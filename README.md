@@ -22,8 +22,6 @@ A GUI tool to download original-quality images and videos from Twitter/X account
 > - Using an auth token or cookies has the potential to get the **account suspended.**
 > - If too many media files are fetched, it may trigger a **rate limit**, and the media retrieval will fail.
 
-### [Video Tutorial](https://www.patreon.com/posts/how-to-obtain-127206894)
-
 1. Go to [Twitter's website](https://www.x.com/)
 2. Log into your account
 3. Open the Developer Tools by pressing <kbd>F12</kbd>

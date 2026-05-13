@@ -15,7 +15,7 @@ body:
     id: problem
     attributes:
       label: Problem
-      placeholder: e.g. Fetching @username/media stops after a few items, or GIF conversion fails with no clear error.
+      placeholder: "e.g. Fetching @username/media stops after a few items, or GIF conversion fails with no clear error."
     validations:
       required: true
 
@@ -23,7 +23,7 @@ body:
     id: target
     attributes:
       label: X/Twitter URL or Username
-      placeholder: e.g. https://x.com/username/media or @username
+      placeholder: "e.g. https://x.com/username/media or @username"
     validations:
       required: true
 
@@ -43,7 +43,7 @@ body:
     id: logs
     attributes:
       label: Error Message / Logs / Screenshot
-      placeholder: e.g. failed to extract timeline: parse_error ...
+      placeholder: "e.g. failed to extract timeline: parse_error ..."
     validations:
       required: true
 
@@ -55,7 +55,7 @@ body:
     id: version
     attributes:
       label: Twitter/X Media Batch Downloader Version
-      placeholder: e.g. v4.4
+      placeholder: "e.g. v4.4"
     validations:
       required: true
 
@@ -63,6 +63,6 @@ body:
     id: os
     attributes:
       label: OS
-      placeholder: e.g. Windows 11 23H2
+      placeholder: "e.g. Windows 11 23H2"
     validations:
       required: true
