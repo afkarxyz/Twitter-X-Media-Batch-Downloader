@@ -14,7 +14,7 @@ import { getSettings } from "@/lib/settings";
 import { getCachedDependencyStatus, getCachedMediaFolderStatus, setCachedDependencyStatus, setCachedMediaFolderStatus } from "@/lib/runtime-cache";
 import { openExternal } from "@/lib/utils";
 import { DownloadMediaWithMetadata, OpenFolder, IsFFmpegInstalled, ConvertGIFs, StopDownload, CheckFolderExists, CheckGifsFolderHasMP4 } from "../../wailsjs/go/main/App";
-import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
+import { EventsOn } from "../../wailsjs/runtime/runtime";
 import { main } from "../../wailsjs/go/models";
 interface DownloadProgress {
     current: number;
@@ -185,7 +185,7 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
     const cachedMediaFolderStatus = settings.downloadPath
         ? getCachedMediaFolderStatus(settings.downloadPath, folderName)
         : null;
-    const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
+    const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
     const [sortBy, setSortBy] = useState<string>("date-desc");
     const [filterType, setFilterType] = useState<string>("all");
     const [viewMode, setViewMode] = useState<"large" | "small" | "list">("list");
@@ -301,14 +301,13 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
         setPreviewIndex(null);
     };
     useEffect(() => {
-        if (previewIndex !== null) {
-            document.body.style.overflow = "hidden";
+        if (previewIndex === null) {
+            return;
         }
-        else {
-            document.body.style.overflow = "";
-        }
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
         return () => {
-            document.body.style.overflow = "";
+            document.body.style.overflow = previousOverflow;
         };
     }, [previewIndex]);
     useEffect(() => {
@@ -316,7 +315,6 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
             setDownloadProgress(progress);
         });
         return () => {
-            EventsOff("download-progress");
             unsubscribe();
         };
     }, []);
@@ -361,7 +359,6 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
             }
         });
         return () => {
-            EventsOff("download-item-status");
             unsubscribe();
         };
     }, []);
@@ -408,16 +405,16 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
             setSelectedItems(new Set());
         }
         else {
-            setSelectedItems(new Set(filteredTimeline.map((_, i) => i)));
+            setSelectedItems(new Set(filteredTimeline.map((item) => getItemKey(item))));
         }
     };
-    const toggleItem = (index: number) => {
+    const toggleItem = (key: string) => {
         const newSelected = new Set(selectedItems);
-        if (newSelected.has(index)) {
-            newSelected.delete(index);
+        if (newSelected.has(key)) {
+            newSelected.delete(key);
         }
         else {
-            newSelected.add(index);
+            newSelected.add(key);
         }
         setSelectedItems(newSelected);
     };
@@ -434,7 +431,9 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
     };
     const handleDownload = async () => {
         const itemsWithIndices = selectedItems.size > 0
-            ? Array.from(selectedItems).map((i) => ({ item: filteredTimeline[i], originalIndex: i }))
+            ? filteredTimeline
+                .map((item, i) => ({ item, originalIndex: i }))
+                .filter((entry) => selectedItems.has(getItemKey(entry.item)))
             : filteredTimeline.map((item, i) => ({ item, originalIndex: i }));
         if (itemsWithIndices.length === 0) {
             toast.error("No media to download");
@@ -462,6 +461,10 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
                 })),
                 output_dir: getOutputDir(),
                 username: accountInfo.name,
+                concurrent_downloads: settings.concurrentDownloads || 10,
+                skip_existing: settings.skipExistingFiles,
+                delete_incomplete_files: settings.deleteIncompleteFiles,
+                retry_attempts: settings.retryAttempts,
                 proxy: settings.proxy || "",
             });
             const response = await DownloadMediaWithMetadata(request);
@@ -774,14 +777,14 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
       
       {viewMode === "list" ? (<div className="space-y-2">
           {filteredTimeline.slice(0, visibleCount).map((item, index) => {
-                const isSelected = selectedItems.has(index);
                 const itemKey = getItemKey(item);
+                const isSelected = selectedItems.has(itemKey);
                 const isItemDownloaded = downloadedItems.has(itemKey);
                 const isItemFailed = failedItems.has(itemKey);
                 const isItemSkipped = skippedItems.has(itemKey);
                 const isItemDownloading = downloadingItem === itemKey;
                 return (<div key={itemKey} className={`flex items-center gap-4 p-3 rounded-lg border-2 transition-all ${isSelected ? "border-primary bg-primary/5" : "border-transparent hover:bg-muted/50"}`}>
-                <Checkbox checked={isSelected} onCheckedChange={() => toggleItem(index)}/>
+                <Checkbox checked={isSelected} onCheckedChange={() => toggleItem(itemKey)}/>
                 <span className="text-sm text-muted-foreground w-8 text-center shrink-0">
                   {index + 1}
                 </span>
@@ -833,6 +836,10 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
                                     })],
                                 output_dir: getOutputDir(),
                                 username: accountInfo.name,
+                                concurrent_downloads: settings.concurrentDownloads || 10,
+                                skip_existing: settings.skipExistingFiles,
+                                delete_incomplete_files: settings.deleteIncompleteFiles,
+                                retry_attempts: settings.retryAttempts,
                                 proxy: settings.proxy || "",
                             });
                             const response = await DownloadMediaWithMetadata(request);
@@ -872,8 +879,8 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
             })}
         </div>) : (<div className={`grid gap-3 ${viewMode === "large" ? "grid-cols-4" : "grid-cols-6"}`}>
           {filteredTimeline.slice(0, visibleCount).map((item, index) => {
-                const isSelected = selectedItems.has(index);
                 const itemKey = getItemKey(item);
+                const isSelected = selectedItems.has(itemKey);
                 const isItemDownloaded = downloadedItems.has(itemKey);
                 const isItemFailed = failedItems.has(itemKey);
                 const isItemSkipped = skippedItems.has(itemKey);
@@ -906,6 +913,10 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
                                     })],
                                 output_dir: getOutputDir(),
                                 username: accountInfo.name,
+                                concurrent_downloads: settings.concurrentDownloads || 10,
+                                skip_existing: settings.skipExistingFiles,
+                                delete_incomplete_files: settings.deleteIncompleteFiles,
+                                retry_attempts: settings.retryAttempts,
                                 proxy: settings.proxy || "",
                             });
                             const response = await DownloadMediaWithMetadata(request);
@@ -947,7 +958,7 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
 
                   
                   <div className="absolute top-2 left-2" onClick={(e) => e.stopPropagation()}>
-                    <Checkbox checked={isSelected} onCheckedChange={() => toggleItem(index)} className="bg-background/80"/>
+                    <Checkbox checked={isSelected} onCheckedChange={() => toggleItem(itemKey)} className="bg-background/80"/>
                   </div>
 
                   
@@ -1079,6 +1090,10 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
                                     })],
                                 output_dir: getOutputDir(),
                                 username: accountInfo.name,
+                                concurrent_downloads: settings.concurrentDownloads || 10,
+                                skip_existing: settings.skipExistingFiles,
+                                delete_incomplete_files: settings.deleteIncompleteFiles,
+                                retry_attempts: settings.retryAttempts,
                                 proxy: settings.proxy || "",
                             });
                             const response = await DownloadMediaWithMetadata(request);

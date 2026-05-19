@@ -82,7 +82,7 @@ func KillAllExtractorProcesses() {
 
 	for _, cmd := range commands {
 		if cmd != nil && cmd.Process != nil {
-			_ = cmd.Process.Kill()
+			_ = terminateCommandProcess(cmd)
 		}
 	}
 }
@@ -548,6 +548,9 @@ func ExtractTimeline(req TimelineRequest) (*TwitterResponse, error) {
 
 	if err != nil {
 		outputStr := string(output)
+		if strings.TrimSpace(outputStr) == "" {
+			return nil, fmt.Errorf("xtractor process terminated before returning data")
+		}
 		errorMsg := parseExtractorError(outputStr, req.Username)
 		return nil, fmt.Errorf("%s", errorMsg)
 	}
@@ -731,6 +734,9 @@ func ExtractDateRange(req DateRangeRequest) (*TwitterResponse, error) {
 
 	if err != nil {
 		outputStr := string(output)
+		if strings.TrimSpace(outputStr) == "" {
+			return nil, fmt.Errorf("xtractor process terminated before returning data")
+		}
 		errorMsg := parseExtractorError(outputStr, req.Username)
 		return nil, fmt.Errorf("%s", errorMsg)
 	}

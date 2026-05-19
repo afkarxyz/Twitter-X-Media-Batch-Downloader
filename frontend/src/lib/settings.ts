@@ -40,9 +40,19 @@ export type GifQuality = "fast" | "better";
 export type GifResolution = "original" | "high" | "medium" | "low";
 export type FetchMode = "single" | "batch";
 export type MediaType = "all" | "image" | "video" | "gif" | "text";
+const DEFAULT_CONCURRENT_DOWNLOADS = 10;
+const MIN_CONCURRENT_DOWNLOADS = 1;
+const MAX_CONCURRENT_DOWNLOADS = 50;
+const DEFAULT_RETRY_ATTEMPTS = 1;
+const MIN_RETRY_ATTEMPTS = 1;
+const MAX_RETRY_ATTEMPTS = 5;
 
 export interface Settings {
     downloadPath: string;
+    concurrentDownloads: number;
+    skipExistingFiles: boolean;
+    deleteIncompleteFiles: boolean;
+    retryAttempts: number;
     theme: string;
     themeMode: "auto" | "light" | "dark";
     fontFamily: FontFamily;
@@ -59,6 +69,10 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
     downloadPath: "",
+    concurrentDownloads: DEFAULT_CONCURRENT_DOWNLOADS,
+    skipExistingFiles: true,
+    deleteIncompleteFiles: true,
+    retryAttempts: DEFAULT_RETRY_ATTEMPTS,
     theme: "yellow",
     themeMode: "auto",
     fontFamily: "google-sans",
@@ -300,6 +314,41 @@ function normalizeFontFamily(fontFamily: unknown, customFonts: CustomFontOption[
     return customFont ? customFont.value : DEFAULT_SETTINGS.fontFamily;
 }
 
+function normalizeConcurrentDownloads(value: unknown): number {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+        return DEFAULT_CONCURRENT_DOWNLOADS;
+    }
+    const rounded = Math.round(value);
+    if (rounded < MIN_CONCURRENT_DOWNLOADS) {
+        return MIN_CONCURRENT_DOWNLOADS;
+    }
+    if (rounded > MAX_CONCURRENT_DOWNLOADS) {
+        return MAX_CONCURRENT_DOWNLOADS;
+    }
+    return rounded;
+}
+
+function normalizeBoolean(value: unknown, fallback: boolean): boolean {
+    if (typeof value === "boolean") {
+        return value;
+    }
+    return fallback;
+}
+
+function normalizeRetryAttempts(value: unknown): number {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+        return DEFAULT_RETRY_ATTEMPTS;
+    }
+    const rounded = Math.round(value);
+    if (rounded < MIN_RETRY_ATTEMPTS) {
+        return MIN_RETRY_ATTEMPTS;
+    }
+    if (rounded > MAX_RETRY_ATTEMPTS) {
+        return MAX_RETRY_ATTEMPTS;
+    }
+    return rounded;
+}
+
 export function getFontOptions(customFonts: CustomFontOption[] = []): FontOption[] {
     return [...FONT_OPTIONS, ...normalizeCustomFonts(customFonts)];
 }
@@ -353,6 +402,10 @@ function toNormalizedSettings(settings: Partial<Settings>): Settings {
     return {
         ...DEFAULT_SETTINGS,
         ...settings,
+        concurrentDownloads: normalizeConcurrentDownloads(settings.concurrentDownloads),
+        skipExistingFiles: normalizeBoolean(settings.skipExistingFiles, DEFAULT_SETTINGS.skipExistingFiles),
+        deleteIncompleteFiles: normalizeBoolean(settings.deleteIncompleteFiles, DEFAULT_SETTINGS.deleteIncompleteFiles),
+        retryAttempts: normalizeRetryAttempts(settings.retryAttempts),
         customFonts,
         fontFamily: normalizeFontFamily(settings.fontFamily, customFonts),
     };

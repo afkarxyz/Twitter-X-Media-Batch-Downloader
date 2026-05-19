@@ -11,12 +11,19 @@ import (
 )
 
 func OpenFolderInExplorer(path string) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return os.ErrInvalid
+	}
+
 	var cmd *exec.Cmd
 
 	switch runtime.GOOS {
 	case "windows":
-
-		cmd = exec.Command("cmd", "/c", "start", "", path)
+		cmd = exec.Command("explorer", path)
 	case "darwin":
 		cmd = exec.Command("open", path)
 	case "linux":

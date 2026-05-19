@@ -246,11 +246,21 @@ input::-ms-clear {
   display: none;
 }
 
-input[type="number"] {
+input[type="number"],
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"],
+input[type="month"],
+input[type="week"] {
   color-scheme: light;
 }
 
-.dark input[type="number"] {
+.dark input[type="number"],
+.dark input[type="date"],
+.dark input[type="datetime-local"],
+.dark input[type="time"],
+.dark input[type="month"],
+.dark input[type="week"] {
   color-scheme: dark;
 }
 

@@ -135,6 +135,10 @@ export namespace main {
 	    urls: string[];
 	    output_dir: string;
 	    username: string;
+	    concurrent_downloads?: number;
+	    skip_existing: boolean;
+	    delete_incomplete_files: boolean;
+	    retry_attempts?: number;
 	    proxy?: string;
 	
 	    static createFrom(source: any = {}) {
@@ -146,6 +150,10 @@ export namespace main {
 	        this.urls = source["urls"];
 	        this.output_dir = source["output_dir"];
 	        this.username = source["username"];
+	        this.concurrent_downloads = source["concurrent_downloads"];
+	        this.skip_existing = source["skip_existing"];
+	        this.delete_incomplete_files = source["delete_incomplete_files"];
+	        this.retry_attempts = source["retry_attempts"];
 	        this.proxy = source["proxy"];
 	    }
 	}
@@ -199,6 +207,10 @@ export namespace main {
 	    items: MediaItemRequest[];
 	    output_dir: string;
 	    username: string;
+	    concurrent_downloads?: number;
+	    skip_existing: boolean;
+	    delete_incomplete_files: boolean;
+	    retry_attempts?: number;
 	    proxy?: string;
 	
 	    static createFrom(source: any = {}) {
@@ -210,6 +222,10 @@ export namespace main {
 	        this.items = this.convertValues(source["items"], MediaItemRequest);
 	        this.output_dir = source["output_dir"];
 	        this.username = source["username"];
+	        this.concurrent_downloads = source["concurrent_downloads"];
+	        this.skip_existing = source["skip_existing"];
+	        this.delete_incomplete_files = source["delete_incomplete_files"];
+	        this.retry_attempts = source["retry_attempts"];
 	        this.proxy = source["proxy"];
 	    }
 	

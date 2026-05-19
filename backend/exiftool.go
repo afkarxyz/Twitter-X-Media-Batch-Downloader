@@ -469,6 +469,10 @@ func extractExifToolFromZip(zipPath, destPath string) error {
 	}
 
 	libDir := filepath.Join(filepath.Dir(destPath), "exiftool_files")
+	libDirAbs, err := filepath.Abs(libDir)
+	if err != nil {
+		return fmt.Errorf("failed to resolve libDir: %v", err)
+	}
 	for _, f := range r.File {
 		if strings.Contains(f.Name, "exiftool_files") && !strings.HasSuffix(f.Name, "/") {
 			parts := strings.Split(f.Name, "exiftool_files/")
@@ -481,6 +485,14 @@ func extractExifToolFromZip(zipPath, destPath string) error {
 			}
 
 			targetPath := filepath.Join(libDir, relPath)
+
+			targetAbs, err := filepath.Abs(targetPath)
+			if err != nil {
+				continue
+			}
+			if !strings.HasPrefix(targetAbs+string(os.PathSeparator), libDirAbs+string(os.PathSeparator)) && targetAbs != libDirAbs {
+				continue
+			}
 
 			if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
 				continue

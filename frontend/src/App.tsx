@@ -2,8 +2,10 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 import { getSettings, applyThemeMode, applyFont } from "@/lib/settings";
 import { applyTheme } from "@/lib/themes";
+import { openExternal } from "@/lib/utils";
 import { compareVersionNumbers } from "@/lib/version";
 import { toastWithSound as toast } from "@/lib/toast-with-sound";
 import { logger } from "@/lib/logger";
@@ -92,18 +94,54 @@ function App() {
             toast.warning("Fetch completed, but saving to Saved Accounts failed");
         }
     };
+    const restorePartialFetchState = async (cleanUsername: string, mediaType: string, showStoppedToast: boolean) => {
+        const savedState = getFetchState(cleanUsername);
+        if (!savedState || savedState.totalFetched <= 0) {
+            if (showStoppedToast) {
+                toast.info("Fetch stopped");
+            }
+            return;
+        }
+        const partialResponse = await loadSavedAccountResponse(cleanUsername, savedState.mediaType || mediaType);
+        setResumeInfo({ canResume: true, mediaCount: savedState.totalFetched });
+        if (partialResponse) {
+            setResult(partialResponse);
+            try {
+                await SaveAccountToDBWithStatus(partialResponse.account_info.name, partialResponse.account_info.nick, partialResponse.account_info.profile_image, partialResponse.total_urls, JSON.stringify(partialResponse), savedState.mediaType || mediaType, savedState.cursor || "", false);
+            }
+            catch (dbErr) {
+                reportDatabaseSaveError("partial fetch data", dbErr);
+            }
+        }
+        if (showStoppedToast) {
+            toast.info(`Stopped at ${formatNumberWithComma(savedState.totalFetched)} items`);
+        }
+    };
+    const stopMultipleFetches = (showToast: boolean) => {
+        stopAllRef.current = true;
+        setIsFetchingAll(false);
+        accountTimersRef.current.forEach((interval) => clearInterval(interval));
+        accountTimersRef.current.clear();
+        accountStartTimesRef.current.clear();
+        accountTimeoutSecondsRef.current.clear();
+        setMultipleAccounts((prev) => prev.map((acc) => {
+            if (acc.status === "fetching") {
+                const mediaCount = accountMediaCountRef.current.get(acc.id) || acc.mediaCount || 0;
+                return { ...acc, status: "incomplete" as const, mediaCount, remainingTime: 0 };
+            }
+            return acc;
+        }));
+        CleanupExtractorProcesses().catch(() => { });
+        if (showToast) {
+            toast.info("Stopped all fetches");
+        }
+    };
     const handleFetchTypeChange = (type: FetchType) => {
         setFetchType(type);
         if (type === "single") {
-            setMultipleAccounts([]);
-            setIsFetchingAll(false);
-            stopAllRef.current = true;
-            accountTimersRef.current.forEach((interval) => clearInterval(interval));
-            accountTimersRef.current.clear();
-            accountStartTimesRef.current.clear();
-            accountTimeoutSecondsRef.current.clear();
-            accountStopFlagsRef.current.clear();
-            accountMediaCountRef.current.clear();
+            if (isFetchingAll || multipleAccounts.some((acc) => acc.status === "fetching")) {
+                stopMultipleFetches(false);
+            }
         }
         else {
             setResult(null);
@@ -127,6 +165,40 @@ function App() {
         loadHistory();
         return () => {
             mediaQuery.removeEventListener("change", handleChange);
+        };
+    }, []);
+    useEffect(() => {
+        const handleDocumentClick = (event: MouseEvent) => {
+            if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+                return;
+            }
+            const target = event.target;
+            if (!(target instanceof Element)) {
+                return;
+            }
+            const anchor = target.closest("a[href]");
+            if (!(anchor instanceof HTMLAnchorElement)) {
+                return;
+            }
+            const href = anchor.getAttribute("href");
+            if (!href || href.startsWith("#") || href.startsWith("javascript:")) {
+                return;
+            }
+            try {
+                const url = new URL(href, window.location.href);
+                if (url.protocol !== "http:" && url.protocol !== "https:") {
+                    return;
+                }
+                event.preventDefault();
+                openExternal(url.toString());
+            }
+            catch {
+                // Ignore invalid URLs and allow the browser/webview to handle them.
+            }
+        };
+        document.addEventListener("click", handleDocumentClick);
+        return () => {
+            document.removeEventListener("click", handleDocumentClick);
         };
     }, []);
     const checkForUpdates = async () => {
@@ -559,6 +631,11 @@ function App() {
         catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error);
             const elapsedSecs = fetchStartTimeRef.current ? Math.floor((Date.now() - fetchStartTimeRef.current) / 1000) : 0;
+            if (stopFetchRef.current) {
+                logger.info(`Stopped fetch after ${elapsedSecs}s`);
+                await restorePartialFetchState(cleanUsername, requestedMediaType, true);
+                return;
+            }
             logger.error(`Failed to fetch: ${errorMsg} (${elapsedSecs}s)`);
             if (errorMsg.toLowerCase().includes("xtractor dependency") || errorMsg.toLowerCase().includes("extractor dependency")) {
                 toast.error(errorMsg);
@@ -568,18 +645,8 @@ function App() {
             }
             const savedState = getFetchState(cleanUsername);
             if (savedState && savedState.totalFetched > 0) {
-                const partialResponse = await loadSavedAccountResponse(cleanUsername, savedState.mediaType || requestedMediaType);
-                if (partialResponse) {
-                    setResult(partialResponse);
-                    setResumeInfo({ canResume: true, mediaCount: savedState.totalFetched });
-                    toast.info(`Saved ${formatNumberWithComma(savedState.totalFetched)} items - can resume`);
-                    try {
-                        await SaveAccountToDBWithStatus(partialResponse.account_info.name, partialResponse.account_info.nick, partialResponse.account_info.profile_image, partialResponse.total_urls, JSON.stringify(partialResponse), savedState.mediaType || requestedMediaType, savedState.cursor || "", false);
-                    }
-                    catch (dbErr) {
-                        reportDatabaseSaveError("partial fetch data", dbErr);
-                    }
-                }
+                await restorePartialFetchState(cleanUsername, requestedMediaType, false);
+                toast.info(`Saved ${formatNumberWithComma(savedState.totalFetched)} items - can resume`);
             }
         }
         finally {
@@ -628,6 +695,13 @@ function App() {
             toast.error("Failed to parse saved data");
         }
     };
+    const handleBackToHomeResult = () => {
+        setCurrentPage("main");
+        setResult(null);
+        setNewMediaCount(null);
+        const scrollElement = document.getElementById("app-content-scroll");
+        scrollElement?.scrollTo({ top: 0, behavior: "smooth" });
+    };
     const parseUsername = (input: string): string => {
         let clean = input.trim();
         if (clean.startsWith("@")) {
@@ -667,43 +741,59 @@ function App() {
         setCurrentPage("main");
         toast.success(`Added ${formatNumberWithComma(accounts.length)} account(s) to multiple fetch`);
     };
-    const handleImportFile = () => {
-        const input = document.createElement("input");
-        input.type = "file";
-        input.accept = ".txt";
-        input.onchange = async (e) => {
-            const file = (e.target as HTMLInputElement).files?.[0];
-            if (!file)
-                return;
-            try {
-                const text = await file.text();
-                const lines = text.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
-                if (lines.length === 0) {
-                    toast.error("File is empty");
-                    return;
-                }
-                const accounts: MultipleAccount[] = lines.map((line) => {
-                    const username = parseUsername(line);
-                    return {
-                        id: crypto.randomUUID(),
-                        username,
-                        status: "pending",
-                        mediaCount: 0,
-                        previousMediaCount: 0,
-                        elapsedTime: 0,
-                        remainingTime: null,
-                        showDiff: false,
-                    };
-                });
-                setMultipleAccounts(accounts);
-                toast.success(`Imported ${formatNumberWithComma(accounts.length)} account(s)`);
+    const handleImportAccounts = (entries: string[]) => {
+        const seenUsernames = new Set<string>();
+        const uniqueUsernames = entries
+            .map((entry) => parseUsername(entry))
+            .filter((entry) => entry.length > 0)
+            .filter((entry) => {
+            const normalized = entry.toLowerCase();
+            if (seenUsernames.has(normalized)) {
+                return false;
             }
-            catch (error) {
-                console.error("Failed to read imported account list:", error);
-                toast.error("Failed to read file");
-            }
-        };
-        input.click();
+            seenUsernames.add(normalized);
+            return true;
+        });
+        if (uniqueUsernames.length === 0) {
+            toast.error("No valid accounts found");
+            return;
+        }
+        const accounts: MultipleAccount[] = uniqueUsernames.map((entry) => ({
+            id: crypto.randomUUID(),
+            username: entry,
+            status: "pending",
+            mediaCount: 0,
+            previousMediaCount: 0,
+            elapsedTime: 0,
+            remainingTime: null,
+            showDiff: false,
+        }));
+        setMultipleAccounts(accounts);
+        toast.success(`Imported ${formatNumberWithComma(accounts.length)} account(s)`);
+    };
+    const handleClearMultipleAccounts = () => {
+        accountTimersRef.current.forEach((interval) => clearInterval(interval));
+        accountTimersRef.current.clear();
+        accountStartTimesRef.current.clear();
+        accountTimeoutSecondsRef.current.clear();
+        accountStopFlagsRef.current.clear();
+        accountMediaCountRef.current.clear();
+        stopAllRef.current = false;
+        setIsFetchingAll(false);
+        setMultipleAccounts([]);
+        toast.info("Multiple fetch list cleared");
+    };
+    const handleRemoveMultipleAccount = (accountId: string) => {
+        const account = multipleAccounts.find((entry) => entry.id === accountId);
+        accountTimersRef.current.delete(accountId);
+        accountStartTimesRef.current.delete(accountId);
+        accountTimeoutSecondsRef.current.delete(accountId);
+        accountStopFlagsRef.current.delete(accountId);
+        accountMediaCountRef.current.delete(accountId);
+        setMultipleAccounts((prev) => prev.filter((entry) => entry.id !== accountId));
+        if (account) {
+            toast.info(`Removed @${account.username} from list`);
+        }
     };
     const handleFetchAll = async (authToken: string) => {
         if (multipleAccounts.length === 0) {
@@ -960,6 +1050,19 @@ function App() {
                 accountTimeoutSecondsRef.current.delete(accountId);
                 const errorMsg = error instanceof Error ? error.message : String(error);
                 const mediaCount = accountMediaCountRef.current.get(accountId) || 0;
+                if (stopAllRef.current || accountStopFlagsRef.current.get(accountId)) {
+                    accountMediaCountRef.current.delete(accountId);
+                    setMultipleAccounts((prev) => prev.map((acc) => acc.id === accountId
+                        ? {
+                            ...acc,
+                            status: "incomplete" as const,
+                            error: undefined,
+                            mediaCount,
+                        }
+                        : acc));
+                    logger.info(`@${account.username}: stopped - ${mediaCount} items (${elapsedSecs}s)`);
+                    continue;
+                }
                 const isAuthError = errorMsg.toLowerCase().includes("401") ||
                     errorMsg.toLowerCase().includes("unauthorized") ||
                     errorMsg.toLowerCase().includes("auth token may be invalid") ||
@@ -984,30 +1087,14 @@ function App() {
         }
     };
     const handleStopAll = () => {
-        stopAllRef.current = true;
-        setIsFetchingAll(false);
-        accountTimersRef.current.forEach((interval) => clearInterval(interval));
-        accountTimersRef.current.clear();
-        accountStartTimesRef.current.clear();
-        accountTimeoutSecondsRef.current.clear();
-        setMultipleAccounts((prev) => prev.map((acc) => {
-            if (acc.status === "fetching") {
-                const mediaCount = accountMediaCountRef.current.get(acc.id) || acc.mediaCount || 0;
-                const status = mediaCount === 0 ? ("failed" as const) : ("incomplete" as const);
-                return { ...acc, status, mediaCount };
-            }
-            return acc;
-        }));
-        CleanupExtractorProcesses().catch(() => { });
-        toast.info("Stopped all fetches");
+        stopMultipleFetches(true);
     };
     const handleStopAccount = (accountId: string) => {
         accountStopFlagsRef.current.set(accountId, true);
         setMultipleAccounts((prev) => prev.map((acc) => {
             if (acc.id === accountId && acc.status === "fetching") {
                 const mediaCount = accountMediaCountRef.current.get(accountId) || acc.mediaCount || 0;
-                const status = mediaCount === 0 ? ("failed" as const) : ("incomplete" as const);
-                return { ...acc, status, mediaCount };
+                return { ...acc, status: "incomplete" as const, mediaCount };
             }
             return acc;
         }));
@@ -1301,6 +1388,19 @@ function App() {
             accountTimeoutSecondsRef.current.delete(accountId);
             const errorMsg = error instanceof Error ? error.message : String(error);
             const mediaCount = accountMediaCountRef.current.get(accountId) || 0;
+            if (stopAllRef.current || accountStopFlagsRef.current.get(accountId)) {
+                accountMediaCountRef.current.delete(accountId);
+                setMultipleAccounts((prev) => prev.map((acc) => acc.id === accountId
+                    ? {
+                        ...acc,
+                        status: "incomplete" as const,
+                        error: undefined,
+                        mediaCount,
+                    }
+                    : acc));
+                logger.info(`@${account.username}: stopped - ${mediaCount} items (${elapsedSecs}s)`);
+                return;
+            }
             const isAuthError = errorMsg.toLowerCase().includes("401") ||
                 errorMsg.toLowerCase().includes("unauthorized") ||
                 errorMsg.toLowerCase().includes("auth token may be invalid") ||
@@ -1333,14 +1433,20 @@ function App() {
                 return (<>
             <Header version={CURRENT_VERSION} hasUpdate={hasUpdate} releaseDate={releaseDate}/>
 
-            <SearchBar username={username} loading={loading} onUsernameChange={setUsername} onFetch={handleFetch} onStopFetch={handleStopFetch} onResume={handleResume} onClearResume={handleClearResume} resumeInfo={resumeInfo} history={fetchHistory} onHistorySelect={handleHistorySelect} onHistoryRemove={removeFromHistory} hasResult={!!result} elapsedTime={elapsedTime} remainingTime={remainingTime} fetchType={fetchType} onFetchTypeChange={handleFetchTypeChange} multipleAccounts={multipleAccounts} onImportFile={handleImportFile} onFetchAll={handleFetchAll} onStopAll={handleStopAll} onStopAccount={handleStopAccount} onRetryAccount={handleRetryAccount} isFetchingAll={isFetchingAll} mode={searchMode} privateType={searchPrivateType} onModeChange={(mode, privateType) => {
+            <SearchBar username={username} loading={loading} onUsernameChange={setUsername} onFetch={handleFetch} onStopFetch={handleStopFetch} onResume={handleResume} onClearResume={handleClearResume} resumeInfo={resumeInfo} history={fetchHistory} onHistorySelect={handleHistorySelect} onHistoryRemove={removeFromHistory} hasResult={!!result} elapsedTime={elapsedTime} remainingTime={remainingTime} fetchType={fetchType} onFetchTypeChange={handleFetchTypeChange} multipleAccounts={multipleAccounts} onImportAccounts={handleImportAccounts} onFetchAll={handleFetchAll} onStopAll={handleStopAll} onStopAccount={handleStopAccount} onRetryAccount={handleRetryAccount} onClearMultipleAccounts={handleClearMultipleAccounts} onRemoveMultipleAccount={handleRemoveMultipleAccount} isFetchingAll={isFetchingAll} mode={searchMode} privateType={searchPrivateType} onModeChange={(mode, privateType) => {
                         setSearchMode(mode);
                         if (privateType) {
                             setSearchPrivateType(privateType);
                         }
                     }}/>
 
-            {result && fetchType === "single" && (<div className="mt-4">
+            {result && fetchType === "single" && (<div className="mt-4 space-y-3">
+                <div className="flex justify-start">
+                  <Button variant="outline" onClick={handleBackToHomeResult} className="flex items-center gap-2">
+                    <ArrowLeft className="h-4 w-4"/>
+                    Back to Home
+                  </Button>
+                </div>
                 <MediaList accountInfo={result.account_info} timeline={result.timeline} totalUrls={result.total_urls} fetchedMediaType={fetchedMediaType} newMediaCount={newMediaCount}/>
               </div>)}
           </>);
@@ -1367,7 +1473,7 @@ function App() {
             }
             handleCancelNavigation();
         }}>
-          <DialogContent className="sm:max-w-[425px] [&>button]:hidden">
+          <DialogContent className="sm:max-w-106.25 [&>button]:hidden">
             <DialogHeader>
               <DialogTitle>Unsaved Changes</DialogTitle>
               <DialogDescription>

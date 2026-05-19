@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, useDeferredValue } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,7 @@ import { toastWithSound as toast } from "@/lib/toast-with-sound";
 import { getSettings } from "@/lib/settings";
 import { openExternal } from "@/lib/utils";
 import { GetAllAccountsFromDB, GetAccountFromDB, DeleteAccountFromDB, SaveAccountToDB, ExportAccountJSON, ExportAccountsTXT, UpdateAccountGroup, GetAllGroups, DownloadMediaWithMetadata, StopDownload, CheckFoldersExist, OpenFolder, GetFolderPath, } from "../../wailsjs/go/main/App";
-import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
+import { EventsOn } from "../../wailsjs/runtime/runtime";
 import { main } from "../../wailsjs/go/models";
 interface DownloadProgress {
     current: number;
@@ -82,6 +82,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
     const [filterMediaType, setFilterMediaType] = useState<string>("all");
     const [accountViewMode, setAccountViewMode] = useState<"public" | "private">("public");
     const [searchQuery, setSearchQuery] = useState<string>("");
+    const deferredSearchQuery = useDeferredValue(searchQuery);
     const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "username-asc" | "username-desc" | "followers-high" | "followers-low" | "posts-high" | "posts-low" | "media-high" | "media-low">("newest");
     const [gridView, setGridView] = useState<"large" | "small" | "list">("list");
     const [editingAccount, setEditingAccount] = useState<AccountListItem | null>(null);
@@ -147,7 +148,6 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
             setDownloadProgress(progress);
         });
         return () => {
-            EventsOff("download-progress");
             unsubscribe();
         };
     }, []);
@@ -162,8 +162,8 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
         const baseAccounts = accountViewMode === "public" ? publicAccounts : privateAccounts;
         return baseAccounts
             .filter((acc) => {
-            if (searchQuery) {
-                const query = searchQuery.toLowerCase();
+            if (deferredSearchQuery) {
+                const query = deferredSearchQuery.toLowerCase();
                 const matchesUsername = acc.username.toLowerCase().includes(query);
                 const matchesName = acc.name.toLowerCase().includes(query);
                 if (!matchesUsername && !matchesName)
@@ -219,7 +219,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                     return 0;
             }
         });
-    }, [accountViewMode, filterGroup, filterMediaType, privateAccounts, publicAccounts, searchQuery, sortOrder]);
+    }, [accountViewMode, filterGroup, filterMediaType, privateAccounts, publicAccounts, deferredSearchQuery, sortOrder]);
     const visibleAccounts = useMemo(() => filteredAccounts.slice(0, visibleCount), [filteredAccounts, visibleCount]);
     const visibleAccountsKey = visibleAccounts
         .map((account) => `${account.id}:${account.username}`)
@@ -377,6 +377,10 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                 })),
                 output_dir: outputDir,
                 username: actualUsername,
+                concurrent_downloads: settings.concurrentDownloads || 10,
+                skip_existing: settings.skipExistingFiles,
+                delete_incomplete_files: settings.deleteIncompleteFiles,
+                retry_attempts: settings.retryAttempts,
                 proxy: settings.proxy || "",
             });
             const response = await DownloadMediaWithMetadata(request);
@@ -496,6 +500,10 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                     })),
                     output_dir: outputDir,
                     username: actualUsername,
+                    concurrent_downloads: settings.concurrentDownloads || 10,
+                    skip_existing: settings.skipExistingFiles,
+                    delete_incomplete_files: settings.deleteIncompleteFiles,
+                    retry_attempts: settings.retryAttempts,
                     proxy: settings.proxy || "",
                 });
                 const response = await DownloadMediaWithMetadata(request);
@@ -611,7 +619,15 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
         input.type = "file";
         input.accept = ".json";
         input.multiple = true;
+        input.style.display = "none";
+        document.body.appendChild(input);
+        const cleanup = () => {
+            if (input.parentNode) {
+                input.parentNode.removeChild(input);
+            }
+        };
         input.onchange = async (e) => {
+            try {
             const files = (e.target as HTMLInputElement).files;
             if (!files || files.length === 0)
                 return;
@@ -709,6 +725,9 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
             }
             else {
                 toast.error("No valid files imported");
+            }
+            } finally {
+                cleanup();
             }
         };
         input.click();

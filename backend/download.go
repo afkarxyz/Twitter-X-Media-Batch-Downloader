@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,8 +16,44 @@ import (
 )
 
 const (
-	MaxConcurrentDownloads = 10
+	DefaultConcurrentDownloads = 10
+	MaxConcurrentDownloads     = 50
+	DefaultRetryAttempts       = 2
+	MaxRetryAttempts           = 5
 )
+
+func NormalizeConcurrentDownloads(requested int) int {
+	if requested <= 0 {
+		return DefaultConcurrentDownloads
+	}
+	if requested > MaxConcurrentDownloads {
+		return MaxConcurrentDownloads
+	}
+	return requested
+}
+
+func NormalizeRetryAttempts(requested int) int {
+	if requested < 0 {
+		return 0
+	}
+	if requested > MaxRetryAttempts {
+		return MaxRetryAttempts
+	}
+	return requested
+}
+
+type DownloadOptions struct {
+	ConcurrentDownloads   int
+	SkipExistingFiles     bool
+	DeleteIncompleteFiles bool
+	RetryAttempts         int
+}
+
+func NormalizeDownloadOptions(options DownloadOptions) DownloadOptions {
+	options.ConcurrentDownloads = NormalizeConcurrentDownloads(options.ConcurrentDownloads)
+	options.RetryAttempts = NormalizeRetryAttempts(options.RetryAttempts)
+	return options
+}
 
 type MediaItem struct {
 	URL              string `json:"url"`
@@ -28,7 +65,8 @@ type MediaItem struct {
 	OriginalFilename string `json:"original_filename,omitempty"`
 }
 
-func DownloadMediaFiles(urls []string, outputDir string, customProxy string) (downloaded int, failed int, err error) {
+func DownloadMediaFiles(urls []string, outputDir string, options DownloadOptions, customProxy string) (downloaded int, failed int, err error) {
+	options = NormalizeDownloadOptions(options)
 
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return 0, len(urls), fmt.Errorf("failed to create output directory: %v", err)
@@ -46,12 +84,14 @@ func DownloadMediaFiles(urls []string, outputDir string, customProxy string) (do
 		filename := extractFilename(mediaURL)
 		outputPath := filepath.Join(outputDir, filename)
 
-		if _, err := os.Stat(outputPath); err == nil {
-			downloaded++
-			continue
+		if options.SkipExistingFiles {
+			if _, err := os.Stat(outputPath); err == nil {
+				downloaded++
+				continue
+			}
 		}
 
-		if err := downloadFile(client, mediaURL, outputPath); err != nil {
+		if err := downloadFileWithRetry(context.Background(), client, mediaURL, outputPath, options); err != nil {
 			failed++
 			continue
 		}
@@ -59,6 +99,140 @@ func DownloadMediaFiles(urls []string, outputDir string, customProxy string) (do
 	}
 
 	return downloaded, failed, nil
+}
+
+func fileExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	return false, err
+}
+
+func cleanupIncompleteDownload(outputPath string) {
+	_ = os.Remove(outputPath)
+}
+
+func replaceFile(tempPath, outputPath string, allowOverwrite bool) error {
+	if !allowOverwrite {
+		return os.Rename(tempPath, outputPath)
+	}
+
+	exists, err := fileExists(outputPath)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return os.Rename(tempPath, outputPath)
+	}
+
+	backupPath := fmt.Sprintf("%s.bak.%d", outputPath, time.Now().UnixNano())
+	if err := os.Rename(outputPath, backupPath); err != nil {
+		return err
+	}
+
+	if err := os.Rename(tempPath, outputPath); err != nil {
+		restoreErr := os.Rename(backupPath, outputPath)
+		if restoreErr != nil {
+			return fmt.Errorf("failed to replace existing file: %v (restore failed: %v)", err, restoreErr)
+		}
+		return err
+	}
+
+	_ = os.Remove(backupPath)
+	return nil
+}
+
+func writeFileAtomically(outputPath string, data []byte, allowOverwrite bool, keepPartialOnFailure bool) error {
+	out, err := os.CreateTemp(filepath.Dir(outputPath), filepath.Base(outputPath)+".*.part")
+	if err != nil {
+		return err
+	}
+	tempPath := out.Name()
+	cleanupTemp := !keepPartialOnFailure
+	defer func() {
+		if out != nil {
+			_ = out.Close()
+		}
+		if cleanupTemp {
+			_ = os.Remove(tempPath)
+		}
+	}()
+
+	if _, err := out.Write(data); err != nil {
+		return err
+	}
+
+	if err := out.Close(); err != nil {
+		return err
+	}
+	out = nil
+
+	if err := replaceFile(tempPath, outputPath, allowOverwrite); err != nil {
+		return err
+	}
+
+	cleanupTemp = false
+	return nil
+}
+
+func waitForRetry(ctx context.Context, attempt int) error {
+	timer := time.NewTimer(time.Duration(attempt) * 500 * time.Millisecond)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+func downloadFileWithRetry(ctx context.Context, client *http.Client, mediaURL, outputPath string, options DownloadOptions) error {
+	options = NormalizeDownloadOptions(options)
+
+	var lastErr error
+	totalAttempts := options.RetryAttempts + 1
+	for attempt := 1; attempt <= totalAttempts; attempt++ {
+		keepPartialOnFailure := !options.DeleteIncompleteFiles && attempt == totalAttempts
+		lastErr = downloadFileWithContext(ctx, client, mediaURL, outputPath, !options.SkipExistingFiles, keepPartialOnFailure)
+		if lastErr == nil {
+			return nil
+		}
+		if ctx.Err() != nil || errors.Is(lastErr, context.Canceled) {
+			if options.DeleteIncompleteFiles {
+				cleanupIncompleteDownload(outputPath)
+			}
+			return lastErr
+		}
+		if options.DeleteIncompleteFiles {
+			cleanupIncompleteDownload(outputPath)
+		}
+		if attempt < totalAttempts {
+			if err := waitForRetry(ctx, attempt); err != nil {
+				if options.DeleteIncompleteFiles {
+					cleanupIncompleteDownload(outputPath)
+				}
+				return err
+			}
+		}
+	}
+
+	return lastErr
+}
+
+func writeTextFileWithOptions(outputPath string, content string, options DownloadOptions) error {
+	keepPartialOnFailure := !options.DeleteIncompleteFiles
+	if err := writeFileAtomically(outputPath, []byte(content), !options.SkipExistingFiles, keepPartialOnFailure); err != nil {
+		if options.DeleteIncompleteFiles {
+			cleanupIncompleteDownload(outputPath)
+		}
+		return err
+	}
+	return nil
 }
 
 type ProgressCallback func(current, total int)
@@ -71,10 +245,11 @@ type downloadTask struct {
 	index      int
 }
 
-func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir string, username string, progress ProgressCallback, itemStatus ItemStatusCallback, ctx context.Context, customProxy string) (downloaded int, skipped int, failed int, err error) {
+func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir string, username string, progress ProgressCallback, itemStatus ItemStatusCallback, ctx context.Context, options DownloadOptions, customProxy string) (downloaded int, skipped int, failed int, err error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	options = NormalizeDownloadOptions(options)
 
 	total := len(items)
 	if total == 0 {
@@ -144,7 +319,7 @@ func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir str
 	taskChan := make(chan downloadTask, len(tasks))
 	var wg sync.WaitGroup
 
-	numWorkers := MaxConcurrentDownloads
+	numWorkers := options.ConcurrentDownloads
 	if numWorkers > len(tasks) {
 		numWorkers = len(tasks)
 	}
@@ -167,14 +342,6 @@ func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir str
 			client := sharedClient
 
 			for task := range taskChan {
-
-				select {
-				case <-ctx.Done():
-					return
-				default:
-				}
-
-				var status string
 				markCompleted := func() {
 					completed := atomic.AddInt64(&completedCount, 1)
 					if progress != nil {
@@ -182,25 +349,54 @@ func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir str
 					}
 				}
 
-				if _, err := os.Stat(task.outputPath); err == nil {
-					status = "skipped"
-
+				if ctx.Err() != nil {
 					if itemStatus != nil {
-						itemStatus(task.item.TweetID, task.index, status)
+						itemStatus(task.item.TweetID, task.index, "cancelled")
 					}
-					atomic.AddInt64(&skippedCount, 1)
 					markCompleted()
 					continue
-				} else if task.item.Type == "text" {
+				}
 
-					if err := os.WriteFile(task.outputPath, []byte(task.item.Content), 0644); err != nil {
+				var status string
+
+				if options.SkipExistingFiles {
+					exists, err := fileExists(task.outputPath)
+					if err == nil && exists {
+						status = "skipped"
+
+						if itemStatus != nil {
+							itemStatus(task.item.TweetID, task.index, status)
+						}
+						atomic.AddInt64(&skippedCount, 1)
+						markCompleted()
+						continue
+					}
+				}
+
+				if task.item.Type == "text" {
+					if ctx.Err() != nil {
+						if itemStatus != nil {
+							itemStatus(task.item.TweetID, task.index, "cancelled")
+						}
+						markCompleted()
+						continue
+					}
+
+					if err := writeTextFileWithOptions(task.outputPath, task.item.Content, options); err != nil {
 						atomic.AddInt64(&failedCount, 1)
 						status = "failed"
 					} else {
 						atomic.AddInt64(&downloadedCount, 1)
 						status = "success"
 					}
-				} else if err := downloadFileWithContext(ctx, client, task.item.URL, task.outputPath); err != nil {
+				} else if err := downloadFileWithRetry(ctx, client, task.item.URL, task.outputPath, options); err != nil {
+					if ctx.Err() != nil || errors.Is(err, context.Canceled) {
+						if itemStatus != nil {
+							itemStatus(task.item.TweetID, task.index, "cancelled")
+						}
+						markCompleted()
+						continue
+					}
 					atomic.AddInt64(&failedCount, 1)
 					status = "failed"
 				} else {
@@ -209,8 +405,10 @@ func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir str
 
 					originalFilename := ExtractOriginalFilename(task.item.URL)
 
-					if err := EmbedMetadata(task.outputPath, task.item.Content, tweetURL, originalFilename); err != nil {
+					if ctx.Err() == nil {
+						if err := EmbedMetadata(ctx, task.outputPath, task.item.Content, tweetURL, originalFilename); err != nil && !errors.Is(err, context.Canceled) {
 
+						}
 					}
 
 					atomic.AddInt64(&downloadedCount, 1)
@@ -231,7 +429,7 @@ func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir str
 		case <-ctx.Done():
 			close(taskChan)
 			wg.Wait()
-			return int(downloadedCount), int(skippedCount), int(failedCount) + (total - int(completedCount)), ctx.Err()
+			return int(downloadedCount), int(skippedCount), int(failedCount), ctx.Err()
 		case taskChan <- task:
 		}
 	}
@@ -239,10 +437,14 @@ func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir str
 
 	wg.Wait()
 
+	if err := ctx.Err(); err != nil {
+		return int(downloadedCount), int(skippedCount), int(failedCount), err
+	}
+
 	return int(downloadedCount), int(skippedCount), int(failedCount), nil
 }
 
-func downloadFileWithContext(ctx context.Context, client *http.Client, url, outputPath string) error {
+func downloadFileWithContext(ctx context.Context, client *http.Client, url, outputPath string, allowOverwrite bool, keepPartialOnFailure bool) error {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return err
@@ -258,14 +460,41 @@ func downloadFileWithContext(ctx context.Context, client *http.Client, url, outp
 		return fmt.Errorf("bad status: %s", resp.Status)
 	}
 
-	out, err := os.Create(outputPath)
+	out, err := os.CreateTemp(filepath.Dir(outputPath), filepath.Base(outputPath)+".*.part")
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	tempPath := out.Name()
+	cleanupTemp := !keepPartialOnFailure
+	defer func() {
+		if out != nil {
+			_ = out.Close()
+		}
+		if cleanupTemp {
+			_ = os.Remove(tempPath)
+		}
+	}()
 
 	_, err = io.Copy(out, resp.Body)
-	return err
+	if err != nil {
+		return err
+	}
+
+	if err := out.Close(); err != nil {
+		return err
+	}
+	out = nil
+
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
+	if err := replaceFile(tempPath, outputPath, allowOverwrite); err != nil {
+		return err
+	}
+
+	cleanupTemp = false
+	return nil
 }
 
 func formatTimestamp(dateStr string) string {
@@ -354,22 +583,9 @@ func extractFilename(mediaURL string) string {
 }
 
 func downloadFile(client *http.Client, url, outputPath string) error {
-	resp, err := client.Get(url)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("bad status: %s", resp.Status)
-	}
-
-	out, err := os.Create(outputPath)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	_, err = io.Copy(out, resp.Body)
-	return err
+	return downloadFileWithRetry(context.Background(), client, url, outputPath, DownloadOptions{
+		SkipExistingFiles:     false,
+		DeleteIncompleteFiles: true,
+		RetryAttempts:         0,
+	})
 }

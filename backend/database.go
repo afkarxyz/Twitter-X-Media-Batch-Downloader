@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -41,6 +43,15 @@ type AccountListItem struct {
 }
 
 var db *sql.DB
+var dbInitOnce sync.Once
+var dbInitErr error
+
+func ensureDB() error {
+	dbInitOnce.Do(func() {
+		dbInitErr = initDBInternal()
+	})
+	return dbInitErr
+}
 
 type accountMetricsPayload struct {
 	AccountInfo struct {
@@ -60,6 +71,10 @@ func GetDBPath() string {
 }
 
 func InitDB() error {
+	return ensureDB()
+}
+
+func initDBInternal() error {
 	dbPath := GetDBPath()
 
 	dir := filepath.Dir(dbPath)
@@ -100,17 +115,44 @@ func InitDB() error {
 		return err
 	}
 
-	db.Exec("ALTER TABLE accounts ADD COLUMN group_name TEXT DEFAULT ''")
-	db.Exec("ALTER TABLE accounts ADD COLUMN group_color TEXT DEFAULT ''")
-	db.Exec("ALTER TABLE accounts ADD COLUMN media_type TEXT DEFAULT 'all'")
-	db.Exec("ALTER TABLE accounts ADD COLUMN cursor TEXT DEFAULT ''")
-	db.Exec("ALTER TABLE accounts ADD COLUMN completed INTEGER DEFAULT 1")
-	db.Exec("ALTER TABLE accounts ADD COLUMN followers_count INTEGER DEFAULT 0")
-	db.Exec("ALTER TABLE accounts ADD COLUMN statuses_count INTEGER DEFAULT 0")
-
 	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_username_media_type ON accounts(username, media_type)")
 
+	if err := runMigrations(); err != nil {
+		return err
+	}
+
 	if err := backfillAccountMetrics(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func runMigrations() error {
+	var version int
+	if err := db.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
+		return err
+	}
+
+	migrations := []string{
+		"ALTER TABLE accounts ADD COLUMN group_name TEXT DEFAULT ''",
+		"ALTER TABLE accounts ADD COLUMN group_color TEXT DEFAULT ''",
+		"ALTER TABLE accounts ADD COLUMN media_type TEXT DEFAULT 'all'",
+		"ALTER TABLE accounts ADD COLUMN cursor TEXT DEFAULT ''",
+		"ALTER TABLE accounts ADD COLUMN completed INTEGER DEFAULT 1",
+		"ALTER TABLE accounts ADD COLUMN followers_count INTEGER DEFAULT 0",
+		"ALTER TABLE accounts ADD COLUMN statuses_count INTEGER DEFAULT 0",
+	}
+
+	for i := version; i < len(migrations); i++ {
+		if _, err := db.Exec(migrations[i]); err != nil {
+			if !strings.Contains(err.Error(), "duplicate column name") {
+				return fmt.Errorf("migration %d failed: %w", i, err)
+			}
+		}
+	}
+
+	if _, err := db.Exec(fmt.Sprintf("PRAGMA user_version = %d", len(migrations))); err != nil {
 		return err
 	}
 
@@ -128,10 +170,8 @@ func SaveAccount(username, name, profileImage string, totalMedia int, responseJS
 }
 
 func SaveAccountWithStatus(username, name, profileImage string, totalMedia int, responseJSON string, mediaType string, cursor string, completed bool) error {
-	if db == nil {
-		if err := InitDB(); err != nil {
-			return err
-		}
+	if err := ensureDB(); err != nil {
+		return err
 	}
 
 	if mediaType == "" {
@@ -164,10 +204,8 @@ func SaveAccountWithStatus(username, name, profileImage string, totalMedia int, 
 }
 
 func GetAllAccounts() ([]AccountListItem, error) {
-	if db == nil {
-		if err := InitDB(); err != nil {
-			return nil, err
-		}
+	if err := ensureDB(); err != nil {
+		return nil, err
 	}
 
 	rows, err := db.Query(`
@@ -264,10 +302,8 @@ func backfillAccountMetrics() error {
 }
 
 func UpdateAccountGroup(id int64, groupName, groupColor string) error {
-	if db == nil {
-		if err := InitDB(); err != nil {
-			return err
-		}
+	if err := ensureDB(); err != nil {
+		return err
 	}
 
 	_, err := db.Exec("UPDATE accounts SET group_name = ?, group_color = ? WHERE id = ?", groupName, groupColor, id)
@@ -275,10 +311,8 @@ func UpdateAccountGroup(id int64, groupName, groupColor string) error {
 }
 
 func GetAllGroups() ([]map[string]string, error) {
-	if db == nil {
-		if err := InitDB(); err != nil {
-			return nil, err
-		}
+	if err := ensureDB(); err != nil {
+		return nil, err
 	}
 
 	rows, err := db.Query(`
@@ -305,10 +339,8 @@ func GetAllGroups() ([]map[string]string, error) {
 }
 
 func ClearAllAccounts() error {
-	if db == nil {
-		if err := InitDB(); err != nil {
-			return err
-		}
+	if err := ensureDB(); err != nil {
+		return err
 	}
 
 	_, err := db.Exec("DELETE FROM accounts")
@@ -316,10 +348,8 @@ func ClearAllAccounts() error {
 }
 
 func GetAccountByID(id int64) (*AccountDB, error) {
-	if db == nil {
-		if err := InitDB(); err != nil {
-			return nil, err
-		}
+	if err := ensureDB(); err != nil {
+		return nil, err
 	}
 
 	var acc AccountDB
@@ -345,10 +375,8 @@ func GetAccountByID(id int64) (*AccountDB, error) {
 }
 
 func GetAccountByUsernameAndMediaType(username, mediaType string) (*AccountDB, error) {
-	if db == nil {
-		if err := InitDB(); err != nil {
-			return nil, err
-		}
+	if err := ensureDB(); err != nil {
+		return nil, err
 	}
 
 	if mediaType == "" {
@@ -380,10 +408,8 @@ func GetAccountByUsernameAndMediaType(username, mediaType string) (*AccountDB, e
 }
 
 func DeleteAccount(id int64) error {
-	if db == nil {
-		if err := InitDB(); err != nil {
-			return err
-		}
+	if err := ensureDB(); err != nil {
+		return err
 	}
 
 	_, err := db.Exec("DELETE FROM accounts WHERE id = ?", id)
@@ -523,13 +549,7 @@ func ExportAccountsToTXT(ids []int64, outputDir string) (string, error) {
 		return "", fmt.Errorf("no valid usernames found")
 	}
 
-	txtContent := ""
-	for i, username := range usernames {
-		if i > 0 {
-			txtContent += "\n"
-		}
-		txtContent += username
-	}
+	txtContent := strings.Join(usernames, "\n")
 
 	filePath := filepath.Join(exportDir, "twitterxmediabatchdownloader_multiple.txt")
 
@@ -541,10 +561,8 @@ func ExportAccountsToTXT(ids []int64, outputDir string) (string, error) {
 }
 
 func ImportAccountFromFile(filePath string) (string, error) {
-	if db == nil {
-		if err := InitDB(); err != nil {
-			return "", err
-		}
+	if err := ensureDB(); err != nil {
+		return "", err
 	}
 
 	data, err := os.ReadFile(filePath)

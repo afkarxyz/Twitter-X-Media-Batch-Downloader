@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"sync"
 	"twitterxmediabatchdownloader/backend"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -13,8 +14,9 @@ import (
 
 type App struct {
 	ctx            context.Context
-	downloadCtx    context.Context
+	downloadMu     sync.Mutex
 	downloadCancel context.CancelFunc
+	downloadActive bool
 }
 
 func NewApp() *App {
@@ -180,14 +182,22 @@ func (a *App) GetExtractorVersionStatus() backend.ExtractorVersionStatus {
 }
 
 func (a *App) Quit() {
+	if a.ctx != nil {
+		runtime.Quit(a.ctx)
+		return
+	}
 	panic("quit")
 }
 
 type DownloadMediaRequest struct {
-	URLs      []string `json:"urls"`
-	OutputDir string   `json:"output_dir"`
-	Username  string   `json:"username"`
-	Proxy     string   `json:"proxy,omitempty"`
+	URLs                  []string `json:"urls"`
+	OutputDir             string   `json:"output_dir"`
+	Username              string   `json:"username"`
+	ConcurrentDownloads   int      `json:"concurrent_downloads,omitempty"`
+	SkipExisting          bool     `json:"skip_existing"`
+	DeleteIncompleteFiles bool     `json:"delete_incomplete_files"`
+	RetryAttempts         int      `json:"retry_attempts,omitempty"`
+	Proxy                 string   `json:"proxy,omitempty"`
 }
 
 type MediaItemRequest struct {
@@ -201,10 +211,14 @@ type MediaItemRequest struct {
 }
 
 type DownloadMediaWithMetadataRequest struct {
-	Items     []MediaItemRequest `json:"items"`
-	OutputDir string             `json:"output_dir"`
-	Username  string             `json:"username"`
-	Proxy     string             `json:"proxy,omitempty"`
+	Items                 []MediaItemRequest `json:"items"`
+	OutputDir             string             `json:"output_dir"`
+	Username              string             `json:"username"`
+	ConcurrentDownloads   int                `json:"concurrent_downloads,omitempty"`
+	SkipExisting          bool               `json:"skip_existing"`
+	DeleteIncompleteFiles bool               `json:"delete_incomplete_files"`
+	RetryAttempts         int                `json:"retry_attempts,omitempty"`
+	Proxy                 string             `json:"proxy,omitempty"`
 }
 
 type DownloadMediaResponse struct {
@@ -234,7 +248,14 @@ func (a *App) DownloadMedia(req DownloadMediaRequest) (DownloadMediaResponse, er
 		outputDir = filepath.Join(outputDir, req.Username)
 	}
 
-	downloaded, failed, err := backend.DownloadMediaFiles(req.URLs, outputDir, req.Proxy)
+	options := backend.DownloadOptions{
+		ConcurrentDownloads:   req.ConcurrentDownloads,
+		SkipExistingFiles:     req.SkipExisting,
+		DeleteIncompleteFiles: req.DeleteIncompleteFiles,
+		RetryAttempts:         req.RetryAttempts,
+	}
+
+	downloaded, failed, err := backend.DownloadMediaFiles(req.URLs, outputDir, options, req.Proxy)
 	if err != nil {
 		return DownloadMediaResponse{
 			Success:    false,
@@ -307,11 +328,15 @@ func (a *App) DownloadMediaWithMetadata(req DownloadMediaWithMetadataRequest) (D
 		}
 	}
 
-	a.downloadCtx, a.downloadCancel = context.WithCancel(context.Background())
-	defer func() {
-		a.downloadCtx = nil
-		a.downloadCancel = nil
-	}()
+	downloadCtx, err := a.startDownloadOperation()
+	if err != nil {
+		return DownloadMediaResponse{
+			Success:   false,
+			Cancelled: false,
+			Message:   err.Error(),
+		}, err
+	}
+	defer a.finishDownloadOperation()
 
 	progressCallback := func(current, total int) {
 		percent := 0
@@ -333,7 +358,23 @@ func (a *App) DownloadMediaWithMetadata(req DownloadMediaWithMetadataRequest) (D
 		})
 	}
 
-	downloaded, skipped, failed, err := backend.DownloadMediaWithMetadataProgressAndStatus(items, outputDir, req.Username, progressCallback, itemStatusCallback, a.downloadCtx, req.Proxy)
+	options := backend.DownloadOptions{
+		ConcurrentDownloads:   req.ConcurrentDownloads,
+		SkipExistingFiles:     req.SkipExisting,
+		DeleteIncompleteFiles: req.DeleteIncompleteFiles,
+		RetryAttempts:         req.RetryAttempts,
+	}
+
+	downloaded, skipped, failed, err := backend.DownloadMediaWithMetadataProgressAndStatus(
+		items,
+		outputDir,
+		req.Username,
+		progressCallback,
+		itemStatusCallback,
+		downloadCtx,
+		options,
+		req.Proxy,
+	)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			return DownloadMediaResponse{
@@ -366,13 +407,39 @@ func (a *App) DownloadMediaWithMetadata(req DownloadMediaWithMetadataRequest) (D
 	}, nil
 }
 
-func (a *App) StopDownload() bool {
-	if a.downloadCancel != nil {
-		a.downloadCancel()
-		a.downloadCancel = nil
-		return true
+func (a *App) startDownloadOperation() (context.Context, error) {
+	a.downloadMu.Lock()
+	defer a.downloadMu.Unlock()
+
+	if a.downloadActive {
+		return nil, fmt.Errorf("another download is already in progress")
 	}
-	return false
+
+	ctx, cancel := context.WithCancel(context.Background())
+	a.downloadCancel = cancel
+	a.downloadActive = true
+
+	return ctx, nil
+}
+
+func (a *App) finishDownloadOperation() {
+	a.downloadMu.Lock()
+	defer a.downloadMu.Unlock()
+
+	a.downloadCancel = nil
+	a.downloadActive = false
+}
+
+func (a *App) StopDownload() bool {
+	a.downloadMu.Lock()
+	defer a.downloadMu.Unlock()
+
+	if !a.downloadActive || a.downloadCancel == nil {
+		return false
+	}
+
+	a.downloadCancel()
+	return true
 }
 
 func (a *App) SaveAccountToDB(username, name, profileImage string, totalMedia int, responseJSON string, mediaType string) error {

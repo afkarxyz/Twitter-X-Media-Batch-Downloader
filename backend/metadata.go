@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"os"
@@ -9,6 +10,11 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+)
+
+var (
+	filenameSafeRegex = regexp.MustCompile(`^[A-Za-z0-9_]+$`)
+	filenameLetterRegex = regexp.MustCompile(`[A-Za-z]`)
 )
 
 func ExtractOriginalFilename(mediaURL string) string {
@@ -29,7 +35,7 @@ func ExtractOriginalFilename(mediaURL string) string {
 					filename = filename[:idx]
 				}
 
-				if matched, _ := regexp.MatchString(`^[A-Za-z0-9_]+$`, filename); matched && len(filename) > 0 {
+				if filenameSafeRegex.MatchString(filename) && len(filename) > 0 {
 					return filename
 				}
 			}
@@ -44,7 +50,7 @@ func ExtractOriginalFilename(mediaURL string) string {
 				filename = filename[:idx]
 			}
 
-			if matched, _ := regexp.MatchString(`^[A-Za-z0-9_]+$`, filename); matched && len(filename) > 0 {
+			if filenameSafeRegex.MatchString(filename) && len(filename) > 0 {
 				return filename
 			}
 		}
@@ -58,9 +64,8 @@ func ExtractOriginalFilename(mediaURL string) string {
 				filename = filename[:idx]
 			}
 
-			if matched, _ := regexp.MatchString(`^[A-Za-z0-9_]+$`, filename); matched {
-				hasLetter, _ := regexp.MatchString(`[A-Za-z]`, filename)
-				if hasLetter && len(filename) >= 8 {
+			if filenameSafeRegex.MatchString(filename) {
+				if filenameLetterRegex.MatchString(filename) && len(filename) >= 8 {
 					return filename
 				}
 			}
@@ -70,21 +75,24 @@ func ExtractOriginalFilename(mediaURL string) string {
 	return ""
 }
 
-func EmbedMetadata(filePath string, tweetContent string, tweetURL string, originalFilename string) error {
+func EmbedMetadata(ctx context.Context, filePath string, tweetContent string, tweetURL string, originalFilename string) error {
 	ext := strings.ToLower(filepath.Ext(filePath))
 
 	switch ext {
 	case ".jpg", ".jpeg":
-		return embedImageMetadata(filePath, tweetContent, tweetURL, originalFilename)
+		return embedImageMetadata(ctx, filePath, tweetContent, tweetURL, originalFilename)
 	case ".mp4":
-		return embedVideoMetadata(filePath, tweetContent, tweetURL, originalFilename)
+		return embedVideoMetadata(ctx, filePath, tweetContent, tweetURL, originalFilename)
 	default:
 
 		return nil
 	}
 }
 
-func embedImageMetadata(filePath string, tweetContent string, tweetURL string, originalFilename string) error {
+func embedImageMetadata(ctx context.Context, filePath string, tweetContent string, tweetURL string, originalFilename string) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
 	exiftoolPath := findExifTool()
 	if exiftoolPath == "" {
@@ -100,10 +108,13 @@ func embedImageMetadata(filePath string, tweetContent string, tweetURL string, o
 		filePath,
 	}
 
-	cmd := exec.Command(exiftoolPath, args...)
+	cmd := exec.CommandContext(ctx, exiftoolPath, args...)
 	hideWindow(cmd)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 
 		return fmt.Errorf("exiftool error (non-fatal): %v, output: %s", err, string(output))
 	}
@@ -112,7 +123,10 @@ func embedImageMetadata(filePath string, tweetContent string, tweetURL string, o
 	return nil
 }
 
-func embedVideoMetadata(filePath string, tweetContent string, tweetURL string, originalFilename string) error {
+func embedVideoMetadata(ctx context.Context, filePath string, tweetContent string, tweetURL string, originalFilename string) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
 	exiftoolPath := findExifTool()
 	if exiftoolPath == "" {
@@ -120,10 +134,13 @@ func embedVideoMetadata(filePath string, tweetContent string, tweetURL string, o
 		return nil
 	}
 
-	return embedVideoMetadataWithExifTool(exiftoolPath, filePath, tweetContent, tweetURL, originalFilename)
+	return embedVideoMetadataWithExifTool(ctx, exiftoolPath, filePath, tweetContent, tweetURL, originalFilename)
 }
 
-func embedVideoMetadataWithExifTool(exiftoolPath string, filePath string, tweetContent string, tweetURL string, originalFilename string) error {
+func embedVideoMetadataWithExifTool(ctx context.Context, exiftoolPath string, filePath string, tweetContent string, tweetURL string, originalFilename string) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
 	metadataComment := buildMetadataComment(tweetContent, tweetURL, originalFilename)
 
@@ -133,10 +150,13 @@ func embedVideoMetadataWithExifTool(exiftoolPath string, filePath string, tweetC
 		filePath,
 	}
 
-	cmd := exec.Command(exiftoolPath, args...)
+	cmd := exec.CommandContext(ctx, exiftoolPath, args...)
 	hideWindow(cmd)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 
 		return fmt.Errorf("exiftool error (non-fatal): %v, output: %s", err, string(output))
 	}

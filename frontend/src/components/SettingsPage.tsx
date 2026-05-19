@@ -24,7 +24,7 @@ interface DependencyVersionStatus {
 }
 
 type DependencyVersionMethod = "GetExtractorVersionStatus" | "GetFFmpegVersionStatus" | "GetExifToolVersionStatus";
-type SettingsTab = "general" | "dependencies";
+type SettingsTab = "general" | "downloads" | "dependencies";
 
 interface SettingsPageProps {
     onUnsavedChangesChange?: (hasUnsavedChanges: boolean) => void;
@@ -387,6 +387,10 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
           <MonitorCog className="h-4 w-4"/>
           General
         </Button>
+        <Button variant={activeTab === "downloads" ? "default" : "ghost"} size="sm" onClick={() => setActiveTab("downloads")} className="rounded-b-none gap-2">
+          <Download className="h-4 w-4"/>
+          Downloads
+        </Button>
         <Button variant={activeTab === "dependencies" ? "default" : "ghost"} size="sm" onClick={() => setActiveTab("dependencies")} className="rounded-b-none gap-2">
           <PackageSearch className="h-4 w-4"/>
           Dependencies
@@ -394,19 +398,8 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
       </div>
 
       <div className="pt-4">
-        {activeTab === "general" && (<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {activeTab === "general" && (<div className="max-w-3xl space-y-4">
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="download-path">Download Path</Label>
-                <div className="flex gap-2">
-                  <InputWithContext id="download-path" value={tempSettings.downloadPath} onChange={(e) => setTempSettings((prev) => ({ ...prev, downloadPath: e.target.value }))} placeholder="C:\Users\YourUsername\Pictures"/>
-                  <Button type="button" onClick={handleBrowseFolder} className="gap-1.5">
-                    <FolderOpen className="h-4 w-4"/>
-                    Browse
-                  </Button>
-                </div>
-              </div>
-
               <div className="space-y-2">
                 <Label htmlFor="theme-mode">Mode</Label>
                 <Select value={tempSettings.themeMode} onValueChange={(value: "auto" | "light" | "dark") => setTempSettings((prev) => ({ ...prev, themeMode: value }))}>
@@ -481,22 +474,137 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
                 <Switch id="sfx-enabled" checked={tempSettings.sfxEnabled} onCheckedChange={(checked) => setTempSettings((prev) => ({ ...prev, sfxEnabled: checked }))}/>
               </div>
             </div>
+          </div>)}
+
+        {activeTab === "downloads" && (<div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_1px_minmax(0,1fr)] md:gap-6">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="download-path">Download Path</Label>
+                <div className="flex gap-2">
+                  <InputWithContext id="download-path" value={tempSettings.downloadPath} onChange={(e) => setTempSettings((prev) => ({ ...prev, downloadPath: e.target.value }))} placeholder="C:\Users\YourUsername\Pictures"/>
+                  <Button type="button" onClick={handleBrowseFolder} className="gap-1.5">
+                    <FolderOpen className="h-4 w-4"/>
+                    Browse
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="concurrent-downloads" className="flex items-center gap-2">
+                    Concurrent Downloads
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground"/>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <p>How many media files can download at the same time.</p>
+                      </TooltipContent>
+                      </Tooltip>
+                    </Label>
+                  <Select value={String(tempSettings.concurrentDownloads || 10)} onValueChange={(value) => setTempSettings((prev) => ({ ...prev, concurrentDownloads: parseInt(value, 10) }))}>
+                    <SelectTrigger id="concurrent-downloads" className="w-28">
+                      <SelectValue placeholder="10"/>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[1, 2, 3, 5, 8, 10, 15, 20, 25, 30, 40, 50].map((value) => (<SelectItem key={value} value={String(value)}>
+                          {value}
+                        </SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center justify-between gap-4">
+                  <Label htmlFor="skip-existing-files" className="cursor-pointer">Skip Existing Files</Label>
+                  <Switch id="skip-existing-files" checked={tempSettings.skipExistingFiles} onCheckedChange={(checked) => setTempSettings((prev) => ({ ...prev, skipExistingFiles: checked }))}/>
+                </div>
+
+                <div className="flex items-center justify-between gap-4">
+                  <Label htmlFor="delete-incomplete-files" className="cursor-pointer">Delete Incomplete Files</Label>
+                  <Switch id="delete-incomplete-files" checked={tempSettings.deleteIncompleteFiles} onCheckedChange={(checked) => setTempSettings((prev) => ({ ...prev, deleteIncompleteFiles: checked }))}/>
+                </div>
+
+                <div className="flex items-center justify-between gap-4">
+                  <Label htmlFor="retry-attempts">Retry Attempts</Label>
+                  <Select value={String(tempSettings.retryAttempts)} onValueChange={(value) => setTempSettings((prev) => ({ ...prev, retryAttempts: parseInt(value, 10) }))}>
+                    <SelectTrigger id="retry-attempts" className="w-24">
+                      <SelectValue placeholder="1"/>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[1, 2, 3, 4, 5].map((value) => (<SelectItem key={value} value={String(value)}>
+                          {value}
+                        </SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            <div aria-hidden="true" className="hidden bg-border md:block"/>
 
             <div className="space-y-4">
-              <div className="space-y-4">
-                <Label className="flex items-center gap-2">
-                  GIF Conversion
+              <div className="space-y-2">
+                <Label htmlFor="proxy" className="flex items-center gap-2">
+                  Proxy
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground"/>
                     </TooltipTrigger>
                     <TooltipContent side="top">
-                      <p>Quality settings for converting Twitter's MP4 into actual GIF files.</p>
+                      <p>Supports one proxy or multiple proxies separated by commas. Requests will rotate through them.</p>
                     </TooltipContent>
                   </Tooltip>
                 </Label>
+                <InputWithContext id="proxy" value={tempSettings.proxy || ""} onChange={(e) => setTempSettings((prev) => ({ ...prev, proxy: e.target.value }))} placeholder="http://proxy1:port, socks5://proxy2:port (optional)" className="max-w-md"/>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="fetch-timeout" className="flex items-center gap-2">
+                  Fetch Timeout
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground"/>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p>Timeout in seconds. Fetch stops automatically when reached</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </Label>
+                <InputWithContext id="fetch-timeout" type="number" value={tempSettings.fetchTimeout || 60} onChange={(e) => {
+                const inputValue = e.target.value;
+                if (inputValue === "") {
+                    setTempSettings((prev) => ({ ...prev, fetchTimeout: 60 }));
+                    return;
+                }
+                const value = parseInt(inputValue, 10);
+                if (!isNaN(value)) {
+                    setTempSettings((prev) => ({ ...prev, fetchTimeout: value }));
+                }
+            }} onBlur={(e) => {
+                const value = parseInt(e.target.value, 10);
+                if (isNaN(value) || value < 30) {
+                    setTempSettings((prev) => ({ ...prev, fetchTimeout: 30 }));
+                }
+                else if (value > 900) {
+                    setTempSettings((prev) => ({ ...prev, fetchTimeout: 900 }));
+                }
+            }} placeholder="60" className="w-24"/>
+              </div>
+
+              <div className="space-y-4">
                 <div className="space-y-3">
-                  <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    GIF Conversion
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground"/>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <p>Quality settings for converting Twitter's MP4 into actual GIF files.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </Label>
+                  <div className="flex items-center justify-between gap-4">
                     <Label htmlFor="gif-quality" className={!ffmpegInstalled ? "text-muted-foreground" : undefined}>GIF Quality</Label>
                     <Select value={tempSettings.gifQuality} onValueChange={(value: GifQuality) => {
                     setTempSettings((prev) => ({
@@ -514,7 +622,7 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-4">
                     <Label htmlFor="gif-resolution" className={!ffmpegInstalled ? "text-muted-foreground" : undefined}>Resolution</Label>
                     <Select value={tempSettings.gifResolution} onValueChange={(value: GifResolution) => setTempSettings((prev) => ({ ...prev, gifResolution: value }))} disabled={!ffmpegInstalled}>
                       <SelectTrigger id="gif-resolution" className="w-fit">
@@ -527,68 +635,6 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
                         <SelectItem value="low">Low (400px)</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2">
-                      Network
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground"/>
-                        </TooltipTrigger>
-                        <TooltipContent side="top">
-                          <p>Connection settings used while fetching data and downloading media.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </Label>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="proxy" className="flex items-center gap-2">
-                      Proxy
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground"/>
-                        </TooltipTrigger>
-                        <TooltipContent side="top">
-                          <p>Supports one proxy or multiple proxies separated by commas. Requests will rotate through them.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </Label>
-                    <InputWithContext id="proxy" value={tempSettings.proxy || ""} onChange={(e) => setTempSettings((prev) => ({ ...prev, proxy: e.target.value }))} placeholder="http://proxy1:port, socks5://proxy2:port (optional)" className="max-w-md"/>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="fetch-timeout" className="flex items-center gap-2">
-                      Fetch Timeout
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground"/>
-                        </TooltipTrigger>
-                        <TooltipContent side="top">
-                          <p>Timeout in seconds. Fetch stops automatically when reached</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </Label>
-                    <InputWithContext id="fetch-timeout" type="number" value={tempSettings.fetchTimeout || 60} onChange={(e) => {
-                    const inputValue = e.target.value;
-                    if (inputValue === "") {
-                        setTempSettings((prev) => ({ ...prev, fetchTimeout: 60 }));
-                        return;
-                    }
-                    const value = parseInt(inputValue, 10);
-                    if (!isNaN(value)) {
-                        setTempSettings((prev) => ({ ...prev, fetchTimeout: value }));
-                    }
-                }} onBlur={(e) => {
-                    const value = parseInt(e.target.value, 10);
-                    if (isNaN(value) || value < 30) {
-                        setTempSettings((prev) => ({ ...prev, fetchTimeout: 30 }));
-                    }
-                    else if (value > 900) {
-                        setTempSettings((prev) => ({ ...prev, fetchTimeout: 900 }));
-                    }
-                }} placeholder="60" className="w-24"/>
                   </div>
                 </div>
               </div>
