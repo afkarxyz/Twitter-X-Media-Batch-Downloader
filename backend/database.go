@@ -43,14 +43,23 @@ type AccountListItem struct {
 }
 
 var db *sql.DB
-var dbInitOnce sync.Once
-var dbInitErr error
+var dbInitMu sync.Mutex
+var dbInitialized bool
 
 func ensureDB() error {
-	dbInitOnce.Do(func() {
-		dbInitErr = initDBInternal()
-	})
-	return dbInitErr
+	dbInitMu.Lock()
+	defer dbInitMu.Unlock()
+
+	if dbInitialized && db != nil {
+		return nil
+	}
+
+	if err := initDBInternal(); err != nil {
+		return err
+	}
+
+	dbInitialized = true
+	return nil
 }
 
 type accountMetricsPayload struct {
@@ -273,7 +282,31 @@ func backfillAccountMetrics() error {
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+
+	type metricUpdate struct {
+		id             int64
+		followersCount int
+		statusesCount  int
+	}
+	var updates []metricUpdate
+	for rows.Next() {
+		var id int64
+		var responseJSON string
+		if err := rows.Scan(&id, &responseJSON); err != nil {
+			continue
+		}
+		followersCount, statusesCount := extractAccountMetrics(responseJSON)
+		updates = append(updates, metricUpdate{id, followersCount, statusesCount})
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	rows.Close()
+
+	if len(updates) == 0 {
+		return nil
+	}
 
 	stmt, err := db.Prepare(`
 		UPDATE accounts
@@ -285,20 +318,13 @@ func backfillAccountMetrics() error {
 	}
 	defer stmt.Close()
 
-	for rows.Next() {
-		var id int64
-		var responseJSON string
-		if err := rows.Scan(&id, &responseJSON); err != nil {
-			continue
-		}
-
-		followersCount, statusesCount := extractAccountMetrics(responseJSON)
-		if _, err := stmt.Exec(followersCount, statusesCount, id); err != nil {
+	for _, u := range updates {
+		if _, err := stmt.Exec(u.followersCount, u.statusesCount, u.id); err != nil {
 			return err
 		}
 	}
 
-	return rows.Err()
+	return nil
 }
 
 func UpdateAccountGroup(id int64, groupName, groupColor string) error {

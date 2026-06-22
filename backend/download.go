@@ -47,6 +47,8 @@ type DownloadOptions struct {
 	SkipExistingFiles     bool
 	DeleteIncompleteFiles bool
 	RetryAttempts         int
+	FilenameTemplate      string
+	FolderTemplate        string
 }
 
 func NormalizeDownloadOptions(options DownloadOptions) DownloadOptions {
@@ -258,6 +260,7 @@ func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir str
 
 	tweetMediaCount := make(map[string]map[int64]int)
 	tasks := make([]downloadTask, 0, total)
+	downloadDate := time.Now().Format("20060102")
 
 	for i, item := range items {
 
@@ -284,7 +287,7 @@ func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir str
 			subfolder = "other"
 		}
 
-		baseDir := filepath.Join(outputDir, itemUsername)
+		baseDir := filepath.Join(outputDir, renderFolder(options.FolderTemplate, itemUsername, downloadDate))
 		if err := os.MkdirAll(baseDir, 0755); err != nil {
 			continue
 		}
@@ -301,7 +304,12 @@ func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir str
 		tweetMediaCount[itemUsername][item.TweetID]++
 		mediaIndex := tweetMediaCount[itemUsername][item.TweetID]
 
-		filename := fmt.Sprintf("%s_%s_%d_%02d%s", itemUsername, timestamp, item.TweetID, mediaIndex, ext)
+		mediaID := item.OriginalFilename
+		if mediaID == "" {
+			mediaID = ExtractOriginalFilename(item.URL)
+		}
+
+		filename := renderFilename(options.FilenameTemplate, itemUsername, timestamp, item.TweetID, item.Type, mediaIndex, mediaID) + ext
 		outputPath := filepath.Join(typeDir, filename)
 
 		tasks = append(tasks, downloadTask{
@@ -519,6 +527,54 @@ func formatTimestamp(dateStr string) string {
 	return "00000000_000000"
 }
 
+func renderFilename(template, username, timestamp string, tweetID int64, mediaType string, index int, mediaID string) string {
+	if strings.TrimSpace(template) == "" {
+		template = "{username}_{date}_{tweet_id}_{index}"
+	}
+	replacer := strings.NewReplacer(
+		"{username}", sanitizeFilenamePart(username),
+		"{date}", timestamp,
+		"{tweet_id}", fmt.Sprintf("%d", tweetID),
+		"{index}", fmt.Sprintf("%02d", index),
+		"{media_id}", sanitizeFilenamePart(mediaID),
+		"{type}", sanitizeFilenamePart(mediaType),
+	)
+	name := strings.TrimSpace(replacer.Replace(template))
+	if name == "" {
+		name = fmt.Sprintf("%s_%s_%d_%02d", username, timestamp, tweetID, index)
+	}
+
+	if mediaID != "" && !strings.Contains(template, "{media_id}") {
+		name = name + "_" + sanitizeFilenamePart(mediaID)
+	}
+	return name
+}
+
+func renderFolder(template, username, date string) string {
+	if strings.TrimSpace(template) == "" {
+		template = "{username}"
+	}
+	replacer := strings.NewReplacer(
+		"{username}", sanitizeFilenamePart(username),
+		"{date}", date,
+	)
+	name := strings.TrimSpace(replacer.Replace(template))
+	if name == "" {
+		name = sanitizeFilenamePart(username)
+	}
+	return name
+}
+
+func sanitizeFilenamePart(s string) string {
+	return strings.TrimSpace(strings.Map(func(r rune) rune {
+		switch r {
+		case '\\', '/', ':', '*', '?', '"', '<', '>', '|':
+			return -1
+		}
+		return r
+	}, s))
+}
+
 func getExtension(mediaURL string, mediaType string) string {
 	parsedURL, err := url.Parse(mediaURL)
 	if err != nil {
@@ -588,4 +644,32 @@ func downloadFile(client *http.Client, url, outputPath string) error {
 		DeleteIncompleteFiles: true,
 		RetryAttempts:         0,
 	})
+}
+
+func DownloadProfileImage(imageURL, outputDir, username, kind, customProxy string) (string, error) {
+	if strings.TrimSpace(imageURL) == "" {
+		return "", fmt.Errorf("no %s url available", kind)
+	}
+
+	baseDir := outputDir
+	if username != "" {
+		baseDir = filepath.Join(outputDir, username)
+	}
+	if err := os.MkdirAll(baseDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create output directory: %v", err)
+	}
+
+	ext := getExtension(imageURL, "photo")
+	filename := fmt.Sprintf("%s_%s%s", sanitizeFilenamePart(username), kind, ext)
+	outputPath := filepath.Join(baseDir, filename)
+
+	client, err := CreateHTTPClient(customProxy, 60*time.Second)
+	if err != nil {
+		client = &http.Client{Timeout: 60 * time.Second}
+	}
+
+	if err := downloadFile(client, imageURL, outputPath); err != nil {
+		return "", fmt.Errorf("failed to download %s: %v", kind, err)
+	}
+	return outputPath, nil
 }

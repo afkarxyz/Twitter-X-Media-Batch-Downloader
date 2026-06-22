@@ -212,6 +212,8 @@ export namespace main {
 	    delete_incomplete_files: boolean;
 	    retry_attempts?: number;
 	    proxy?: string;
+	    filename_template?: string;
+	    folder_template?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new DownloadMediaWithMetadataRequest(source);
@@ -227,6 +229,8 @@ export namespace main {
 	        this.delete_incomplete_files = source["delete_incomplete_files"];
 	        this.retry_attempts = source["retry_attempts"];
 	        this.proxy = source["proxy"];
+	        this.filename_template = source["filename_template"];
+	        this.folder_template = source["folder_template"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -246,6 +250,26 @@ export namespace main {
 		    }
 		    return a;
 		}
+	}
+	export class DownloadProfileImageRequest {
+	    url: string;
+	    output_dir: string;
+	    username: string;
+	    kind: string;
+	    proxy?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DownloadProfileImageRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.url = source["url"];
+	        this.output_dir = source["output_dir"];
+	        this.username = source["username"];
+	        this.kind = source["kind"];
+	        this.proxy = source["proxy"];
+	    }
 	}
 	export class ImportAccountResponse {
 	    success: boolean;
@@ -273,6 +297,12 @@ export namespace main {
 	    media_type: string;
 	    retweets: boolean;
 	    cursor?: string;
+	    include_photos: boolean;
+	    include_videos: boolean;
+	    include_gifs: boolean;
+	    include_text: boolean;
+	    video_quality?: string;
+	    image_size?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new TimelineRequest(source);
@@ -288,6 +318,12 @@ export namespace main {
 	        this.media_type = source["media_type"];
 	        this.retweets = source["retweets"];
 	        this.cursor = source["cursor"];
+	        this.include_photos = source["include_photos"];
+	        this.include_videos = source["include_videos"];
+	        this.include_gifs = source["include_gifs"];
+	        this.include_text = source["include_text"];
+	        this.video_quality = source["video_quality"];
+	        this.image_size = source["image_size"];
 	    }
 	}
 

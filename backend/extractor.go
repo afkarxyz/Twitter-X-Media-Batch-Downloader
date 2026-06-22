@@ -144,8 +144,11 @@ func getExtractorAssetName() (string, error) {
 			return "windows-amd64.zip", nil
 		}
 	case "linux":
-		if runtime.GOARCH == "amd64" {
+		switch runtime.GOARCH {
+		case "amd64":
 			return "linux-amd64.zip", nil
+		case "arm64":
+			return "linux-arm64.zip", nil
 		}
 	case "darwin":
 		switch resolveMacOSExtractorArch(runtime.GOARCH, detectMacOSHardwareArch()) {
@@ -172,7 +175,6 @@ func detectMacOSHardwareArch() string {
 		return ""
 	}
 
-	// On Apple Silicon, this stays "1" even if the app itself runs under Rosetta.
 	cmd := exec.Command("sysctl", "-in", "hw.optional.arm64")
 	hideWindow(cmd)
 	output, err := cmd.Output()

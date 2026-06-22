@@ -5,12 +5,9 @@ import { openExternal } from "@/lib/utils";
 import KofiLogo from "@/assets/ko-fi.gif";
 import KofiSvg from "@/assets/kofi_symbol.svg";
 import UsdtBarcode from "@/assets/usdt.jpg";
-
 const USDT_ADDRESS = "THnzAAwZgp2Sq5CAXLP2njQDhTvgZG9EWs";
-
 export function SupportPage() {
     const [copiedUsdt, setCopiedUsdt] = useState(false);
-
     return (<div className="flex min-h-[70vh] items-center justify-center p-4">
       <div className="flex w-full max-w-3xl flex-col items-stretch rounded-xl border bg-card shadow-sm md:flex-row">
         <div className="flex flex-1 flex-col items-center justify-between space-y-6 border-b p-6 md:border-r md:border-b-0">

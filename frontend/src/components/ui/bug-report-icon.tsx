@@ -1,19 +1,14 @@
 "use client";
-
 import type { Transition, Variants } from "motion/react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState, type HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
-
 type ReportIconMode = "bug" | "bulb";
-
 interface BugReportIconProps extends HTMLAttributes<HTMLDivElement> {
     size?: number;
     loop?: boolean;
 }
-
 const LOOP_INTERVAL_MS = 2200;
-
 const GROUP_VARIANTS: Variants = {
     hidden: {
         opacity: 0,
@@ -33,7 +28,6 @@ const GROUP_VARIANTS: Variants = {
         },
     },
 };
-
 const DRAW_VARIANTS: Variants = {
     hidden: {
         pathLength: 0,
@@ -48,7 +42,6 @@ const DRAW_VARIANTS: Variants = {
         opacity: 0,
     },
 };
-
 function createDrawTransition(delay = 0, duration = 0.36): Transition {
     return {
         duration,
@@ -57,7 +50,6 @@ function createDrawTransition(delay = 0, duration = 0.36): Transition {
         opacity: { delay },
     };
 }
-
 function BugPaths() {
     return (<>
       <motion.path d="m8 2 1.88 1.88" transition={createDrawTransition(0)} variants={DRAW_VARIANTS}/>
@@ -73,7 +65,6 @@ function BugPaths() {
       <motion.path d="M3 21a4 4 0 0 1 3.81-4" transition={createDrawTransition(0.56)} variants={DRAW_VARIANTS}/>
     </>);
 }
-
 function BulbPaths() {
     return (<>
       <motion.path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" transition={createDrawTransition(0, 0.46)} variants={DRAW_VARIANTS}/>
@@ -81,13 +72,13 @@ function BulbPaths() {
       <motion.path d="M10 22h4" transition={createDrawTransition(0.24)} variants={DRAW_VARIANTS}/>
     </>);
 }
-
-function ReportIconGroup({ mode }: { mode: ReportIconMode; }) {
+function ReportIconGroup({ mode }: {
+    mode: ReportIconMode;
+}) {
     return (<motion.g animate="visible" exit="exit" initial="hidden" variants={GROUP_VARIANTS}>
       {mode === "bug" ? <BugPaths /> : <BulbPaths />}
     </motion.g>);
 }
-
 function StaticBugIcon() {
     return (<g>
       <path d="m8 2 1.88 1.88"/>
@@ -103,29 +94,23 @@ function StaticBugIcon() {
       <path d="M3 21a4 4 0 0 1 3.81-4"/>
     </g>);
 }
-
 function BugReportIcon({ className, size = 28, loop = false, ...props }: BugReportIconProps) {
     const [mode, setMode] = useState<ReportIconMode>("bug");
-
     useEffect(() => {
         if (!loop) {
             return;
         }
-
         const intervalId = window.setInterval(() => {
             setMode((currentMode) => currentMode === "bug" ? "bulb" : "bug");
         }, LOOP_INTERVAL_MS);
-
         return () => window.clearInterval(intervalId);
     }, [loop]);
-
     return (<div className={cn("flex items-center justify-center", className)} {...props}>
       <svg fill="none" height={size} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width={size} xmlns="http://www.w3.org/2000/svg">
         {loop ? (<AnimatePresence>
-            <ReportIconGroup key={mode} mode={mode} />
+            <ReportIconGroup key={mode} mode={mode}/>
           </AnimatePresence>) : (<StaticBugIcon />)}
       </svg>
     </div>);
 }
-
 export { BugReportIcon };

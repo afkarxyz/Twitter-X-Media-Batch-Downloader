@@ -31,6 +31,8 @@ export function DownloadMedia(arg1:main.DownloadMediaRequest):Promise<main.Downl
 
 export function DownloadMediaWithMetadata(arg1:main.DownloadMediaWithMetadataRequest):Promise<main.DownloadMediaResponse>;
 
+export function DownloadProfileImage(arg1:main.DownloadProfileImageRequest):Promise<string>;
+
 export function ExportAccountJSON(arg1:number,arg2:string):Promise<string>;
 
 export function ExportAccountsTXT(arg1:Array<number>,arg2:string):Promise<string>;

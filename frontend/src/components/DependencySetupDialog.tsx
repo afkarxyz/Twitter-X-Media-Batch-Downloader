@@ -6,17 +6,13 @@ import { Spinner } from "@/components/ui/spinner";
 import { toastWithSound as toast } from "@/lib/toast-with-sound";
 import { Quit } from "../../wailsjs/runtime/runtime";
 import { DownloadExtractor, IsExtractorInstalled } from "../../wailsjs/go/main/App";
-
 interface DependencySetupDialogProps {
     onInstalled?: () => void;
 }
-
 interface GithubReleaseResponse {
     tag_name?: string;
 }
-
 const extractorReleaseAPIURL = "https://api.github.com/repos/afkarxyz/xtractor-binaries/releases/latest";
-
 export function DependencySetupDialog({ onInstalled }: DependencySetupDialogProps) {
     const [open, setOpen] = useState(false);
     const [checking, setChecking] = useState(true);
@@ -24,11 +20,9 @@ export function DependencySetupDialog({ onInstalled }: DependencySetupDialogProp
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [releaseVersion, setReleaseVersion] = useState<string | null>(null);
     const [releaseStatusMessage, setReleaseStatusMessage] = useState("Checking latest GitHub release...");
-
     useEffect(() => {
         let cancelled = false;
         const abortController = new AbortController();
-
         const checkDependency = async () => {
             try {
                 const installed = await IsExtractorInstalled();
@@ -49,7 +43,6 @@ export function DependencySetupDialog({ onInstalled }: DependencySetupDialogProp
                 }
             }
         };
-
         const loadReleaseInfo = async () => {
             try {
                 const response = await fetch(extractorReleaseAPIURL, {
@@ -58,18 +51,14 @@ export function DependencySetupDialog({ onInstalled }: DependencySetupDialogProp
                     },
                     signal: abortController.signal,
                 });
-
                 if (!response.ok) {
                     throw new Error(`GitHub release status ${response.status}`);
                 }
-
                 const release = (await response.json()) as GithubReleaseResponse;
                 const version = release.tag_name?.trim();
-
                 if (!version) {
                     throw new Error("Missing GitHub release tag");
                 }
-
                 if (!cancelled) {
                     setReleaseVersion(version);
                     setReleaseStatusMessage(`Latest GitHub release: ${version}`);
@@ -82,16 +71,13 @@ export function DependencySetupDialog({ onInstalled }: DependencySetupDialogProp
                 }
             }
         };
-
         void checkDependency();
         void loadReleaseInfo();
-
         return () => {
             cancelled = true;
             abortController.abort();
         };
     }, []);
-
     const handleDownload = async () => {
         setDownloading(true);
         setErrorMessage(null);
@@ -110,17 +96,14 @@ export function DependencySetupDialog({ onInstalled }: DependencySetupDialogProp
             setDownloading(false);
         }
     };
-
     const handleExit = () => {
         if (!downloading) {
             void Quit();
         }
     };
-
     if (checking && !open) {
         return null;
     }
-
     return (<Dialog open={open} onOpenChange={(nextOpen) => {
             if (nextOpen) {
                 setOpen(true);

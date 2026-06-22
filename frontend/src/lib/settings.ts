@@ -1,52 +1,131 @@
 import { GetDefaults } from "../../wailsjs/go/main/App";
-
-export type BuiltInFontFamily =
-    | "google-sans"
-    | "inter"
-    | "poppins"
-    | "roboto"
-    | "dm-sans"
-    | "plus-jakarta-sans"
-    | "manrope"
-    | "space-grotesk"
-    | "noto-sans"
-    | "nunito-sans"
-    | "figtree"
-    | "raleway"
-    | "public-sans"
-    | "outfit"
-    | "jetbrains-mono"
-    | "geist-sans"
-    | "bricolage-grotesque";
-
+export type BuiltInFontFamily = "google-sans" | "inter" | "poppins" | "roboto" | "dm-sans" | "plus-jakarta-sans" | "manrope" | "space-grotesk" | "noto-sans" | "nunito-sans" | "figtree" | "raleway" | "public-sans" | "outfit" | "jetbrains-mono" | "geist-sans" | "bricolage-grotesque";
 export type CustomFontFamily = `custom-${string}`;
 export type FontFamily = BuiltInFontFamily | CustomFontFamily;
-
 export interface CustomFontOption {
     value: CustomFontFamily;
     label: string;
     fontFamily: string;
     url: string;
 }
-
 export interface FontOption {
     value: FontFamily;
     label: string;
     fontFamily: string;
     url?: string;
 }
-
 export type GifQuality = "fast" | "better";
 export type GifResolution = "original" | "high" | "medium" | "low";
-export type FetchMode = "single" | "batch";
-export type MediaType = "all" | "image" | "video" | "gif" | "text";
+export type VideoQuality = "highest" | "720" | "480" | "360" | "lowest";
+export type ImageSize = "orig" | "large" | "medium" | "small";
+export type AvatarSize = "orig" | "400x400" | "200x200" | "bigger" | "normal";
+export type BannerSize = "orig" | "1500x500" | "600x200" | "300x100";
+export const VIDEO_QUALITIES: {
+    value: VideoQuality;
+    label: string;
+}[] = [
+    { value: "highest", label: "Highest" },
+    { value: "720", label: "720p" },
+    { value: "480", label: "480p" },
+    { value: "360", label: "360p" },
+    { value: "lowest", label: "Lowest" },
+];
+export const IMAGE_SIZES: {
+    value: ImageSize;
+    label: string;
+}[] = [
+    { value: "orig", label: "Original" },
+    { value: "large", label: "Large" },
+    { value: "medium", label: "Medium" },
+    { value: "small", label: "Small" },
+];
+export const AVATAR_SIZES: {
+    value: AvatarSize;
+    label: string;
+}[] = [
+    { value: "orig", label: "Original" },
+    { value: "400x400", label: "400px" },
+    { value: "200x200", label: "200px" },
+    { value: "bigger", label: "Bigger" },
+    { value: "normal", label: "Normal" },
+];
+export const BANNER_SIZES: {
+    value: BannerSize;
+    label: string;
+}[] = [
+    { value: "orig", label: "Original" },
+    { value: "1500x500", label: "1500×500" },
+    { value: "600x200", label: "600×200" },
+    { value: "300x100", label: "300×100" },
+];
+export const DEFAULT_FILENAME_TEMPLATE = "{username}_{date}_{tweet_id}_{index}";
+export interface TemplateToken {
+    key: string;
+    description: string;
+    example: string;
+}
+export const FILENAME_TEMPLATE_VARIABLES: TemplateToken[] = [
+    { key: "{username}", description: "Author handle", example: "NASA" },
+    { key: "{date}", description: "Tweet date & time", example: "20250620_104556" },
+    { key: "{tweet_id}", description: "Tweet ID", example: "1989033613824815258" },
+    { key: "{index}", description: "Media position in tweet", example: "01" },
+    { key: "{media_id}", description: "Unique media ID (prevents overwrites)", example: "Gx1aB2cXkAA7Yz9" },
+    { key: "{type}", description: "Media type", example: "photo" },
+];
+export interface FilenameTemplateData {
+    username?: string;
+    date?: string;
+    tweetId?: string;
+    index?: number;
+    type?: string;
+}
+export const SAMPLE_FILENAME_DATA: FilenameTemplateData = {
+    username: "NASA",
+    date: "20250620_104556",
+    tweetId: "1989033613824815258",
+    index: 1,
+    type: "photo",
+};
+export function renderFilenameTemplate(template: string, data: FilenameTemplateData): string {
+    if (!template)
+        return "";
+    const safe = (s: string) => s.replace(/[\\/:*?"<>|]/g, "").trim();
+    return template
+        .replace(/\{username\}/g, safe(data.username ?? ""))
+        .replace(/\{date\}/g, safe(data.date ?? ""))
+        .replace(/\{tweet_id\}/g, safe(data.tweetId ?? ""))
+        .replace(/\{index\}/g, String(data.index ?? 1).padStart(2, "0"))
+        .replace(/\{type\}/g, safe(data.type ?? ""))
+        .trim();
+}
+export const DEFAULT_FOLDER_TEMPLATE = "{username}";
+export const FOLDER_TEMPLATE_VARIABLES: TemplateToken[] = [
+    { key: "{username}", description: "Author handle", example: "NASA" },
+    { key: "{date}", description: "Download date", example: "20250620" },
+];
+export interface FolderTemplateData {
+    username?: string;
+    date?: string;
+}
+export const SAMPLE_FOLDER_DATA: FolderTemplateData = {
+    username: "NASA",
+    date: "20250620",
+};
+export function renderFolderTemplate(template: string, data: FolderTemplateData): string {
+    if (!template)
+        return "";
+    const safe = (s: string) => s.replace(/[\\/:*?"<>|]/g, "").trim();
+    return template
+        .replace(/\{username\}/g, safe(data.username ?? ""))
+        .replace(/\{date\}/g, safe(data.date ?? ""))
+        .trim();
+}
 const DEFAULT_CONCURRENT_DOWNLOADS = 10;
 const MIN_CONCURRENT_DOWNLOADS = 1;
 const MAX_CONCURRENT_DOWNLOADS = 50;
 const DEFAULT_RETRY_ATTEMPTS = 1;
 const MIN_RETRY_ATTEMPTS = 1;
 const MAX_RETRY_ATTEMPTS = 5;
-
 export interface Settings {
     downloadPath: string;
     concurrentDownloads: number;
@@ -62,11 +141,18 @@ export interface Settings {
     gifResolution: GifResolution;
     proxy: string;
     fetchTimeout: number;
-    fetchMode: FetchMode;
-    mediaType: MediaType;
+    includePhotos: boolean;
+    includeVideos: boolean;
+    includeGifs: boolean;
+    includeText: boolean;
     includeRetweets: boolean;
+    videoQuality: VideoQuality;
+    imageSize: ImageSize;
+    avatarSize: AvatarSize;
+    bannerSize: BannerSize;
+    filenameTemplate: string;
+    folderTemplate: string;
 }
-
 export const DEFAULT_SETTINGS: Settings = {
     downloadPath: "",
     concurrentDownloads: DEFAULT_CONCURRENT_DOWNLOADS,
@@ -82,11 +168,18 @@ export const DEFAULT_SETTINGS: Settings = {
     gifResolution: "original",
     proxy: "",
     fetchTimeout: 60,
-    fetchMode: "batch",
-    mediaType: "all",
+    includePhotos: true,
+    includeVideos: true,
+    includeGifs: true,
+    includeText: false,
     includeRetweets: false,
+    videoQuality: "highest",
+    imageSize: "orig",
+    avatarSize: "orig",
+    bannerSize: "orig",
+    filenameTemplate: DEFAULT_FILENAME_TEMPLATE,
+    folderTemplate: DEFAULT_FOLDER_TEMPLATE,
 };
-
 export const FONT_OPTIONS: FontOption[] = [
     {
         value: "bricolage-grotesque",
@@ -174,13 +267,11 @@ export const FONT_OPTIONS: FontOption[] = [
         fontFamily: '"Space Grotesk", system-ui, sans-serif',
     },
 ];
-
 const BUILT_IN_FONT_VALUES = new Set(FONT_OPTIONS.map((font) => font.value));
 const SETTINGS_KEY = "twitter-media-downloader-settings";
 const GOOGLE_FONT_LINK_ID_PREFIX = "twitter-media-custom-font-";
 const GOOGLE_FONTS_CSS_HOST = "fonts.googleapis.com";
 const GOOGLE_FONTS_SPECIMEN_HOST = "fonts.google.com";
-
 function extractGoogleFontInputUrl(input: string): string {
     const trimmed = input.trim();
     const hrefMatch = trimmed.match(/\bhref=["']([^"']+)["']/i);
@@ -193,7 +284,6 @@ function extractGoogleFontInputUrl(input: string): string {
     }
     return trimmed;
 }
-
 function coerceGoogleFontUrl(rawUrl: string): string {
     const trimmed = rawUrl.trim();
     if (/^https?:\/\//i.test(trimmed)) {
@@ -204,34 +294,28 @@ function coerceGoogleFontUrl(rawUrl: string): string {
     }
     return trimmed;
 }
-
 function normalizeFontLabel(label: string): string {
     return label.replace(/\+/g, " ").replace(/\s+/g, " ").trim();
 }
-
 function slugifyFontLabel(label: string): string {
     return label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "font";
 }
-
 function toFontFamilyCss(label: string): string {
     const escapedLabel = label.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
     return `"${escapedLabel}", system-ui, sans-serif`;
 }
-
 function buildGoogleFontsCssUrl(label: string): string {
     const url = new URL("https://fonts.googleapis.com/css2");
     url.searchParams.set("family", label);
     url.searchParams.set("display", "swap");
     return url.toString();
 }
-
 function extractSpecimenFontLabel(parsed: URL): string {
     const segments = parsed.pathname.split("/").filter(Boolean);
     const specimenIndex = segments.findIndex((segment) => segment.toLowerCase() === "specimen");
     const specimenName = specimenIndex >= 0 ? segments[specimenIndex + 1] : "";
     return normalizeFontLabel(decodeURIComponent(specimenName || ""));
 }
-
 function normalizeGoogleFontCssUrl(rawUrl: string): string | null {
     try {
         const parsed = new URL(coerceGoogleFontUrl(extractGoogleFontInputUrl(rawUrl)));
@@ -257,7 +341,6 @@ function normalizeGoogleFontCssUrl(rawUrl: string): string | null {
         return null;
     }
 }
-
 export function parseGoogleFontUrl(rawUrl: string): CustomFontOption | null {
     const normalizedUrl = normalizeGoogleFontCssUrl(rawUrl);
     if (!normalizedUrl) {
@@ -276,7 +359,6 @@ export function parseGoogleFontUrl(rawUrl: string): CustomFontOption | null {
         url: normalizedUrl,
     };
 }
-
 function normalizeCustomFonts(customFonts: unknown): CustomFontOption[] {
     if (!Array.isArray(customFonts)) {
         return [];
@@ -288,7 +370,9 @@ function normalizeCustomFonts(customFonts: unknown): CustomFontOption[] {
         if (!item || typeof item !== "object") {
             continue;
         }
-        const rawUrl = (item as { url?: unknown }).url;
+        const rawUrl = (item as {
+            url?: unknown;
+        }).url;
         if (typeof rawUrl !== "string") {
             continue;
         }
@@ -302,7 +386,6 @@ function normalizeCustomFonts(customFonts: unknown): CustomFontOption[] {
     }
     return normalizedFonts;
 }
-
 function normalizeFontFamily(fontFamily: unknown, customFonts: CustomFontOption[]): FontFamily {
     if (typeof fontFamily !== "string") {
         return DEFAULT_SETTINGS.fontFamily;
@@ -313,7 +396,6 @@ function normalizeFontFamily(fontFamily: unknown, customFonts: CustomFontOption[
     const customFont = customFonts.find((font) => font.value === fontFamily);
     return customFont ? customFont.value : DEFAULT_SETTINGS.fontFamily;
 }
-
 function normalizeConcurrentDownloads(value: unknown): number {
     if (typeof value !== "number" || !Number.isFinite(value)) {
         return DEFAULT_CONCURRENT_DOWNLOADS;
@@ -327,14 +409,12 @@ function normalizeConcurrentDownloads(value: unknown): number {
     }
     return rounded;
 }
-
 function normalizeBoolean(value: unknown, fallback: boolean): boolean {
     if (typeof value === "boolean") {
         return value;
     }
     return fallback;
 }
-
 function normalizeRetryAttempts(value: unknown): number {
     if (typeof value !== "number" || !Number.isFinite(value)) {
         return DEFAULT_RETRY_ATTEMPTS;
@@ -348,11 +428,9 @@ function normalizeRetryAttempts(value: unknown): number {
     }
     return rounded;
 }
-
 export function getFontOptions(customFonts: CustomFontOption[] = []): FontOption[] {
     return [...FONT_OPTIONS, ...normalizeCustomFonts(customFonts)];
 }
-
 export function loadGoogleFontUrl(url: string, id = `${GOOGLE_FONT_LINK_ID_PREFIX}preview`): void {
     const normalizedUrl = normalizeGoogleFontCssUrl(url);
     if (!normalizedUrl) {
@@ -369,13 +447,11 @@ export function loadGoogleFontUrl(url: string, id = `${GOOGLE_FONT_LINK_ID_PREFI
         link.href = normalizedUrl;
     }
 }
-
 function loadCustomFontStylesheets(customFonts: CustomFontOption[]): void {
     for (const font of normalizeCustomFonts(customFonts)) {
         loadGoogleFontUrl(font.url, `${GOOGLE_FONT_LINK_ID_PREFIX}${font.value}`);
     }
 }
-
 export function applyFont(fontFamily: FontFamily, customFonts: CustomFontOption[] = []): void {
     const fontOptions = getFontOptions(customFonts);
     loadCustomFontStylesheets(customFonts);
@@ -385,7 +461,6 @@ export function applyFont(fontFamily: FontFamily, customFonts: CustomFontOption[
         document.body.style.fontFamily = font.fontFamily;
     }
 }
-
 async function fetchDefaultPath(): Promise<string> {
     try {
         const data = await GetDefaults();
@@ -396,7 +471,6 @@ async function fetchDefaultPath(): Promise<string> {
         return "";
     }
 }
-
 function toNormalizedSettings(settings: Partial<Settings>): Settings {
     const customFonts = normalizeCustomFonts(settings.customFonts);
     return {
@@ -410,7 +484,6 @@ function toNormalizedSettings(settings: Partial<Settings>): Settings {
         fontFamily: normalizeFontFamily(settings.fontFamily, customFonts),
     };
 }
-
 export function getSettings(): Settings {
     try {
         const stored = localStorage.getItem(SETTINGS_KEY);
@@ -423,7 +496,6 @@ export function getSettings(): Settings {
     }
     return DEFAULT_SETTINGS;
 }
-
 export async function getSettingsWithDefaults(): Promise<Settings> {
     const settings = getSettings();
     if (!settings.downloadPath) {
@@ -431,7 +503,6 @@ export async function getSettingsWithDefaults(): Promise<Settings> {
     }
     return toNormalizedSettings(settings);
 }
-
 export function saveSettings(settings: Settings): void {
     try {
         const normalizedSettings = toNormalizedSettings(settings);
@@ -441,14 +512,12 @@ export function saveSettings(settings: Settings): void {
         console.error("Failed to save settings:", error);
     }
 }
-
 export function updateSettings(partial: Partial<Settings>): Settings {
     const current = getSettings();
     const updated = toNormalizedSettings({ ...current, ...partial });
     saveSettings(updated);
     return updated;
 }
-
 export async function resetToDefaultSettings(): Promise<Settings> {
     const defaultPath = await fetchDefaultPath();
     const defaultSettings = toNormalizedSettings({
@@ -458,11 +527,9 @@ export async function resetToDefaultSettings(): Promise<Settings> {
     saveSettings(defaultSettings);
     return defaultSettings;
 }
-
 export async function loadCustomFonts(): Promise<CustomFontOption[]> {
     return normalizeCustomFonts(getSettings().customFonts);
 }
-
 export async function saveCustomFonts(customFonts: CustomFontOption[]): Promise<CustomFontOption[]> {
     const normalizedFonts = normalizeCustomFonts(customFonts);
     const settings = getSettings();
@@ -473,7 +540,6 @@ export async function saveCustomFonts(customFonts: CustomFontOption[]): Promise<
     });
     return normalizedFonts;
 }
-
 export function applyThemeMode(mode: "auto" | "light" | "dark"): void {
     if (mode === "auto") {
         const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;

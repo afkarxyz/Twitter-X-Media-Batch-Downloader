@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	ffmpegReleaseAPIURL         = "https://api.github.com/repos/afkarxyz/ffmpeg-binaries/releases/latest"
-	ffmpegLatestReleaseURL      = "https://github.com/afkarxyz/ffmpeg-binaries/releases/latest"
-	ffmpegLatestDownloadBaseURL = "https://github.com/afkarxyz/ffmpeg-binaries/releases/latest/download"
+	ffmpegReleaseAPIURL         = "https://api.github.com/repos/spotbye/Dependencies/releases/tags/FFmpeg-8.1"
+	ffmpegLatestReleaseURL      = "https://github.com/spotbye/Dependencies/releases/tag/FFmpeg-8.1"
+	ffmpegLatestDownloadBaseURL = "https://github.com/spotbye/Dependencies/releases/download/FFmpeg-8.1"
 )
 
 var ffmpegVersionPattern = regexp.MustCompile(`^[0-9]+(?:\.[0-9]+)+`)

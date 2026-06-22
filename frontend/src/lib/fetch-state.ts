@@ -11,12 +11,10 @@ export interface FetchState {
     retweets: boolean;
     timelineType: string;
 }
-
 function normalizeFetchState(state: FetchState | null | undefined): FetchState | null {
     if (!state) {
         return null;
     }
-
     return {
         ...state,
         cursor: state.cursor || "",
@@ -26,7 +24,6 @@ function normalizeFetchState(state: FetchState | null | undefined): FetchState |
         timelineType: state.timelineType || "timeline",
     };
 }
-
 export function saveFetchState(state: Partial<FetchState> & {
     username: string;
 }): void {

@@ -66,11 +66,9 @@ interface DatabaseViewProps {
 }
 const INITIAL_LOAD_COUNT = 12;
 const LOAD_MORE_COUNT = 12;
-
 function getContentScrollElement(): HTMLElement | null {
     return document.getElementById("app-content-scroll");
 }
-
 export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewProps) {
     const [accounts, setAccounts] = useState<AccountListItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -84,7 +82,13 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
     const [searchQuery, setSearchQuery] = useState<string>("");
     const deferredSearchQuery = useDeferredValue(searchQuery);
     const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "username-asc" | "username-desc" | "followers-high" | "followers-low" | "posts-high" | "posts-low" | "media-high" | "media-low">("newest");
-    const [gridView, setGridView] = useState<"large" | "small" | "list">("list");
+    const [gridView, setGridView] = useState<"large" | "small" | "list">(() => {
+        const stored = localStorage.getItem("savedAccountsViewMode");
+        return stored === "large" || stored === "small" || stored === "list" ? stored : "list";
+    });
+    useEffect(() => {
+        localStorage.setItem("savedAccountsViewMode", gridView);
+    }, [gridView]);
     const [editingAccount, setEditingAccount] = useState<AccountListItem | null>(null);
     const [editGroupName, setEditGroupName] = useState("");
     const [editGroupColor, setEditGroupColor] = useState("");
@@ -230,11 +234,9 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
             setFolderExistence(new Map());
             return;
         }
-
         if (visibleAccounts.length === 0) {
             return;
         }
-
         let active = true;
         const loadVisibleFolderExistence = async () => {
             try {
@@ -243,7 +245,6 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                 if (!active) {
                     return;
                 }
-
                 setFolderExistence((prev) => {
                     const next = new Map(prev);
                     for (const account of visibleAccounts) {
@@ -256,7 +257,6 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                 console.error("Failed to check visible folders:", error);
             }
         };
-
         void loadVisibleFolderExistence();
         return () => {
             active = false;
@@ -382,6 +382,8 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                 delete_incomplete_files: settings.deleteIncompleteFiles,
                 retry_attempts: settings.retryAttempts,
                 proxy: settings.proxy || "",
+                filename_template: settings.filenameTemplate || "",
+                folder_template: settings.folderTemplate || "",
             });
             const response = await DownloadMediaWithMetadata(request);
             if (response.cancelled) {
@@ -505,6 +507,8 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                     delete_incomplete_files: settings.deleteIncompleteFiles,
                     retry_attempts: settings.retryAttempts,
                     proxy: settings.proxy || "",
+                    filename_template: settings.filenameTemplate || "",
+                    folder_template: settings.folderTemplate || "",
                 });
                 const response = await DownloadMediaWithMetadata(request);
                 if (response.cancelled) {
@@ -628,105 +632,106 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
         };
         input.onchange = async (e) => {
             try {
-            const files = (e.target as HTMLInputElement).files;
-            if (!files || files.length === 0)
-                return;
-            let imported = 0;
-            for (const file of Array.from(files)) {
-                try {
-                    const text = await file.text();
-                    const data = JSON.parse(text);
-                    let detectedMediaType = "all";
-                    if (data.media_type) {
-                        detectedMediaType = data.media_type;
-                    }
-                    else if (data.media_list && Array.isArray(data.media_list)) {
-                        const types = new Set(data.media_list.map((item: {
-                            media_type?: string;
-                            type?: string;
-                        }) => item.media_type || item.type).filter(Boolean));
-                        if (types.size === 1) {
-                            const singleType = Array.from(types)[0] as string;
-                            if (singleType === "photo")
-                                detectedMediaType = "image";
-                            else if (singleType === "video")
-                                detectedMediaType = "video";
-                            else if (singleType === "animated_gif")
-                                detectedMediaType = "gif";
-                            else
-                                detectedMediaType = singleType;
+                const files = (e.target as HTMLInputElement).files;
+                if (!files || files.length === 0)
+                    return;
+                let imported = 0;
+                for (const file of Array.from(files)) {
+                    try {
+                        const text = await file.text();
+                        const data = JSON.parse(text);
+                        let detectedMediaType = "all";
+                        if (data.media_type) {
+                            detectedMediaType = data.media_type;
                         }
-                    }
-                    else if (data.timeline && Array.isArray(data.timeline)) {
-                        const types = new Set(data.timeline.map((item: {
-                            type?: string;
-                        }) => item.type).filter(Boolean));
-                        if (types.size === 1) {
-                            const singleType = Array.from(types)[0] as string;
-                            if (singleType === "photo")
-                                detectedMediaType = "image";
-                            else if (singleType === "video")
-                                detectedMediaType = "video";
-                            else if (singleType === "animated_gif")
-                                detectedMediaType = "gif";
-                            else if (singleType === "text")
-                                detectedMediaType = "text";
-                            else
-                                detectedMediaType = singleType;
-                        }
-                    }
-                    if (data.account_info && data.timeline) {
-                        await SaveAccountToDB(data.account_info.name, data.account_info.nick, data.account_info.profile_image, data.total_urls || data.timeline.length, text, detectedMediaType);
-                        imported++;
-                    }
-                    else if (data.username && data.media_list) {
-                        const convertedData = {
-                            account_info: {
-                                name: data.username,
-                                nick: data.nick || data.username,
-                                date: "",
-                                followers_count: data.followers || 0,
-                                friends_count: data.following || 0,
-                                profile_image: data.profile_image || "",
-                                statuses_count: data.posts || 0,
-                            },
-                            total_urls: data.media_list.length,
-                            timeline: data.media_list.map((item: {
-                                url: string;
-                                date: string;
-                                tweet_id: string;
-                                type: string;
+                        else if (data.media_list && Array.isArray(data.media_list)) {
+                            const types = new Set(data.media_list.map((item: {
                                 media_type?: string;
-                            }) => ({
-                                url: item.url,
-                                date: item.date,
-                                tweet_id: item.tweet_id,
-                                type: item.media_type || item.type,
-                                is_retweet: false,
-                            })),
-                            metadata: {
-                                new_entries: data.media_list.length,
-                                page: 0,
-                                batch_size: 0,
-                                has_more: false,
-                            },
-                        };
-                        await SaveAccountToDB(convertedData.account_info.name, convertedData.account_info.nick, convertedData.account_info.profile_image, convertedData.total_urls, JSON.stringify(convertedData), detectedMediaType);
-                        imported++;
+                                type?: string;
+                            }) => item.media_type || item.type).filter(Boolean));
+                            if (types.size === 1) {
+                                const singleType = Array.from(types)[0] as string;
+                                if (singleType === "photo")
+                                    detectedMediaType = "image";
+                                else if (singleType === "video")
+                                    detectedMediaType = "video";
+                                else if (singleType === "animated_gif")
+                                    detectedMediaType = "gif";
+                                else
+                                    detectedMediaType = singleType;
+                            }
+                        }
+                        else if (data.timeline && Array.isArray(data.timeline)) {
+                            const types = new Set(data.timeline.map((item: {
+                                type?: string;
+                            }) => item.type).filter(Boolean));
+                            if (types.size === 1) {
+                                const singleType = Array.from(types)[0] as string;
+                                if (singleType === "photo")
+                                    detectedMediaType = "image";
+                                else if (singleType === "video")
+                                    detectedMediaType = "video";
+                                else if (singleType === "animated_gif")
+                                    detectedMediaType = "gif";
+                                else if (singleType === "text")
+                                    detectedMediaType = "text";
+                                else
+                                    detectedMediaType = singleType;
+                            }
+                        }
+                        if (data.account_info && data.timeline) {
+                            await SaveAccountToDB(data.account_info.name, data.account_info.nick, data.account_info.profile_image, data.total_urls || data.timeline.length, text, detectedMediaType);
+                            imported++;
+                        }
+                        else if (data.username && data.media_list) {
+                            const convertedData = {
+                                account_info: {
+                                    name: data.username,
+                                    nick: data.nick || data.username,
+                                    date: "",
+                                    followers_count: data.followers || 0,
+                                    friends_count: data.following || 0,
+                                    profile_image: data.profile_image || "",
+                                    statuses_count: data.posts || 0,
+                                },
+                                total_urls: data.media_list.length,
+                                timeline: data.media_list.map((item: {
+                                    url: string;
+                                    date: string;
+                                    tweet_id: string;
+                                    type: string;
+                                    media_type?: string;
+                                }) => ({
+                                    url: item.url,
+                                    date: item.date,
+                                    tweet_id: item.tweet_id,
+                                    type: item.media_type || item.type,
+                                    is_retweet: false,
+                                })),
+                                metadata: {
+                                    new_entries: data.media_list.length,
+                                    page: 0,
+                                    batch_size: 0,
+                                    has_more: false,
+                                },
+                            };
+                            await SaveAccountToDB(convertedData.account_info.name, convertedData.account_info.nick, convertedData.account_info.profile_image, convertedData.total_urls, JSON.stringify(convertedData), detectedMediaType);
+                            imported++;
+                        }
+                    }
+                    catch (err) {
+                        console.error(`Failed to import ${file.name}:`, err);
                     }
                 }
-                catch (err) {
-                    console.error(`Failed to import ${file.name}:`, err);
+                if (imported > 0) {
+                    toast.success(`Imported ${imported} account(s)`);
+                    loadAccounts();
+                }
+                else {
+                    toast.error("No valid files imported");
                 }
             }
-            if (imported > 0) {
-                toast.success(`Imported ${imported} account(s)`);
-                loadAccounts();
-            }
-            else {
-                toast.error("No valid files imported");
-            }
-            } finally {
+            finally {
                 cleanup();
             }
         };
@@ -1014,9 +1019,9 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
           {gridView === "large" && (<div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {filteredAccounts
                     .slice(0, visibleCount)
-                    .map((account) => (<div key={account.id} className={`relative rounded-lg border transition-colors p-4 ${selectedIds.has(account.id) ? "border-primary bg-primary/5" : "bg-card hover:bg-muted/50"}`}>
-                  
-                  <Checkbox checked={selectedIds.has(account.id)} onCheckedChange={() => toggleSelect(account.id)} className="absolute top-2 left-2 z-10"/>
+                    .map((account, index) => (<div key={account.id} onClick={() => handleView(account.id, account.username)} className={`relative rounded-lg border transition-colors p-4 cursor-pointer ${selectedIds.has(account.id) ? "border-primary bg-primary/5" : "bg-card hover:bg-muted/50"}`}>
+
+                  <Checkbox checked={selectedIds.has(account.id)} onCheckedChange={() => toggleSelect(account.id)} onClick={(e) => e.stopPropagation()} className="absolute top-2 left-2 z-10"/>
                   
                   <div className="absolute top-2 right-2 z-10 flex gap-1">
                     <Badge variant="secondary" className={cn("text-xs flex items-center gap-1", account.media_type === "text" && "bg-orange-500/20 text-orange-600 dark:text-orange-400", account.media_type === "image" && "bg-blue-500/20 text-blue-600 dark:text-blue-400", account.media_type === "video" && "bg-purple-500/20 text-purple-600 dark:text-purple-400", account.media_type === "gif" && "bg-green-500/20 text-green-600 dark:text-green-400", (!account.media_type || account.media_type === "all") && "bg-indigo-500/20 text-indigo-600 dark:text-indigo-400")}>
@@ -1031,9 +1036,14 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                       </Badge>)}
                   </div>
                   <div className="flex flex-col items-center text-center gap-3 pt-4">
-                    {isPrivateAccount(account.username) ? (<div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors" onClick={() => handleView(account.id, account.username)}>
-                        {account.username === "bookmarks" ? (<Bookmark className="h-10 w-10 text-primary"/>) : (<Heart className="h-10 w-10 text-primary"/>)}
-                      </div>) : (<img src={account.profile_image} alt={account.name} className="w-20 h-20 rounded-full cursor-pointer hover:opacity-80 transition-opacity" onClick={() => handleView(account.id, account.username)}/>)}
+                    <div className="relative">
+                      <span className="absolute -top-1.5 -left-1.5 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-medium text-primary-foreground">
+                        {index + 1}
+                      </span>
+                      {isPrivateAccount(account.username) ? (<div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+                          {account.username === "bookmarks" ? (<Bookmark className="h-10 w-10 text-primary"/>) : (<Heart className="h-10 w-10 text-primary"/>)}
+                        </div>) : (<img src={account.profile_image} alt={account.name} className="w-20 h-20 rounded-full"/>)}
+                    </div>
                     <div className="w-full min-w-0">
                       <div className="font-medium truncate">{account.name}</div>
                       {!isPrivateAccount(account.username) && (<button type="button" onClick={() => openExternal(`https://x.com/${account.username}`)} className="text-sm text-muted-foreground hover:text-primary hover:underline">
@@ -1103,9 +1113,9 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
           {gridView === "small" && (<div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
               {filteredAccounts
                     .slice(0, visibleCount)
-                    .map((account) => (<div key={account.id} className={`relative rounded-lg border transition-colors p-3 ${selectedIds.has(account.id) ? "border-primary bg-primary/5" : "bg-card hover:bg-muted/50"}`}>
-                  
-                  <Checkbox checked={selectedIds.has(account.id)} onCheckedChange={() => toggleSelect(account.id)} className="absolute top-1.5 left-1.5 z-10"/>
+                    .map((account, index) => (<div key={account.id} onClick={() => handleView(account.id, account.username)} className={`relative rounded-lg border transition-colors p-3 cursor-pointer ${selectedIds.has(account.id) ? "border-primary bg-primary/5" : "bg-card hover:bg-muted/50"}`}>
+
+                  <Checkbox checked={selectedIds.has(account.id)} onCheckedChange={() => toggleSelect(account.id)} onClick={(e) => e.stopPropagation()} className="absolute top-1.5 left-1.5 z-10"/>
                   
                   <div className="absolute top-1.5 right-1.5 z-10 flex gap-1">
                     <Badge variant="secondary" className={cn("text-xs p-1", account.media_type === "text" && "bg-orange-500/20 text-orange-600 dark:text-orange-400", account.media_type === "image" && "bg-blue-500/20 text-blue-600 dark:text-blue-400", account.media_type === "video" && "bg-purple-500/20 text-purple-600 dark:text-purple-400", account.media_type === "gif" && "bg-green-500/20 text-green-600 dark:text-green-400", (!account.media_type || account.media_type === "all") && "bg-indigo-500/20 text-indigo-600 dark:text-indigo-400")}>
@@ -1120,9 +1130,14 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                       </Badge>)}
                   </div>
                   <div className="flex flex-col items-center text-center gap-2 pt-4">
-                    {isPrivateAccount(account.username) ? (<div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors" onClick={() => handleView(account.id, account.username)}>
-                        {account.username === "bookmarks" ? (<Bookmark className="h-7 w-7 text-primary"/>) : (<Heart className="h-7 w-7 text-primary"/>)}
-                      </div>) : (<img src={account.profile_image} alt={account.name} className="w-14 h-14 rounded-full cursor-pointer hover:opacity-80 transition-opacity" onClick={() => handleView(account.id, account.username)}/>)}
+                    <div className="relative">
+                      <span className="absolute -top-1.5 -left-1.5 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-medium text-primary-foreground">
+                        {index + 1}
+                      </span>
+                      {isPrivateAccount(account.username) ? (<div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+                          {account.username === "bookmarks" ? (<Bookmark className="h-7 w-7 text-primary"/>) : (<Heart className="h-7 w-7 text-primary"/>)}
+                        </div>) : (<img src={account.profile_image} alt={account.name} className="w-14 h-14 rounded-full"/>)}
+                    </div>
                     <div className="w-full min-w-0">
                       <div className="text-xs font-medium truncate">{account.name}</div>
                       {!isPrivateAccount(account.username) && (<button type="button" onClick={() => openExternal(`https://x.com/${account.username}`)} className="text-xs text-muted-foreground hover:text-primary hover:underline truncate block w-full">
@@ -1192,14 +1207,16 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
           {gridView === "list" && filteredAccounts
                 .slice(0, visibleCount)
                 .map((account, index) => (<div key={account.id} className={`rounded-lg border transition-colors ${selectedIds.has(account.id) ? "border-primary bg-primary/5" : "bg-card hover:bg-muted/50"}`}>
-              <div className="flex items-center gap-4 p-4">
-                <Checkbox checked={selectedIds.has(account.id)} onCheckedChange={() => toggleSelect(account.id)}/>
-                <span className="text-sm text-muted-foreground w-8 text-center shrink-0">
-                  {index + 1}
-                </span>
-                {isPrivateAccount(account.username) ? (<div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors" onClick={() => handleView(account.id, account.username)}>
-                    {account.username === "bookmarks" ? (<Bookmark className="h-6 w-6 text-primary"/>) : (<Heart className="h-6 w-6 text-primary"/>)}
-                  </div>) : (<img src={account.profile_image} alt={account.name} className="w-12 h-12 rounded-full cursor-pointer hover:opacity-80 transition-opacity" onClick={() => handleView(account.id, account.username)}/>)}
+              <div className="flex items-center gap-4 p-4 cursor-pointer" onClick={() => handleView(account.id, account.username)}>
+                <Checkbox checked={selectedIds.has(account.id)} onCheckedChange={() => toggleSelect(account.id)} onClick={(e) => e.stopPropagation()}/>
+                <div className="relative shrink-0">
+                  <span className="absolute -top-1.5 -left-1.5 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-medium text-primary-foreground">
+                    {index + 1}
+                  </span>
+                  {isPrivateAccount(account.username) ? (<div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                      {account.username === "bookmarks" ? (<Bookmark className="h-6 w-6 text-primary"/>) : (<Heart className="h-6 w-6 text-primary"/>)}
+                    </div>) : (<img src={account.profile_image} alt={account.name} className="w-12 h-12 rounded-full"/>)}
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="truncate">{account.name}</span>

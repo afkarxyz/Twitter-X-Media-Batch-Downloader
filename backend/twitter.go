@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 )
@@ -110,11 +111,11 @@ func parseExtractorError(output string, username string) string {
 	var hint string
 	if strings.Contains(outputLower, "unable to retrieve tweets from this timeline") {
 		hint = " [Hint: End of timeline reached or rate limited - data already fetched has been saved]"
-	} else if strings.Contains(outputLower, "rate limit") || strings.Contains(output, "429") {
+	} else if strings.Contains(outputLower, "rate limit") || strings.Contains(outputLower, "rate_limited") || strings.Contains(output, "429") {
 		hint = " [Hint: Wait 5-15 minutes before retrying]"
-	} else if strings.Contains(output, "401") || strings.Contains(outputLower, "unauthorized") {
+	} else if strings.Contains(output, "401") || strings.Contains(outputLower, "unauthorized") || strings.Contains(outputLower, "auth_invalid") {
 		hint = " [Hint: Auth token may be invalid or expired]"
-	} else if strings.Contains(output, "404") {
+	} else if strings.Contains(output, "404") || strings.Contains(outputLower, "user_not_found") {
 		hint = fmt.Sprintf(" [Hint: @%s may not exist or is suspended]", username)
 	} else if strings.Contains(outputLower, "protected") || strings.Contains(output, "403") {
 		hint = " [Hint: Protected account - need to follow and use auth token]"
@@ -149,85 +150,103 @@ func (t *TweetIDString) UnmarshalJSON(data []byte) error {
 	return fmt.Errorf("tweet_id must be number or string")
 }
 
-type Author struct {
-	ID   int64  `json:"id"`
+type richThumb struct {
 	Name string `json:"name"`
-	Nick string `json:"nick"`
+	URL  string `json:"url"`
 }
 
-type UserInfo struct {
-	ID              int64  `json:"id"`
-	Name            string `json:"name"`
-	Nick            string `json:"nick"`
-	Location        string `json:"location"`
-	Date            string `json:"date"`
-	Verified        bool   `json:"verified"`
-	Protected       bool   `json:"protected"`
-	ProfileBanner   string `json:"profile_banner"`
-	ProfileImage    string `json:"profile_image"`
-	FavouritesCount int    `json:"favourites_count"`
-	FollowersCount  int    `json:"followers_count"`
-	FriendsCount    int    `json:"friends_count"`
-	ListedCount     int    `json:"listed_count"`
-	MediaCount      int    `json:"media_count"`
-	StatusesCount   int    `json:"statuses_count"`
-	Description     string `json:"description"`
-	URL             string `json:"url"`
+type richSize struct {
+	W      int    `json:"w"`
+	H      int    `json:"h"`
+	Resize string `json:"resize"`
+	URL    string `json:"url"`
 }
 
-type CLIMediaItem struct {
-	URL            string        `json:"url"`
-	TweetID        TweetIDString `json:"tweet_id"`
-	RetweetID      TweetIDString `json:"retweet_id"`
-	QuoteID        TweetIDString `json:"quote_id"`
-	ReplyID        TweetIDString `json:"reply_id"`
-	ConversationID TweetIDString `json:"conversation_id"`
-	Date           string        `json:"date"`
-	Extension      string        `json:"extension"`
-	Width          int           `json:"width"`
-	Height         int           `json:"height"`
-	Type           string        `json:"type"`
-	Bitrate        int           `json:"bitrate"`
-	Duration       float64       `json:"duration"`
-	Author         UserInfo      `json:"author"`
-	User           UserInfo      `json:"user"`
-	Content        string        `json:"content"`
-	FavoriteCount  int           `json:"favorite_count"`
-	RetweetCount   int           `json:"retweet_count"`
-	ReplyCount     int           `json:"reply_count"`
-	QuoteCount     int           `json:"quote_count"`
-	BookmarkCount  int           `json:"bookmark_count"`
-	ViewCount      int           `json:"view_count"`
-	Source         string        `json:"source"`
-	Sensitive      bool          `json:"sensitive"`
+type richVariant struct {
+	ContentType string `json:"content_type"`
+	URL         string `json:"url"`
+	Bitrate     int    `json:"bitrate"`
+	Resolution  string `json:"resolution"`
 }
 
-type TweetMetadata struct {
-	TweetID        TweetIDString `json:"tweet_id"`
-	RetweetID      TweetIDString `json:"retweet_id,omitempty"`
-	QuoteID        TweetIDString `json:"quote_id,omitempty"`
-	ReplyID        TweetIDString `json:"reply_id,omitempty"`
-	ConversationID TweetIDString `json:"conversation_id,omitempty"`
-	Date           string        `json:"date"`
-	Author         Author        `json:"author"`
-	Content        string        `json:"content"`
-	Lang           string        `json:"lang,omitempty"`
-	Hashtags       []string      `json:"hashtags,omitempty"`
-	FavoriteCount  int           `json:"favorite_count"`
-	RetweetCount   int           `json:"retweet_count"`
-	QuoteCount     int           `json:"quote_count,omitempty"`
-	ReplyCount     int           `json:"reply_count,omitempty"`
-	BookmarkCount  int           `json:"bookmark_count,omitempty"`
-	ViewCount      int           `json:"view_count,omitempty"`
-	Sensitive      bool          `json:"sensitive,omitempty"`
+type richMedia struct {
+	Type        string              `json:"type"`
+	MediaID     string              `json:"media_id"`
+	MediaKey    string              `json:"media_key"`
+	Thumbnail   string              `json:"thumbnail"`
+	ExpandedURL string              `json:"expanded_url"`
+	Width       int                 `json:"width"`
+	Height      int                 `json:"height"`
+	AspectRatio []int               `json:"aspect_ratio"`
+	DurationMS  int                 `json:"duration_ms"`
+	AltText     string              `json:"alt_text"`
+	Sizes       map[string]richSize `json:"sizes"`
+	Thumbs      []richThumb         `json:"thumbs"`
+	Variants    []richVariant       `json:"variants"`
 }
 
-type CLIResponse struct {
-	Media     []CLIMediaItem  `json:"media"`
-	Metadata  []TweetMetadata `json:"metadata"`
-	Cursor    string          `json:"cursor,omitempty"`
-	Total     int             `json:"total,omitempty"`
-	Completed bool            `json:"completed,omitempty"`
+type richMiniUser struct {
+	UserID       string `json:"user_id"`
+	Username     string `json:"username"`
+	Name         string `json:"name"`
+	Avatar       string `json:"avatar"`
+	Verified     bool   `json:"verified"`
+	BlueVerified bool   `json:"blue_verified"`
+}
+
+type richStats struct {
+	Likes     int `json:"likes"`
+	Retweets  int `json:"retweets"`
+	Replies   int `json:"replies"`
+	Quotes    int `json:"quotes"`
+	Bookmarks int `json:"bookmarks"`
+	Views     int `json:"views"`
+}
+
+type richTweet struct {
+	TweetID    string        `json:"tweet_id"`
+	URL        string        `json:"url"`
+	Text       string        `json:"text"`
+	Lang       string        `json:"lang"`
+	CreatedAt  string        `json:"created_at"`
+	Source     string        `json:"source"`
+	Sensitive  bool          `json:"sensitive"`
+	IsRepost   bool          `json:"is_repost"`
+	IsReply    bool          `json:"is_reply"`
+	IsQuote    bool          `json:"is_quote"`
+	RepostedBy *richMiniUser `json:"reposted_by"`
+	Author     richMiniUser  `json:"author"`
+	Stats      richStats     `json:"stats"`
+	Media      []richMedia   `json:"media"`
+	Hashtags   []string      `json:"hashtags"`
+}
+
+type richAccount struct {
+	ID             string      `json:"id"`
+	Username       string      `json:"username"`
+	Name           string      `json:"name"`
+	Bio            string      `json:"bio"`
+	Avatar         string      `json:"avatar"`
+	AvatarVariants []richThumb `json:"avatar_variants"`
+	Banner         string      `json:"banner"`
+	BannerVariants []richThumb `json:"banner_variants"`
+	Location       string      `json:"location"`
+	URL            string      `json:"url"`
+	CreatedAt      string      `json:"created_at"`
+	Followers      int         `json:"followers"`
+	Following      int         `json:"following"`
+	Tweets         int         `json:"tweets"`
+	MediaCount     int         `json:"media_count"`
+	Protected      bool        `json:"protected"`
+	Verified       bool        `json:"verified"`
+	BlueVerified   bool        `json:"blue_verified"`
+}
+
+type richResponse struct {
+	Account    richAccount `json:"account"`
+	Tweets     []richTweet `json:"tweets"`
+	NextCursor string      `json:"next_cursor"`
+	HasMore    bool        `json:"has_more"`
 }
 
 type TimelineEntry struct {
@@ -239,12 +258,16 @@ type TimelineEntry struct {
 	Extension        string        `json:"extension"`
 	Width            int           `json:"width"`
 	Height           int           `json:"height"`
+	Thumbnail        string        `json:"thumbnail,omitempty"`
+	DurationMS       int           `json:"duration_ms,omitempty"`
+	AltText          string        `json:"alt_text,omitempty"`
 	Content          string        `json:"content,omitempty"`
 	ViewCount        int           `json:"view_count,omitempty"`
 	BookmarkCount    int           `json:"bookmark_count,omitempty"`
 	FavoriteCount    int           `json:"favorite_count,omitempty"`
 	RetweetCount     int           `json:"retweet_count,omitempty"`
 	ReplyCount       int           `json:"reply_count,omitempty"`
+	QuoteCount       int           `json:"quote_count,omitempty"`
 	Source           string        `json:"source,omitempty"`
 	Verified         bool          `json:"verified,omitempty"`
 	OriginalFilename string        `json:"original_filename,omitempty"`
@@ -252,13 +275,23 @@ type TimelineEntry struct {
 }
 
 type AccountInfo struct {
-	Name           string `json:"name"`
-	Nick           string `json:"nick"`
-	Date           string `json:"date"`
-	FollowersCount int    `json:"followers_count"`
-	FriendsCount   int    `json:"friends_count"`
-	ProfileImage   string `json:"profile_image"`
-	StatusesCount  int    `json:"statuses_count"`
+	Name           string      `json:"name"`
+	Nick           string      `json:"nick"`
+	Date           string      `json:"date"`
+	FollowersCount int         `json:"followers_count"`
+	FriendsCount   int         `json:"friends_count"`
+	ProfileImage   string      `json:"profile_image"`
+	StatusesCount  int         `json:"statuses_count"`
+	Bio            string      `json:"bio,omitempty"`
+	Banner         string      `json:"banner,omitempty"`
+	Location       string      `json:"location,omitempty"`
+	URL            string      `json:"url,omitempty"`
+	MediaCount     int         `json:"media_count,omitempty"`
+	Verified       bool        `json:"verified,omitempty"`
+	BlueVerified   bool        `json:"blue_verified,omitempty"`
+	Protected      bool        `json:"protected,omitempty"`
+	AvatarVariants []richThumb `json:"avatar_variants,omitempty"`
+	BannerVariants []richThumb `json:"banner_variants,omitempty"`
 }
 
 type ExtractMetadata struct {
@@ -280,14 +313,20 @@ type TwitterResponse struct {
 }
 
 type TimelineRequest struct {
-	Username     string `json:"username"`
-	AuthToken    string `json:"auth_token"`
-	TimelineType string `json:"timeline_type"`
-	BatchSize    int    `json:"batch_size"`
-	Page         int    `json:"page"`
-	MediaType    string `json:"media_type"`
-	Retweets     bool   `json:"retweets"`
-	Cursor       string `json:"cursor,omitempty"`
+	Username      string `json:"username"`
+	AuthToken     string `json:"auth_token"`
+	TimelineType  string `json:"timeline_type"`
+	BatchSize     int    `json:"batch_size"`
+	Page          int    `json:"page"`
+	MediaType     string `json:"media_type"`
+	Retweets      bool   `json:"retweets"`
+	Cursor        string `json:"cursor,omitempty"`
+	IncludePhotos bool   `json:"include_photos"`
+	IncludeVideos bool   `json:"include_videos"`
+	IncludeGifs   bool   `json:"include_gifs"`
+	IncludeText   bool   `json:"include_text"`
+	VideoQuality  string `json:"video_quality,omitempty"`
+	ImageSize     string `json:"image_size,omitempty"`
 }
 
 type DateRangeRequest struct {
@@ -402,74 +441,250 @@ func buildSearchURL(username, startDate, endDate, mediaFilter string, includeRet
 	return fmt.Sprintf("https://x.com/search?q=%s&src=typed_query&f=live", query)
 }
 
-func convertMetadataToTimelineEntry(meta TweetMetadata) TimelineEntry {
-	return TimelineEntry{
-		URL:            "",
-		Date:           meta.Date,
-		TweetID:        meta.TweetID,
-		Type:           "text",
-		IsRetweet:      meta.RetweetID != 0,
-		Extension:      "txt",
-		Width:          0,
-		Height:         0,
-		Content:        meta.Content,
-		ViewCount:      meta.ViewCount,
-		BookmarkCount:  meta.BookmarkCount,
-		FavoriteCount:  meta.FavoriteCount,
-		RetweetCount:   meta.RetweetCount,
-		ReplyCount:     meta.ReplyCount,
-		AuthorUsername: meta.Author.Name,
-	}
+func parseTweetID(s string) TweetIDString {
+	var n int64
+	_, _ = fmt.Sscanf(strings.TrimSpace(s), "%d", &n)
+	return TweetIDString(n)
 }
 
-func convertToTimelineEntry(media CLIMediaItem) TimelineEntry {
-
-	authorUsername := ""
-	if media.Author.Name != "" {
-		authorUsername = media.Author.Name
-	} else if media.User.Name != "" {
-		authorUsername = media.User.Name
+func bestPhotoURL(m richMedia, size string) string {
+	if size == "" {
+		size = "orig"
 	}
-
-	entry := TimelineEntry{
-		URL:            media.URL,
-		TweetID:        media.TweetID,
-		Date:           media.Date,
-		Extension:      media.Extension,
-		Width:          media.Width,
-		Height:         media.Height,
-		IsRetweet:      media.RetweetID != 0,
-		Content:        media.Content,
-		ViewCount:      media.ViewCount,
-		BookmarkCount:  media.BookmarkCount,
-		FavoriteCount:  media.FavoriteCount,
-		RetweetCount:   media.RetweetCount,
-		ReplyCount:     media.ReplyCount,
-		Source:         media.Source,
-		Verified:       media.Author.Verified,
-		AuthorUsername: authorUsername,
+	if size == "orig" {
+		for _, t := range m.Thumbs {
+			if t.Name == "orig" {
+				return t.URL
+			}
+		}
+	} else if s, ok := m.Sizes[size]; ok && s.URL != "" {
+		return s.URL
 	}
+	if s, ok := m.Sizes["large"]; ok && s.URL != "" {
+		return s.URL
+	}
+	if s, ok := m.Sizes["medium"]; ok && s.URL != "" {
+		return s.URL
+	}
+	if s, ok := m.Sizes["small"]; ok && s.URL != "" {
+		return s.URL
+	}
+	return m.Thumbnail
+}
 
-	if media.Type != "" {
-		entry.Type = media.Type
-	} else {
-		switch strings.ToLower(media.Extension) {
-		case "mp4", "webm":
-			entry.Type = "video"
-		case "gif":
-			entry.Type = "gif"
-		default:
-			entry.Type = "photo"
+func bestVideoURL(m richMedia, quality string) string {
+	mp4s := make([]richVariant, 0, len(m.Variants))
+	for _, v := range m.Variants {
+		if v.ContentType == "video/mp4" && v.URL != "" {
+			mp4s = append(mp4s, v)
 		}
 	}
+	if len(mp4s) == 0 {
+		if len(m.Variants) > 0 {
+			return m.Variants[len(m.Variants)-1].URL
+		}
+		return m.Thumbnail
+	}
+	sort.Slice(mp4s, func(i, j int) bool { return mp4s[i].Bitrate < mp4s[j].Bitrate })
 
-	return entry
+	switch quality {
+	case "lowest":
+		return mp4s[0].URL
+	case "", "highest":
+		return mp4s[len(mp4s)-1].URL
+	}
+
+	target := 0
+	_, _ = fmt.Sscanf(quality, "%d", &target)
+	if target == 0 {
+		return mp4s[len(mp4s)-1].URL
+	}
+	best := mp4s[0]
+	bestDelta := 1 << 30
+	for _, v := range mp4s {
+		h := resolutionHeight(v.Resolution)
+		delta := h - target
+		if delta < 0 {
+			delta = -delta
+		}
+		if delta < bestDelta {
+			bestDelta = delta
+			best = v
+		}
+	}
+	return best.URL
 }
 
-func getExtractorPath() string {
-	homeDir, _ := os.UserHomeDir()
-	baseDir := filepath.Join(homeDir, ".twitterxmediabatchdownloader")
-	return filepath.Join(baseDir, getExecutableName())
+func resolutionHeight(resolution string) int {
+	if i := strings.Index(resolution, "x"); i >= 0 {
+		h := 0
+		_, _ = fmt.Sscanf(resolution[i+1:], "%d", &h)
+		return h
+	}
+	return 0
+}
+
+func previewURL(m richMedia) string {
+	for _, t := range m.Thumbs {
+		if t.Name == "360x360" {
+			return t.URL
+		}
+	}
+	if s, ok := m.Sizes["small"]; ok && s.URL != "" {
+		return s.URL
+	}
+	return m.Thumbnail
+}
+
+func extensionFor(downloadURL, mediaType string) string {
+	switch mediaType {
+	case "video", "gif", "animated_gif":
+		return "mp4"
+	}
+	if i := strings.Index(downloadURL, "format="); i >= 0 {
+		rest := downloadURL[i+len("format="):]
+		if amp := strings.IndexByte(rest, '&'); amp >= 0 {
+			rest = rest[:amp]
+		}
+		if rest != "" {
+			return rest
+		}
+	}
+	return "jpg"
+}
+
+func isVerified(u richMiniUser) bool {
+	return u.Verified || u.BlueVerified
+}
+
+func textEntry(t richTweet) TimelineEntry {
+	return TimelineEntry{
+		URL:            "",
+		Date:           t.CreatedAt,
+		TweetID:        parseTweetID(t.TweetID),
+		Type:           "text",
+		IsRetweet:      t.IsRepost,
+		Extension:      "txt",
+		Content:        t.Text,
+		ViewCount:      t.Stats.Views,
+		BookmarkCount:  t.Stats.Bookmarks,
+		FavoriteCount:  t.Stats.Likes,
+		RetweetCount:   t.Stats.Retweets,
+		ReplyCount:     t.Stats.Replies,
+		QuoteCount:     t.Stats.Quotes,
+		Source:         t.Source,
+		Verified:       isVerified(t.Author),
+		AuthorUsername: t.Author.Username,
+	}
+}
+
+func mediaEntry(t richTweet, m richMedia, videoQuality, imageSize string) TimelineEntry {
+	var downloadURL string
+	switch m.Type {
+	case "video", "animated_gif", "gif":
+		downloadURL = bestVideoURL(m, videoQuality)
+	default:
+		downloadURL = bestPhotoURL(m, imageSize)
+	}
+	return TimelineEntry{
+		URL:            downloadURL,
+		Date:           t.CreatedAt,
+		TweetID:        parseTweetID(t.TweetID),
+		Type:           m.Type,
+		IsRetweet:      t.IsRepost,
+		Extension:      extensionFor(downloadURL, m.Type),
+		Width:          m.Width,
+		Height:         m.Height,
+		Thumbnail:      previewURL(m),
+		DurationMS:     m.DurationMS,
+		AltText:        m.AltText,
+		Content:        t.Text,
+		ViewCount:      t.Stats.Views,
+		BookmarkCount:  t.Stats.Bookmarks,
+		FavoriteCount:  t.Stats.Likes,
+		RetweetCount:   t.Stats.Retweets,
+		ReplyCount:     t.Stats.Replies,
+		QuoteCount:     t.Stats.Quotes,
+		Source:         t.Source,
+		Verified:       isVerified(t.Author),
+		AuthorUsername: t.Author.Username,
+	}
+}
+
+type FlattenOptions struct {
+	IncludePhotos bool
+	IncludeVideos bool
+	IncludeGifs   bool
+	IncludeText   bool
+	VideoQuality  string
+	ImageSize     string
+}
+
+func flattenTweets(tweets []richTweet, opts FlattenOptions) []TimelineEntry {
+	out := make([]TimelineEntry, 0, len(tweets))
+	for _, t := range tweets {
+		if len(t.Media) == 0 {
+			if opts.IncludeText && strings.TrimSpace(t.Text) != "" {
+				out = append(out, textEntry(t))
+			}
+			continue
+		}
+		for _, m := range t.Media {
+			switch m.Type {
+			case "photo":
+				if !opts.IncludePhotos {
+					continue
+				}
+			case "video":
+				if !opts.IncludeVideos {
+					continue
+				}
+			case "animated_gif", "gif":
+				if !opts.IncludeGifs {
+					continue
+				}
+			}
+			out = append(out, mediaEntry(t, m, opts.VideoQuality, opts.ImageSize))
+		}
+	}
+	return out
+}
+
+func buildAccountInfo(acc richAccount, fallbackUsername string) AccountInfo {
+	info := AccountInfo{
+		Name: fallbackUsername,
+		Nick: fallbackUsername,
+	}
+	if acc.Username != "" {
+		info.Name = acc.Username
+	}
+	if acc.Name != "" {
+		info.Nick = acc.Name
+	}
+	info.Date = acc.CreatedAt
+	info.FollowersCount = acc.Followers
+	info.FriendsCount = acc.Following
+	info.ProfileImage = acc.Avatar
+	info.StatusesCount = acc.Tweets
+	info.Bio = acc.Bio
+	info.Banner = acc.Banner
+	info.Location = acc.Location
+	info.URL = acc.URL
+	info.MediaCount = acc.MediaCount
+	info.Verified = acc.Verified
+	info.BlueVerified = acc.BlueVerified
+	info.Protected = acc.Protected
+	info.AvatarVariants = acc.AvatarVariants
+	info.BannerVariants = acc.BannerVariants
+	return info
+}
+
+func parseRichResponse(jsonStr string) (*richResponse, error) {
+	var resp richResponse
+	if err := json.Unmarshal([]byte(jsonStr), &resp); err != nil {
+		return nil, fmt.Errorf("json_error: Failed to parse JSON response: %v", err)
+	}
+	return &resp, nil
 }
 
 func ExtractTimeline(req TimelineRequest) (*TwitterResponse, error) {
@@ -479,26 +694,21 @@ func ExtractTimeline(req TimelineRequest) (*TwitterResponse, error) {
 		return nil, err
 	}
 
-	isTextOnly := req.MediaType == "text"
+	includeText := req.IncludeText
 	wantsRetweets := req.Retweets
 
 	timelineType := req.TimelineType
 	if timelineType == "" {
-		if isTextOnly {
-
-			timelineType = "tweets"
-		} else if wantsRetweets {
-
+		if includeText || wantsRetweets {
 			timelineType = "tweets"
 		} else {
-
 			timelineType = "media"
 		}
 	}
 
-	url := buildTwitterURL(req.Username, timelineType)
+	targetURL := buildTwitterURL(req.Username, timelineType)
 
-	args := []string{url}
+	args := []string{targetURL}
 
 	if req.AuthToken != "" {
 		args = append(args, "--auth-token", req.AuthToken)
@@ -520,19 +730,8 @@ func ExtractTimeline(req TimelineRequest) (*TwitterResponse, error) {
 		}
 	}
 
-	if isTextOnly {
+	if includeText {
 		args = append(args, "--text-tweets")
-	}
-
-	if req.MediaType != "" && req.MediaType != "all" && !isTextOnly {
-		switch req.MediaType {
-		case "image":
-			args = append(args, "--type", "photo")
-		case "video":
-			args = append(args, "--type", "video")
-		case "gif":
-			args = append(args, "--type", "animated_gif")
-		}
 	}
 
 	if req.Cursor != "" {
@@ -564,21 +763,12 @@ func ExtractTimeline(req TimelineRequest) (*TwitterResponse, error) {
 		return nil, fmt.Errorf("parse_error: Could not parse xtractor output. Raw output: %s", outputStr)
 	}
 
-	var cliResponse CLIResponse
-	if err := json.Unmarshal([]byte(jsonStr), &cliResponse); err != nil {
-		return nil, fmt.Errorf("json_error: Failed to parse JSON response: %v", err)
+	resp, err := parseRichResponse(jsonStr)
+	if err != nil {
+		return nil, err
 	}
 
-	timeline := make([]TimelineEntry, 0)
-	accountInfo := AccountInfo{
-		Name: req.Username,
-		Nick: req.Username,
-	}
-
-	mediaTweetIDs := make(map[int64]bool)
-	for _, media := range cliResponse.Media {
-		mediaTweetIDs[int64(media.TweetID)] = true
-	}
+	accountInfo := buildAccountInfo(resp.Account, req.Username)
 
 	isBookmarks := req.TimelineType == "bookmarks"
 	isLikes := req.TimelineType == "likes"
@@ -590,90 +780,15 @@ func ExtractTimeline(req TimelineRequest) (*TwitterResponse, error) {
 		accountInfo.Nick = "My Likes"
 	}
 
-	if isTextOnly {
-
-		for _, meta := range cliResponse.Metadata {
-			if !mediaTweetIDs[int64(meta.TweetID)] {
-				timeline = append(timeline, convertMetadataToTimelineEntry(meta))
-			}
-		}
-
-		if !isBookmarks && !isLikes {
-			if len(cliResponse.Media) > 0 {
-				user := cliResponse.Media[0].User
-				accountInfo.Name = user.Name
-				accountInfo.Nick = user.Nick
-				accountInfo.Date = user.Date
-				accountInfo.FollowersCount = user.FollowersCount
-				accountInfo.FriendsCount = user.FriendsCount
-				accountInfo.ProfileImage = user.ProfileImage
-				accountInfo.StatusesCount = user.StatusesCount
-			} else if len(cliResponse.Metadata) > 0 {
-				firstMeta := cliResponse.Metadata[0]
-				accountInfo.Name = firstMeta.Author.Name
-				accountInfo.Nick = firstMeta.Author.Nick
-			}
-		} else {
-
-			if len(cliResponse.Media) > 0 {
-				user := cliResponse.Media[0].User
-				accountInfo.Date = user.Date
-				accountInfo.FollowersCount = user.FollowersCount
-				accountInfo.FriendsCount = user.FriendsCount
-				accountInfo.ProfileImage = user.ProfileImage
-				accountInfo.StatusesCount = user.StatusesCount
-			}
-		}
-	} else if len(cliResponse.Media) > 0 {
-
-		timeline = make([]TimelineEntry, 0, len(cliResponse.Media))
-
-		for _, media := range cliResponse.Media {
-			timeline = append(timeline, convertToTimelineEntry(media))
-		}
-
-		user := cliResponse.Media[0].User
-		if !isBookmarks && !isLikes {
-			accountInfo.Name = user.Name
-			accountInfo.Nick = user.Nick
-		}
-		accountInfo.Date = user.Date
-		accountInfo.FollowersCount = user.FollowersCount
-		accountInfo.FriendsCount = user.FriendsCount
-		accountInfo.ProfileImage = user.ProfileImage
-		accountInfo.StatusesCount = user.StatusesCount
-	} else if len(cliResponse.Metadata) > 0 {
-
-		timeline = make([]TimelineEntry, 0, len(cliResponse.Metadata))
-		for _, meta := range cliResponse.Metadata {
-			entry := TimelineEntry{
-				URL:            "",
-				TweetID:        meta.TweetID,
-				Date:           meta.Date,
-				Type:           "text",
-				IsRetweet:      meta.RetweetID != 0,
-				Extension:      "txt",
-				Width:          0,
-				Height:         0,
-				Content:        meta.Content,
-				ViewCount:      meta.ViewCount,
-				BookmarkCount:  meta.BookmarkCount,
-				FavoriteCount:  meta.FavoriteCount,
-				RetweetCount:   meta.RetweetCount,
-				ReplyCount:     meta.ReplyCount,
-				AuthorUsername: meta.Author.Name,
-			}
-			timeline = append(timeline, entry)
-		}
-
-		if !isBookmarks && !isLikes {
-			firstMeta := cliResponse.Metadata[0]
-			accountInfo.Name = firstMeta.Author.Name
-			accountInfo.Nick = firstMeta.Author.Nick
-		}
-	}
-
-	hasMore := cliResponse.Cursor != "" && !cliResponse.Completed
+	timeline := flattenTweets(resp.Tweets, FlattenOptions{
+		IncludePhotos: req.IncludePhotos,
+		IncludeVideos: req.IncludeVideos,
+		IncludeGifs:   req.IncludeGifs,
+		IncludeText:   req.IncludeText,
+		VideoQuality:  req.VideoQuality,
+		ImageSize:     req.ImageSize,
+	})
+	completed := !resp.HasMore
 
 	response := &TwitterResponse{
 		AccountInfo: accountInfo,
@@ -683,12 +798,12 @@ func ExtractTimeline(req TimelineRequest) (*TwitterResponse, error) {
 			NewEntries: len(timeline),
 			Page:       req.Page,
 			BatchSize:  req.BatchSize,
-			HasMore:    hasMore,
-			Cursor:     cliResponse.Cursor,
-			Completed:  cliResponse.Completed,
+			HasMore:    resp.HasMore,
+			Cursor:     resp.NextCursor,
+			Completed:  completed,
 		},
-		Cursor:    cliResponse.Cursor,
-		Completed: cliResponse.Completed,
+		Cursor:    resp.NextCursor,
+		Completed: completed,
 	}
 
 	return response, nil
@@ -702,9 +817,9 @@ func ExtractDateRange(req DateRangeRequest) (*TwitterResponse, error) {
 	}
 
 	mediaFilter := strings.ToLower(strings.TrimSpace(req.MediaFilter))
-	url := buildSearchURL(req.Username, req.StartDate, req.EndDate, mediaFilter, req.Retweets)
+	targetURL := buildSearchURL(req.Username, req.StartDate, req.EndDate, mediaFilter, req.Retweets)
 
-	args := []string{url}
+	args := []string{targetURL}
 
 	if req.AuthToken != "" {
 		args = append(args, "--auth-token", req.AuthToken)
@@ -750,49 +865,19 @@ func ExtractDateRange(req DateRangeRequest) (*TwitterResponse, error) {
 		return nil, fmt.Errorf("parse_error: Could not parse xtractor output. Raw output: %s", outputStr)
 	}
 
-	var cliResponse CLIResponse
-	if err := json.Unmarshal([]byte(jsonStr), &cliResponse); err != nil {
-		return nil, fmt.Errorf("json_error: Failed to parse JSON response: %v", err)
+	resp, err := parseRichResponse(jsonStr)
+	if err != nil {
+		return nil, err
 	}
 
-	mediaTweetIDs := make(map[int64]bool)
-	for _, media := range cliResponse.Media {
-		mediaTweetIDs[int64(media.TweetID)] = true
-	}
-
-	timeline := make([]TimelineEntry, 0, len(cliResponse.Media)+len(cliResponse.Metadata))
-	for _, media := range cliResponse.Media {
-		timeline = append(timeline, convertToTimelineEntry(media))
-	}
-
-	if isTextOnly {
-		for _, meta := range cliResponse.Metadata {
-			if !mediaTweetIDs[int64(meta.TweetID)] {
-				timeline = append(timeline, convertMetadataToTimelineEntry(meta))
-			}
-		}
-	}
-
-	accountInfo := AccountInfo{
-		Name: req.Username,
-		Nick: req.Username,
-	}
-	if len(cliResponse.Media) > 0 {
-		user := cliResponse.Media[0].User
-		accountInfo.Name = user.Name
-		accountInfo.Nick = user.Nick
-		accountInfo.Date = user.Date
-		accountInfo.FollowersCount = user.FollowersCount
-		accountInfo.FriendsCount = user.FriendsCount
-		accountInfo.ProfileImage = user.ProfileImage
-		accountInfo.StatusesCount = user.StatusesCount
-	} else if len(cliResponse.Metadata) > 0 {
-		firstMeta := cliResponse.Metadata[0]
-		accountInfo.Name = firstMeta.Author.Name
-		accountInfo.Nick = firstMeta.Author.Nick
-	}
-
-	hasMore := cliResponse.Cursor != "" && !cliResponse.Completed
+	timeline := flattenTweets(resp.Tweets, FlattenOptions{
+		IncludePhotos: true,
+		IncludeVideos: true,
+		IncludeGifs:   true,
+		IncludeText:   isTextOnly,
+	})
+	accountInfo := buildAccountInfo(resp.Account, req.Username)
+	completed := !resp.HasMore
 
 	response := &TwitterResponse{
 		AccountInfo: accountInfo,
@@ -802,15 +887,21 @@ func ExtractDateRange(req DateRangeRequest) (*TwitterResponse, error) {
 			NewEntries: len(timeline),
 			Page:       0,
 			BatchSize:  0,
-			HasMore:    hasMore,
-			Cursor:     cliResponse.Cursor,
-			Completed:  cliResponse.Completed,
+			HasMore:    resp.HasMore,
+			Cursor:     resp.NextCursor,
+			Completed:  completed,
 		},
-		Cursor:    cliResponse.Cursor,
-		Completed: cliResponse.Completed,
+		Cursor:    resp.NextCursor,
+		Completed: completed,
 	}
 
 	return response, nil
+}
+
+func getExtractorPath() string {
+	homeDir, _ := os.UserHomeDir()
+	baseDir := filepath.Join(homeDir, ".twitterxmediabatchdownloader")
+	return filepath.Join(baseDir, getExecutableName())
 }
 
 func extractJSON(output string) string {

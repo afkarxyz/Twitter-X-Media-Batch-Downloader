@@ -6,31 +6,28 @@ import { InputWithContext } from "@/components/ui/input-with-context";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Check, Download, ExternalLink, FolderOpen, Info, MonitorCog, PackageSearch, Plus, RotateCcw, Save, Trash2 } from "lucide-react";
+import { Check, Download, ExternalLink, FolderOpen, Info, MonitorCog, PackageSearch, Plus, RotateCcw, Save, Trash2, FileSignature } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
-import { getSettings, getSettingsWithDefaults, saveSettings, resetToDefaultSettings, applyThemeMode, applyFont, getFontOptions, parseGoogleFontUrl, loadGoogleFontUrl, loadCustomFonts, saveCustomFonts, type Settings as SettingsType, type FontFamily, type GifQuality, type GifResolution, type CustomFontFamily } from "@/lib/settings";
+import { getSettings, getSettingsWithDefaults, saveSettings, resetToDefaultSettings, applyThemeMode, applyFont, getFontOptions, parseGoogleFontUrl, loadGoogleFontUrl, loadCustomFonts, saveCustomFonts, DEFAULT_FILENAME_TEMPLATE, FILENAME_TEMPLATE_VARIABLES, renderFilenameTemplate, SAMPLE_FILENAME_DATA, DEFAULT_FOLDER_TEMPLATE, FOLDER_TEMPLATE_VARIABLES, renderFolderTemplate, SAMPLE_FOLDER_DATA, type Settings as SettingsType, type FontFamily, type GifQuality, type GifResolution, type CustomFontFamily } from "@/lib/settings";
+import { FormatEditor } from "@/components/FormatEditor";
 import { getCachedDependencyStatus, setCachedDependencyStatus } from "@/lib/runtime-cache";
 import { themes, applyTheme } from "@/lib/themes";
 import { compareVersionNumbers } from "@/lib/version";
 import { SelectFolder, IsExtractorInstalled, DownloadExtractor, IsFFmpegInstalled, DownloadFFmpeg, IsExifToolInstalled, DownloadExifTool } from "../../wailsjs/go/main/App";
 import { toastWithSound as toast } from "@/lib/toast-with-sound";
-
 interface DependencyVersionStatus {
     installed: boolean;
     installed_version?: string;
     latest_version?: string;
 }
-
 type DependencyVersionMethod = "GetExtractorVersionStatus" | "GetFFmpegVersionStatus" | "GetExifToolVersionStatus";
-type SettingsTab = "general" | "downloads" | "dependencies";
-
+type SettingsTab = "general" | "downloads" | "naming" | "dependencies";
 interface SettingsPageProps {
     onUnsavedChangesChange?: (hasUnsavedChanges: boolean) => void;
     onResetRequest?: (resetFn: () => void) => void;
 }
-
 function getDependencyVersionStatus(methodName: DependencyVersionMethod) {
     const app = (window as Window & {
         go?: {
@@ -42,14 +39,12 @@ function getDependencyVersionStatus(methodName: DependencyVersionMethod) {
     const method = app?.[methodName];
     return method ? method() : Promise.resolve(null);
 }
-
 function hasNewDependencyVersion(installedVersion: string | null, latestVersion: string | null) {
     if (!installedVersion || !latestVersion) {
         return false;
     }
     return compareVersionNumbers(latestVersion, installedVersion) > 0;
 }
-
 function buildDependencyVersionText(name: string, installed: boolean, installedVersion: string | null, latestVersion: string | null, updateAvailable: boolean) {
     if (installed) {
         if (!installedVersion) {
@@ -61,7 +56,6 @@ function buildDependencyVersionText(name: string, installed: boolean, installedV
     }
     return latestVersion ? `Latest ${name}: ${latestVersion}` : null;
 }
-
 export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: SettingsPageProps) {
     const cachedExtractorStatus = getCachedDependencyStatus("extractor");
     const cachedFfmpegStatus = getCachedDependencyStatus("ffmpeg");
@@ -85,14 +79,12 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
     const [exiftoolLatestVersion, setExiftoolLatestVersion] = useState<string | null>(cachedExiftoolStatus.latestVersion);
     const [downloadingExifTool, setDownloadingExifTool] = useState(false);
     const [showResetConfirm, setShowResetConfirm] = useState(false);
-
     const extractorUpdateAvailable = hasNewDependencyVersion(extractorInstalledVersion, extractorLatestVersion);
     const ffmpegUpdateAvailable = hasNewDependencyVersion(ffmpegInstalledVersion, ffmpegLatestVersion);
     const exiftoolUpdateAvailable = hasNewDependencyVersion(exiftoolInstalledVersion, exiftoolLatestVersion);
     const parsedAddFont = parseGoogleFontUrl(addFontUrl);
     const fontOptions = getFontOptions(tempSettings.customFonts);
     const hasUnsavedChanges = JSON.stringify(savedSettings) !== JSON.stringify(tempSettings);
-
     const resetToSaved = useCallback(() => {
         const freshSavedSettings = getSettings();
         flushSync(() => {
@@ -100,17 +92,14 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
             setIsDark(document.documentElement.classList.contains("dark"));
         });
     }, []);
-
     useEffect(() => {
         if (onResetRequest) {
             onResetRequest(resetToSaved);
         }
     }, [onResetRequest, resetToSaved]);
-
     useEffect(() => {
         onUnsavedChangesChange?.(hasUnsavedChanges);
     }, [hasUnsavedChanges, onUnsavedChangesChange]);
-
     const extractorVersionText = extractorInstalled
         ? extractorInstalledVersion
             ? extractorUpdateAvailable && extractorLatestVersion
@@ -120,10 +109,8 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
         : extractorLatestVersion
             ? `Latest: ${extractorLatestVersion}`
             : null;
-
     const ffmpegVersionText = buildDependencyVersionText("FFmpeg", ffmpegInstalled, ffmpegInstalledVersion, ffmpegLatestVersion, ffmpegUpdateAvailable);
     const exiftoolVersionText = buildDependencyVersionText("ExifTool", exiftoolInstalled, exiftoolInstalledVersion, exiftoolLatestVersion, exiftoolUpdateAvailable);
-
     const loadDependencyStatus = async () => {
         try {
             const [extractorVersionStatus, ffmpegVersionStatus, exiftoolVersionStatus, extractor, ffmpeg, exiftool] = await Promise.all([
@@ -143,7 +130,6 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
             const nextExiftoolInstalled = exiftoolVersionStatus?.installed ?? exiftool;
             const nextExiftoolInstalledVersion = exiftoolVersionStatus?.installed_version?.trim() || null;
             const nextExiftoolLatestVersion = exiftoolVersionStatus?.latest_version?.trim() || null;
-
             setCachedDependencyStatus("extractor", {
                 installed: nextExtractorInstalled,
                 installedVersion: nextExtractorInstalledVersion,
@@ -159,7 +145,6 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
                 installedVersion: nextExiftoolInstalledVersion,
                 latestVersion: nextExiftoolLatestVersion,
             });
-
             setExtractorInstalled(nextExtractorInstalled);
             setExtractorInstalledVersion(nextExtractorInstalledVersion);
             setExtractorLatestVersion(nextExtractorLatestVersion);
@@ -174,7 +159,6 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
             console.error("Failed to check dependency status:", error);
         }
     };
-
     useEffect(() => {
         applyThemeMode(savedSettings.themeMode);
         applyTheme(savedSettings.theme);
@@ -188,7 +172,6 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
         mediaQuery.addEventListener("change", handleChange);
         return () => mediaQuery.removeEventListener("change", handleChange);
     }, [savedSettings.themeMode, savedSettings.theme]);
-
     useEffect(() => {
         applyThemeMode(tempSettings.themeMode);
         applyTheme(tempSettings.theme);
@@ -197,13 +180,11 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
             setIsDark(document.documentElement.classList.contains("dark"));
         }, 0);
     }, [tempSettings.themeMode, tempSettings.theme, tempSettings.fontFamily, tempSettings.customFonts]);
-
     useEffect(() => {
         if (showAddFontDialog && parsedAddFont) {
             loadGoogleFontUrl(parsedAddFont.url, "twitter-media-add-font-preview");
         }
     }, [showAddFontDialog, parsedAddFont]);
-
     useEffect(() => {
         const loadDefaults = async () => {
             if (!savedSettings.downloadPath) {
@@ -215,7 +196,6 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
         void loadDefaults();
         void loadDependencyStatus();
     }, []);
-
     useEffect(() => {
         const syncCustomFonts = async () => {
             const customFonts = await loadCustomFonts();
@@ -224,14 +204,12 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
         };
         void syncCustomFonts();
     }, []);
-
     const handleSave = () => {
         saveSettings(tempSettings);
         setSavedSettings(tempSettings);
         toast.success("Settings saved");
         onUnsavedChangesChange?.(false);
     };
-
     const handleReset = async () => {
         const defaultSettings = await resetToDefaultSettings();
         setTempSettings(defaultSettings);
@@ -242,7 +220,6 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
         setShowResetConfirm(false);
         toast.success("Settings reset to default");
     };
-
     const handleBrowseFolder = async () => {
         try {
             const selectedPath = await SelectFolder(tempSettings.downloadPath || "");
@@ -255,12 +232,10 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
             toast.error(`Error selecting folder: ${error}`);
         }
     };
-
     const closeAddFontDialog = () => {
         setShowAddFontDialog(false);
         setAddFontUrl("");
     };
-
     const handleAddFont = async () => {
         if (!parsedAddFont) {
             toast.error("Enter a valid Google Fonts URL");
@@ -281,7 +256,6 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
         closeAddFontDialog();
         toast.success(`${parsedAddFont.label} added`);
     };
-
     const handleDeleteCustomFont = async (fontValue: CustomFontFamily) => {
         const customFonts = (tempSettings.customFonts || []).filter((font) => font.value !== fontValue);
         const savedCustomFonts = await saveCustomFonts(customFonts);
@@ -303,7 +277,6 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
         }
         toast.success("Font deleted");
     };
-
     const handleDownloadExtractor = async () => {
         setDownloadingExtractor(true);
         try {
@@ -324,7 +297,6 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
             setDownloadingExtractor(false);
         }
     };
-
     const handleDownloadFFmpeg = async () => {
         setDownloadingFFmpeg(true);
         try {
@@ -345,7 +317,6 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
             setDownloadingFFmpeg(false);
         }
     };
-
     const handleDownloadExifTool = async () => {
         setDownloadingExifTool(true);
         try {
@@ -366,7 +337,6 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
             setDownloadingExifTool(false);
         }
     };
-
     return (<div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Settings</h1>
@@ -390,6 +360,10 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
         <Button variant={activeTab === "downloads" ? "default" : "ghost"} size="sm" onClick={() => setActiveTab("downloads")} className="rounded-b-none gap-2">
           <Download className="h-4 w-4"/>
           Downloads
+        </Button>
+        <Button variant={activeTab === "naming" ? "default" : "ghost"} size="sm" onClick={() => setActiveTab("naming")} className="rounded-b-none gap-2">
+          <FileSignature className="h-4 w-4"/>
+          Naming
         </Button>
         <Button variant={activeTab === "dependencies" ? "default" : "ghost"} size="sm" onClick={() => setActiveTab("dependencies")} className="rounded-b-none gap-2">
           <PackageSearch className="h-4 w-4"/>
@@ -490,28 +464,54 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
               </div>
 
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="concurrent-downloads" className="flex items-center gap-2">
-                    Concurrent Downloads
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground"/>
-                      </TooltipTrigger>
-                      <TooltipContent side="top">
-                        <p>How many media files can download at the same time.</p>
-                      </TooltipContent>
+                <div className="flex flex-wrap gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="concurrent-downloads" className="flex items-center gap-2">
+                      Concurrent Downloads
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground"/>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          <p>How many media files can download at the same time.</p>
+                        </TooltipContent>
                       </Tooltip>
                     </Label>
-                  <Select value={String(tempSettings.concurrentDownloads || 10)} onValueChange={(value) => setTempSettings((prev) => ({ ...prev, concurrentDownloads: parseInt(value, 10) }))}>
-                    <SelectTrigger id="concurrent-downloads" className="w-28">
-                      <SelectValue placeholder="10"/>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[1, 2, 3, 5, 8, 10, 15, 20, 25, 30, 40, 50].map((value) => (<SelectItem key={value} value={String(value)}>
-                          {value}
-                        </SelectItem>))}
-                    </SelectContent>
-                  </Select>
+                    <Select value={String(tempSettings.concurrentDownloads || 10)} onValueChange={(value) => setTempSettings((prev) => ({ ...prev, concurrentDownloads: parseInt(value, 10) }))}>
+                      <SelectTrigger id="concurrent-downloads" className="w-fit">
+                        <SelectValue placeholder="10"/>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[1, 2, 3, 5, 8, 10, 15, 20, 25, 30, 40, 50].map((value) => (<SelectItem key={value} value={String(value)}>
+                            {value}
+                          </SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="retry-attempts" className="flex items-center gap-2">
+                      Retry Attempts
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground"/>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          <p>How many times to retry a failed download before giving up.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </Label>
+                    <Select value={String(tempSettings.retryAttempts)} onValueChange={(value) => setTempSettings((prev) => ({ ...prev, retryAttempts: parseInt(value, 10) }))}>
+                      <SelectTrigger id="retry-attempts" className="w-fit">
+                        <SelectValue placeholder="1"/>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[1, 2, 3, 4, 5].map((value) => (<SelectItem key={value} value={String(value)}>
+                            {value}
+                          </SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between gap-4">
@@ -522,20 +522,6 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
                 <div className="flex items-center justify-between gap-4">
                   <Label htmlFor="delete-incomplete-files" className="cursor-pointer">Delete Incomplete Files</Label>
                   <Switch id="delete-incomplete-files" checked={tempSettings.deleteIncompleteFiles} onCheckedChange={(checked) => setTempSettings((prev) => ({ ...prev, deleteIncompleteFiles: checked }))}/>
-                </div>
-
-                <div className="flex items-center justify-between gap-4">
-                  <Label htmlFor="retry-attempts">Retry Attempts</Label>
-                  <Select value={String(tempSettings.retryAttempts)} onValueChange={(value) => setTempSettings((prev) => ({ ...prev, retryAttempts: parseInt(value, 10) }))}>
-                    <SelectTrigger id="retry-attempts" className="w-24">
-                      <SelectValue placeholder="1"/>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[1, 2, 3, 4, 5].map((value) => (<SelectItem key={value} value={String(value)}>
-                          {value}
-                        </SelectItem>))}
-                    </SelectContent>
-                  </Select>
                 </div>
               </div>
             </div>
@@ -606,38 +592,45 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
                   </Label>
                   <div className="flex items-center justify-between gap-4">
                     <Label htmlFor="gif-quality" className={!ffmpegInstalled ? "text-muted-foreground" : undefined}>GIF Quality</Label>
-                    <Select value={tempSettings.gifQuality} onValueChange={(value: GifQuality) => {
-                    setTempSettings((prev) => ({
-                        ...prev,
-                        gifQuality: value,
-                    }));
-                }} disabled={!ffmpegInstalled}>
-                      <SelectTrigger id="gif-quality" className="w-fit">
-                        <SelectValue placeholder="Select quality"/>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="fast">Fast</SelectItem>
-                        <SelectItem value="better">Better</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-4">
-                    <Label htmlFor="gif-resolution" className={!ffmpegInstalled ? "text-muted-foreground" : undefined}>Resolution</Label>
-                    <Select value={tempSettings.gifResolution} onValueChange={(value: GifResolution) => setTempSettings((prev) => ({ ...prev, gifResolution: value }))} disabled={!ffmpegInstalled}>
-                      <SelectTrigger id="gif-resolution" className="w-fit">
-                        <SelectValue placeholder="Resolution"/>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="original">Original</SelectItem>
-                        <SelectItem value="high">High (800px)</SelectItem>
-                        <SelectItem value="medium">Medium (600px)</SelectItem>
-                        <SelectItem value="low">Low (400px)</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="flex items-center gap-2">
+                      <Select value={tempSettings.gifQuality} onValueChange={(value: GifQuality) => {
+                setTempSettings((prev) => ({
+                    ...prev,
+                    gifQuality: value,
+                }));
+            }} disabled={!ffmpegInstalled}>
+                        <SelectTrigger id="gif-quality" className="w-fit">
+                          <SelectValue placeholder="Select quality"/>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="fast">Fast</SelectItem>
+                          <SelectItem value="better">Better</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Select value={tempSettings.gifResolution} onValueChange={(value: GifResolution) => setTempSettings((prev) => ({ ...prev, gifResolution: value }))} disabled={!ffmpegInstalled}>
+                        <SelectTrigger id="gif-resolution" className="w-fit">
+                          <SelectValue placeholder="Resolution"/>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="original">Original</SelectItem>
+                          <SelectItem value="high">High (800px)</SelectItem>
+                          <SelectItem value="medium">Medium (600px)</SelectItem>
+                          <SelectItem value="low">Low (400px)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
               </div>
+            </div>
+          </div>)}
+
+        {activeTab === "naming" && (<div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8 items-start">
+            <div className="md:pr-8 md:border-r border-border">
+              <FormatEditor title="Folder" value={tempSettings.folderTemplate} defaultValue={DEFAULT_FOLDER_TEMPLATE} tokens={FOLDER_TEMPLATE_VARIABLES} placeholder={DEFAULT_FOLDER_TEMPLATE} render={(t) => renderFolderTemplate(t, SAMPLE_FOLDER_DATA)} onChange={(next) => setTempSettings((prev) => ({ ...prev, folderTemplate: next }))}/>
+            </div>
+            <div>
+              <FormatEditor title="Filename" value={tempSettings.filenameTemplate} defaultValue={DEFAULT_FILENAME_TEMPLATE} tokens={FILENAME_TEMPLATE_VARIABLES} placeholder={DEFAULT_FILENAME_TEMPLATE} suffix=".jpg" render={(t) => renderFilenameTemplate(t, SAMPLE_FILENAME_DATA)} onChange={(next) => setTempSettings((prev) => ({ ...prev, filenameTemplate: next }))}/>
             </div>
           </div>)}
 
@@ -647,8 +640,8 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
                 <Label className="flex flex-wrap items-center gap-2">
                   <span>Core Xtractor</span>
                   {extractorVersionText && (<span className={extractorUpdateAvailable
-                        ? "text-xs font-normal text-amber-600 dark:text-amber-400"
-                        : "text-xs font-normal text-muted-foreground"}>
+                    ? "text-xs font-normal text-amber-600 dark:text-amber-400"
+                    : "text-xs font-normal text-muted-foreground"}>
                       {extractorVersionText}
                     </span>)}
                   <Tooltip>
@@ -681,8 +674,8 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
                 <Label className="flex flex-wrap items-center gap-2">
                   <span>GIF Conversion</span>
                   {ffmpegVersionText && (<span className={ffmpegUpdateAvailable
-                        ? "text-xs font-normal text-amber-600 dark:text-amber-400"
-                        : "text-xs font-normal text-muted-foreground"}>
+                    ? "text-xs font-normal text-amber-600 dark:text-amber-400"
+                    : "text-xs font-normal text-muted-foreground"}>
                       {ffmpegVersionText}
                     </span>)}
                   <Tooltip>
@@ -715,8 +708,8 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
                 <Label className="flex flex-wrap items-center gap-2">
                   <span>Metadata Embedding</span>
                   {exiftoolVersionText && (<span className={exiftoolUpdateAvailable
-                        ? "text-xs font-normal text-amber-600 dark:text-amber-400"
-                        : "text-xs font-normal text-muted-foreground"}>
+                    ? "text-xs font-normal text-amber-600 dark:text-amber-400"
+                    : "text-xs font-normal text-muted-foreground"}>
                       {exiftoolVersionText}
                     </span>)}
                   <Tooltip>

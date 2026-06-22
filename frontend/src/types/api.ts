@@ -1,3 +1,7 @@
+export interface Thumb {
+    name: string;
+    url: string;
+}
 export interface AccountInfo {
     name: string;
     nick: string;
@@ -6,6 +10,16 @@ export interface AccountInfo {
     friends_count: number;
     profile_image: string;
     statuses_count: number;
+    bio?: string;
+    banner?: string;
+    location?: string;
+    url?: string;
+    media_count?: number;
+    verified?: boolean;
+    blue_verified?: boolean;
+    protected?: boolean;
+    avatar_variants?: Thumb[];
+    banner_variants?: Thumb[];
 }
 export interface TimelineEntry {
     url: string;
@@ -16,12 +30,16 @@ export interface TimelineEntry {
     extension: string;
     width: number;
     height: number;
+    thumbnail?: string;
+    duration_ms?: number;
+    alt_text?: string;
     content?: string;
     view_count?: number;
     bookmark_count?: number;
     favorite_count?: number;
     retweet_count?: number;
     reply_count?: number;
+    quote_count?: number;
     source?: string;
     verified?: boolean;
     original_filename?: string;

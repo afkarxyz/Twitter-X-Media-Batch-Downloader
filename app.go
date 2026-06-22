@@ -44,14 +44,20 @@ func (a *App) CleanupExtractorProcesses() {
 }
 
 type TimelineRequest struct {
-	Username     string `json:"username"`
-	AuthToken    string `json:"auth_token"`
-	TimelineType string `json:"timeline_type"`
-	BatchSize    int    `json:"batch_size"`
-	Page         int    `json:"page"`
-	MediaType    string `json:"media_type"`
-	Retweets     bool   `json:"retweets"`
-	Cursor       string `json:"cursor,omitempty"`
+	Username      string `json:"username"`
+	AuthToken     string `json:"auth_token"`
+	TimelineType  string `json:"timeline_type"`
+	BatchSize     int    `json:"batch_size"`
+	Page          int    `json:"page"`
+	MediaType     string `json:"media_type"`
+	Retweets      bool   `json:"retweets"`
+	Cursor        string `json:"cursor,omitempty"`
+	IncludePhotos bool   `json:"include_photos"`
+	IncludeVideos bool   `json:"include_videos"`
+	IncludeGifs   bool   `json:"include_gifs"`
+	IncludeText   bool   `json:"include_text"`
+	VideoQuality  string `json:"video_quality,omitempty"`
+	ImageSize     string `json:"image_size,omitempty"`
 }
 
 type DateRangeRequest struct {
@@ -73,14 +79,20 @@ func (a *App) ExtractTimeline(req TimelineRequest) (string, error) {
 	}
 
 	backendReq := backend.TimelineRequest{
-		Username:     req.Username,
-		AuthToken:    req.AuthToken,
-		TimelineType: req.TimelineType,
-		BatchSize:    req.BatchSize,
-		Page:         req.Page,
-		MediaType:    req.MediaType,
-		Retweets:     req.Retweets,
-		Cursor:       req.Cursor,
+		Username:      req.Username,
+		AuthToken:     req.AuthToken,
+		TimelineType:  req.TimelineType,
+		BatchSize:     req.BatchSize,
+		Page:          req.Page,
+		MediaType:     req.MediaType,
+		Retweets:      req.Retweets,
+		Cursor:        req.Cursor,
+		IncludePhotos: req.IncludePhotos,
+		IncludeVideos: req.IncludeVideos,
+		IncludeGifs:   req.IncludeGifs,
+		IncludeText:   req.IncludeText,
+		VideoQuality:  req.VideoQuality,
+		ImageSize:     req.ImageSize,
 	}
 
 	response, err := backend.ExtractTimeline(backendReq)
@@ -145,6 +157,29 @@ func (a *App) OpenFolder(path string) error {
 	}
 
 	return nil
+}
+
+type DownloadProfileImageRequest struct {
+	URL       string `json:"url"`
+	OutputDir string `json:"output_dir"`
+	Username  string `json:"username"`
+	Kind      string `json:"kind"`
+	Proxy     string `json:"proxy,omitempty"`
+}
+
+func (a *App) DownloadProfileImage(req DownloadProfileImageRequest) (string, error) {
+	if req.URL == "" {
+		return "", fmt.Errorf("image url is required")
+	}
+	outputDir := req.OutputDir
+	if outputDir == "" {
+		outputDir = backend.GetDefaultDownloadPath()
+	}
+	path, err := backend.DownloadProfileImage(req.URL, outputDir, req.Username, req.Kind, req.Proxy)
+	if err != nil {
+		return "", err
+	}
+	return path, nil
 }
 
 func (a *App) SelectFolder(defaultPath string) (string, error) {
@@ -219,6 +254,8 @@ type DownloadMediaWithMetadataRequest struct {
 	DeleteIncompleteFiles bool               `json:"delete_incomplete_files"`
 	RetryAttempts         int                `json:"retry_attempts,omitempty"`
 	Proxy                 string             `json:"proxy,omitempty"`
+	FilenameTemplate      string             `json:"filename_template,omitempty"`
+	FolderTemplate        string             `json:"folder_template,omitempty"`
 }
 
 type DownloadMediaResponse struct {
@@ -363,6 +400,8 @@ func (a *App) DownloadMediaWithMetadata(req DownloadMediaWithMetadataRequest) (D
 		SkipExistingFiles:     req.SkipExisting,
 		DeleteIncompleteFiles: req.DeleteIncompleteFiles,
 		RetryAttempts:         req.RetryAttempts,
+		FilenameTemplate:      req.FilenameTemplate,
+		FolderTemplate:        req.FolderTemplate,
 	}
 
 	downloaded, skipped, failed, err := backend.DownloadMediaWithMetadataProgressAndStatus(

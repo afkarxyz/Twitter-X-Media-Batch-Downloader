@@ -4,30 +4,29 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { InputWithContext } from "@/components/ui/input-with-context";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { FetchHistory } from "@/components/FetchHistory";
 import type { HistoryItem } from "@/components/FetchHistory";
 import { toastWithSound as toast } from "@/lib/toast-with-sound";
 import { cn } from "@/lib/utils";
-import { getSettings, updateSettings, type FetchMode as SettingsFetchMode, type MediaType as SettingsMediaType } from "@/lib/settings";
+import { getSettings, updateSettings, VIDEO_QUALITIES, IMAGE_SIZES, AVATAR_SIZES, BANNER_SIZES, type VideoQuality, type ImageSize, type AvatarSize, type BannerSize } from "@/lib/settings";
 import { GetStoredAuthToken, SetStoredAuthToken } from "../../wailsjs/go/main/App";
-import { AlertCircle, Bookmark, Calendar, CheckCircle, CloudDownload, Clock, Eye, EyeOff, Globe, Heart, Hourglass, Info, Lock, RotateCcw, SlidersHorizontal, StopCircle, Trash2, User, Users, XCircle } from "lucide-react";
+import { AlertCircle, Bookmark, CheckCircle, CloudDownload, Clock, Database, Eye, EyeOff, Globe, Heart, Hourglass, Info, Lock, RotateCcw, SlidersHorizontal, StopCircle, Trash2, User, Users, XCircle } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
-
 function formatNumberWithComma(num: number): string {
     return num.toLocaleString();
 }
-
+function pillClass(active: boolean): string {
+    return cn("rounded-md px-3 py-1.5 text-sm font-medium transition-colors cursor-pointer", active
+        ? "bg-primary text-primary-foreground"
+        : "bg-muted text-muted-foreground hover:text-foreground");
+}
 export type FetchMode = "public" | "private";
 export type PrivateType = "bookmarks" | "likes";
 export type FetchType = "single" | "multiple";
-
 const LEGACY_PUBLIC_AUTH_TOKEN_KEY = "twitter_public_auth_token";
 const LEGACY_PRIVATE_AUTH_TOKEN_KEY = "twitter_private_auth_token";
-
 let sessionAuthToken = "";
-
 export interface MultipleAccount {
     id: string;
     username: string;
@@ -45,7 +44,6 @@ export interface MultipleAccount {
     showDiff?: boolean;
     cursor?: string;
 }
-
 interface SearchBarProps {
     username: string;
     loading: boolean;
@@ -74,19 +72,22 @@ interface SearchBarProps {
     onRetryAccount?: (accountId: string, authToken: string) => void;
     onClearMultipleAccounts?: () => void;
     onRemoveMultipleAccount?: (accountId: string) => void;
+    onOpenSavedAccounts?: () => void;
     isFetchingAll?: boolean;
     mode?: FetchMode;
     privateType?: PrivateType;
     onModeChange?: (mode: FetchMode, privateType?: PrivateType) => void;
 }
-
-export function SearchBar({ username, loading, onUsernameChange, onFetch, onStopFetch, onResume, onClearResume, resumeInfo, history, onHistorySelect, onHistoryRemove, hasResult, elapsedTime = 0, remainingTime = null, fetchType = "single", onFetchTypeChange, multipleAccounts = [], onImportAccounts, onFetchAll, onStopAll, onStopAccount, onRetryAccount, onClearMultipleAccounts, onRemoveMultipleAccount, isFetchingAll = false, mode: externalMode, privateType: externalPrivateType, onModeChange, }: SearchBarProps) {
-    const [useDateRange, setUseDateRange] = useState(false);
-    const [startDate, setStartDate] = useState("");
-    const [endDate, setEndDate] = useState("");
-    const [mediaType, setMediaType] = useState<SettingsMediaType>(getSettings().mediaType);
+export function SearchBar({ username, loading, onUsernameChange, onFetch, onStopFetch, onResume, onClearResume, resumeInfo, history, onHistorySelect, onHistoryRemove, hasResult, elapsedTime = 0, remainingTime = null, fetchType = "single", onFetchTypeChange, multipleAccounts = [], onImportAccounts, onFetchAll, onStopAll, onStopAccount, onRetryAccount, onClearMultipleAccounts, onRemoveMultipleAccount, onOpenSavedAccounts, isFetchingAll = false, mode: externalMode, privateType: externalPrivateType, onModeChange, }: SearchBarProps) {
+    const [includePhotos, setIncludePhotos] = useState(getSettings().includePhotos);
+    const [includeVideos, setIncludeVideos] = useState(getSettings().includeVideos);
+    const [includeGifs, setIncludeGifs] = useState(getSettings().includeGifs);
+    const [includeText, setIncludeText] = useState(getSettings().includeText);
     const [retweets, setRetweets] = useState(getSettings().includeRetweets);
-    const [currentFetchMode, setCurrentFetchMode] = useState<SettingsFetchMode>(getSettings().fetchMode);
+    const [videoQuality, setVideoQuality] = useState<VideoQuality>(getSettings().videoQuality);
+    const [imageSize, setImageSize] = useState<ImageSize>(getSettings().imageSize);
+    const [avatarSize, setAvatarSize] = useState<AvatarSize>(getSettings().avatarSize);
+    const [bannerSize, setBannerSize] = useState<BannerSize>(getSettings().bannerSize);
     const [sharedAuthToken, setSharedAuthToken] = useState(() => sessionAuthToken || localStorage.getItem(LEGACY_PUBLIC_AUTH_TOKEN_KEY) || localStorage.getItem(LEGACY_PRIVATE_AUTH_TOKEN_KEY) || "");
     const [showAuthToken, setShowAuthToken] = useState(false);
     const [showAuthRequiredDialog, setShowAuthRequiredDialog] = useState(false);
@@ -94,29 +95,31 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
     useEffect(() => {
         if (showSettingsDialog) {
             const fresh = getSettings();
-            setMediaType(fresh.mediaType);
+            setIncludePhotos(fresh.includePhotos);
+            setIncludeVideos(fresh.includeVideos);
+            setIncludeGifs(fresh.includeGifs);
+            setIncludeText(fresh.includeText);
             setRetweets(fresh.includeRetweets);
-            setCurrentFetchMode(fresh.fetchMode);
+            setVideoQuality(fresh.videoQuality);
+            setImageSize(fresh.imageSize);
+            setAvatarSize(fresh.avatarSize);
+            setBannerSize(fresh.bannerSize);
         }
     }, [showSettingsDialog]);
     const [showImportDialog, setShowImportDialog] = useState(false);
     const [importAccountsText, setImportAccountsText] = useState("");
     const [authPromptToken, setAuthPromptToken] = useState("");
-
     const mode = externalMode || "public";
     const privateType = externalPrivateType || "bookmarks";
     const isLikesMode = mode === "private" && privateType === "likes";
     const isBookmarksMode = mode === "private" && privateType === "bookmarks";
     const isAnyMultipleAccountFetching = multipleAccounts.some((account) => account.status === "fetching");
-
     useEffect(() => {
         let active = true;
-
         const syncStoredTokens = async () => {
             const legacyPublicToken = localStorage.getItem(LEGACY_PUBLIC_AUTH_TOKEN_KEY) || "";
             const legacyPrivateToken = localStorage.getItem(LEGACY_PRIVATE_AUTH_TOKEN_KEY) || "";
             const legacyUnifiedToken = legacyPublicToken || legacyPrivateToken;
-
             try {
                 if (legacyUnifiedToken) {
                     await Promise.all([
@@ -132,7 +135,6 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
                 localStorage.removeItem(LEGACY_PUBLIC_AUTH_TOKEN_KEY);
                 localStorage.removeItem(LEGACY_PRIVATE_AUTH_TOKEN_KEY);
             }
-
             try {
                 const [storedPublicToken, storedPrivateToken] = await Promise.all([
                     GetStoredAuthToken("public"),
@@ -141,11 +143,9 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
                 if (!active) {
                     return;
                 }
-
                 const unifiedToken = storedPublicToken || storedPrivateToken || "";
                 sessionAuthToken = unifiedToken;
                 setSharedAuthToken(unifiedToken);
-
                 if (unifiedToken && (storedPublicToken !== unifiedToken || storedPrivateToken !== unifiedToken)) {
                     await Promise.all([
                         SetStoredAuthToken("public", unifiedToken),
@@ -157,14 +157,11 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
                 console.error("Failed to load auth token from secure storage:", error);
             }
         };
-
         void syncStoredTokens();
-
         return () => {
             active = false;
         };
     }, []);
-
     const tokenWriteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const pendingAuthActionRef = useRef<((authToken: string) => void) | null>(null);
     useEffect(() => {
@@ -174,7 +171,6 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
             }
         };
     }, []);
-
     const handleSharedTokenChange = (value: string) => {
         sessionAuthToken = value;
         setSharedAuthToken(value);
@@ -190,14 +186,12 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
             });
         }, 400);
     };
-
     const closeAuthRequiredDialog = (open: boolean) => {
         setShowAuthRequiredDialog(open);
         if (!open) {
             pendingAuthActionRef.current = null;
         }
     };
-
     const requireAuthToken = (onAuthorized: (authToken: string) => void) => {
         const token = sharedAuthToken.trim();
         if (token) {
@@ -208,33 +202,28 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
         setAuthPromptToken(sharedAuthToken);
         setShowAuthRequiredDialog(true);
     };
-
     const handleFetch = () => {
         requireAuthToken((authToken) => {
-            onFetch(useDateRange, startDate, endDate, mediaType, retweets, mode, privateType, authToken, false);
+            onFetch(false, undefined, undefined, undefined, retweets, mode, privateType, authToken, false);
         });
     };
-
     const handleResume = () => {
         if (onResume) {
             requireAuthToken((authToken) => {
-                onResume(authToken, mediaType, retweets);
+                onResume(authToken, undefined, retweets);
             });
         }
     };
-
     const handleFetchAll = () => {
         requireAuthToken((authToken) => {
             onFetchAll?.(authToken);
         });
     };
-
     const handleRetry = (accountId: string) => {
         requireAuthToken((authToken) => {
             onRetryAccount?.(accountId, authToken);
         });
     };
-
     const handleAuthPromptSubmit = () => {
         const token = authPromptToken.trim();
         if (!token) {
@@ -247,39 +236,32 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
         setShowAuthRequiredDialog(false);
         pendingAction?.(token);
     };
-
     const handleOpenFetchSettings = () => {
         pendingAuthActionRef.current = null;
         setShowAuthRequiredDialog(false);
         setShowSettingsDialog(true);
     };
-
     const openImportDialog = () => {
         setImportAccountsText(multipleAccounts.map((account) => account.username).join("\n"));
         setShowImportDialog(true);
     };
-
     const handleImportSubmit = () => {
         const accounts = importAccountsText
             .split(/[\n,;]+/)
             .map((entry) => entry.trim())
             .filter((entry) => entry.length > 0);
-
         if (accounts.length === 0) {
             toast.error("Please enter at least one account");
             return;
         }
-
         onImportAccounts?.(accounts);
         setShowImportDialog(false);
     };
-
     const formatTime = (seconds: number): string => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
         return `${mins}:${String(secs).padStart(2, "0")}`;
     };
-
     const activeCountdown = remainingTime !== null && remainingTime >= 0
         ? formatTime(remainingTime)
         : elapsedTime > 0
@@ -289,7 +271,6 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
     const authTokenHelpText = mode === "private"
         ? "Use auth token from the account whose bookmarks or likes you want to fetch."
         : "Recommended to use a dummy account, not your main account. Excessive usage may cause suspension.";
-
     return (<div className="space-y-3">
 
       <div className="flex justify-center gap-2">
@@ -508,11 +489,17 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
               </span>
             </div>
 
-            <div className="ml-auto flex items-center gap-2">
-              <span className="text-muted-foreground">Total:</span>
-              <span className="font-medium">
-                {formatNumberWithComma(multipleAccounts.filter((acc) => acc.status === "completed" || acc.status === "incomplete" || acc.status === "failed").length)}/{formatNumberWithComma(multipleAccounts.length)}
-              </span>
+            <div className="ml-auto flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Total:</span>
+                <span className="font-medium">
+                  {formatNumberWithComma(multipleAccounts.filter((acc) => acc.status === "completed" || acc.status === "incomplete" || acc.status === "failed").length)}/{formatNumberWithComma(multipleAccounts.length)}
+                </span>
+              </div>
+              {!isFetchingAll && onOpenSavedAccounts && multipleAccounts.some((acc) => acc.status === "completed" || acc.status === "incomplete") && (<Button variant="secondary" size="sm" onClick={onOpenSavedAccounts} className="flex items-center gap-2">
+                  <Database className="h-3.5 w-3.5"/>
+                  Open Saved Accounts to Download
+                </Button>)}
             </div>
           </div>
         </div>)}
@@ -557,8 +544,8 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
                           <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground"/>
                           <span className="font-mono">
                             {account.remainingTime !== null && account.remainingTime >= 0
-                                ? formatTime(account.remainingTime)
-                                : formatTime(account.elapsedTime)}
+                        ? formatTime(account.remainingTime)
+                        : formatTime(account.elapsedTime)}
                           </span>
                         </div>
                         <Button variant="destructive" onClick={() => onStopAccount?.(account.id)} className="flex items-center gap-2">
@@ -640,10 +627,10 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
               <Label htmlFor="required-auth-token">Auth Token</Label>
               <div className="relative">
                 <InputWithContext id="required-auth-token" type={showAuthToken ? "text" : "password"} placeholder="Enter your auth_token cookie value" value={authPromptToken} onChange={(e) => setAuthPromptToken(e.target.value)} onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                        handleAuthPromptSubmit();
-                    }
-                }} className="pr-10"/>
+            if (e.key === "Enter") {
+                handleAuthPromptSubmit();
+            }
+        }} className="pr-10"/>
                 <button type="button" aria-label={showAuthToken ? "Hide auth token" : "Show auth token"} className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground" onClick={() => setShowAuthToken((prev) => !prev)}>
                   {showAuthToken ? <EyeOff className="h-4 w-4"/> : <Eye className="h-4 w-4"/>}
                 </button>
@@ -690,12 +677,12 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
       </Dialog>
 
       <Dialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog}>
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="sm:max-w-xl max-h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle>Fetch Settings</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-5">
+          <div className="space-y-4 overflow-y-auto flex-1 min-h-0 -mx-2 px-2">
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Label htmlFor="shared-auth-token" className="text-sm">Auth Token</Label>
@@ -709,74 +696,55 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
                 </Tooltip>
               </div>
 
-              <div className="relative">
-                <InputWithContext id="shared-auth-token" type={showAuthToken ? "text" : "password"} placeholder="Enter your auth_token cookie value" value={sharedAuthToken} onChange={(e) => void handleSharedTokenChange(e.target.value)} className="pr-10"/>
-                <button type="button" aria-label={showAuthToken ? "Hide auth token" : "Show auth token"} className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground" onClick={() => setShowAuthToken((prev) => !prev)}>
-                  {showAuthToken ? <EyeOff className="h-4 w-4"/> : <Eye className="h-4 w-4"/>}
-                </button>
-              </div>
+              <InputWithContext id="shared-auth-token" type="text" placeholder="Enter your auth_token cookie value" value={sharedAuthToken} onChange={(e) => void handleSharedTokenChange(e.target.value)}/>
 
             </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-4">
-                <Label htmlFor="fetch-mode" className="text-sm">Fetch Mode</Label>
-                <Select value={currentFetchMode} onValueChange={(value: SettingsFetchMode) => {
-                    updateSettings({ fetchMode: value });
-                    setCurrentFetchMode(value);
-                }}>
-                  <SelectTrigger id="fetch-mode" className="w-28">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="batch">Batch</SelectItem>
-                    <SelectItem value="single">Single</SelectItem>
-                  </SelectContent>
-                </Select>
+            {fetchType === "single" && (<div className="flex items-center justify-between gap-4">
+              <Label htmlFor="retweets" className="cursor-pointer text-sm">Include Reposts</Label>
+              <Checkbox id="retweets" checked={retweets} onCheckedChange={(checked) => {
+                const value = checked as boolean;
+                updateSettings({ includeRetweets: value });
+                setRetweets(value);
+            }}/>
+            </div>)}
+
+            <div className="space-y-2">
+              <Label className="text-sm">Include Media</Label>
+              <div className="grid grid-cols-4 gap-2">
+                <button type="button" className={pillClass(includePhotos)} onClick={() => { updateSettings({ includePhotos: !includePhotos }); setIncludePhotos((v) => !v); }}>Photos</button>
+                <button type="button" className={pillClass(includeVideos)} onClick={() => { updateSettings({ includeVideos: !includeVideos }); setIncludeVideos((v) => !v); }}>Videos</button>
+                <button type="button" className={pillClass(includeGifs)} onClick={() => { updateSettings({ includeGifs: !includeGifs }); setIncludeGifs((v) => !v); }}>GIFs</button>
+                <button type="button" className={pillClass(includeText)} onClick={() => { updateSettings({ includeText: !includeText }); setIncludeText((v) => !v); }}>Text</button>
               </div>
+            </div>
 
-              <div className="flex items-center justify-between gap-4">
-                <Label htmlFor="media-type" className="text-sm">Media Type</Label>
-                <Select value={mediaType} onValueChange={(value: SettingsMediaType) => {
-                    updateSettings({ mediaType: value });
-                    setMediaType(value);
-                }}>
-                  <SelectTrigger id="media-type" className="w-40">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Media</SelectItem>
-                    <SelectItem value="image">Images</SelectItem>
-                    <SelectItem value="video">Videos</SelectItem>
-                    <SelectItem value="gif">GIFs</SelectItem>
-                    <SelectItem value="text">Text (No Media)</SelectItem>
-                  </SelectContent>
-                </Select>
+            <div className="space-y-2">
+              <Label className="text-sm">Video Quality</Label>
+              <div className="grid grid-cols-5 gap-2">
+                {VIDEO_QUALITIES.map((q) => (<button key={q.value} type="button" className={pillClass(videoQuality === q.value)} onClick={() => { updateSettings({ videoQuality: q.value }); setVideoQuality(q.value); }}>{q.label}</button>))}
               </div>
+            </div>
 
-              {fetchType === "single" && (<div className="flex items-center justify-between gap-4">
-                  <Label htmlFor="retweets" className="cursor-pointer text-sm">Include Retweets</Label>
-                  <Checkbox id="retweets" checked={retweets} onCheckedChange={(checked) => {
-                    const value = checked as boolean;
-                    updateSettings({ includeRetweets: value });
-                    setRetweets(value);
-                }}/>
-                </div>)}
+            <div className="space-y-2">
+              <Label className="text-sm">Image Size</Label>
+              <div className="grid grid-cols-4 gap-2">
+                {IMAGE_SIZES.map((s) => (<button key={s.value} type="button" className={pillClass(imageSize === s.value)} onClick={() => { updateSettings({ imageSize: s.value }); setImageSize(s.value); }}>{s.label}</button>))}
+              </div>
+            </div>
 
-              {fetchType === "single" && mode === "public" && (<div className="space-y-3">
-                  <div className="flex items-center justify-between gap-4">
-                    <Label htmlFor="date-range" className="flex cursor-pointer items-center gap-2 text-sm">
-                      <Calendar className="h-4 w-4"/>
-                      Date Range
-                    </Label>
-                    <Checkbox id="date-range" checked={useDateRange} onCheckedChange={(checked) => setUseDateRange(checked as boolean)}/>
-                  </div>
+            <div className="space-y-2">
+              <Label className="text-sm">Avatar Size</Label>
+              <div className="grid grid-cols-5 gap-2">
+                {AVATAR_SIZES.map((s) => (<button key={s.value} type="button" className={pillClass(avatarSize === s.value)} onClick={() => { updateSettings({ avatarSize: s.value }); setAvatarSize(s.value); }}>{s.label}</button>))}
+              </div>
+            </div>
 
-                  {useDateRange && (<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <InputWithContext id="start-date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}/>
-                      <InputWithContext id="end-date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}/>
-                    </div>)}
-                </div>)}
+            <div className="space-y-2">
+              <Label className="text-sm">Banner Size</Label>
+              <div className="grid grid-cols-4 gap-2">
+                {BANNER_SIZES.map((s) => (<button key={s.value} type="button" className={pillClass(bannerSize === s.value)} onClick={() => { updateSettings({ bannerSize: s.value }); setBannerSize(s.value); }}>{s.label}</button>))}
+              </div>
             </div>
           </div>
 

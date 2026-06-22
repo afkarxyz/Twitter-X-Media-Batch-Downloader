@@ -5,15 +5,15 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger, } from "@/components/ui/tooltip";
-import { Image, Video, Film, FileText, ExternalLink, Repeat2, Download, FolderOpen, LayoutGrid, Grid3X3, List, StopCircle, Users, UserPlus, MessageSquare, Calendar, ArrowUp, ChevronLeft, ChevronRight, Eye, Heart, Bookmark, BadgeCheck, Maximize2, CheckCircle, XCircle, FileCheck, } from "lucide-react";
+import { Image, Video, Film, FileText, ExternalLink, Repeat2, Download, FolderOpen, LayoutGrid, Grid3X3, List, StopCircle, MapPin, Link2, Lock, Calendar, ArrowUp, ChevronLeft, ChevronRight, Eye, Heart, Bookmark, BadgeCheck, Maximize2, CheckCircle, XCircle, FileCheck, } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import type { TimelineEntry, AccountInfo } from "@/types/api";
 import { logger } from "@/lib/logger";
 import { toastWithSound as toast } from "@/lib/toast-with-sound";
-import { getSettings } from "@/lib/settings";
+import { getSettings, renderFolderTemplate } from "@/lib/settings";
 import { getCachedDependencyStatus, getCachedMediaFolderStatus, setCachedDependencyStatus, setCachedMediaFolderStatus } from "@/lib/runtime-cache";
 import { openExternal } from "@/lib/utils";
-import { DownloadMediaWithMetadata, OpenFolder, IsFFmpegInstalled, ConvertGIFs, StopDownload, CheckFolderExists, CheckGifsFolderHasMP4 } from "../../wailsjs/go/main/App";
+import { DownloadMediaWithMetadata, DownloadProfileImage, OpenFolder, IsFFmpegInstalled, ConvertGIFs, StopDownload, CheckFolderExists, CheckGifsFolderHasMP4 } from "../../wailsjs/go/main/App";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
 import { main } from "../../wailsjs/go/models";
 interface DownloadProgress {
@@ -34,11 +34,9 @@ interface MediaListProps {
     newMediaCount?: number | null;
 }
 const MEDIA_LIST_PAGE_SIZE = 30;
-
 function getContentScrollElement(): HTMLElement | null {
     return document.getElementById("app-content-scroll");
 }
-
 function getThumbnailUrl(url: string): string {
     if (url.includes("video.twimg.com/tweet_video/")) {
         const match = url.match(/tweet_video\/([^/]+)\.mp4/);
@@ -78,6 +76,12 @@ function getPreviewUrl(url: string): string {
     }
     return url;
 }
+function getEntryThumbnail(item: TimelineEntry): string {
+    if (item.thumbnail) {
+        return item.thumbnail;
+    }
+    return getThumbnailUrl(item.url);
+}
 function getMediaIcon(type: string) {
     switch (type) {
         case "photo":
@@ -95,10 +99,14 @@ function getMediaIcon(type: string) {
 }
 function formatDate(dateStr: string): string {
     try {
-        if (dateStr.includes("T")) {
-            const [datePart, timePart] = dateStr.split("T");
-            const timeClean = timePart.split("+")[0].split("Z")[0];
-            return `${datePart} • ${timeClean}`;
+        const d = new Date(dateStr);
+        if (!Number.isNaN(d.getTime())) {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, "0");
+            const day = String(d.getDate()).padStart(2, "0");
+            const hours = String(d.getHours()).padStart(2, "0");
+            const minutes = String(d.getMinutes()).padStart(2, "0");
+            return `${year}-${month}-${day} ${hours}:${minutes}`;
         }
         return dateStr;
     }
@@ -168,7 +176,6 @@ function formatJoinDate(dateStr: string): string {
         return dateStr;
     }
 }
-
 function getAccountFolderName(accountInfo: AccountInfo): string {
     if (accountInfo.nick === "My Bookmarks" || accountInfo.name === "bookmarks") {
         return "My Bookmarks";
@@ -176,9 +183,26 @@ function getAccountFolderName(accountInfo: AccountInfo): string {
     if (accountInfo.nick === "My Likes" || accountInfo.name === "likes") {
         return "My Likes";
     }
-    return accountInfo.name;
+    const template = getSettings().folderTemplate;
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const now = new Date();
+    const rendered = renderFolderTemplate(template, {
+        username: accountInfo.name,
+        date: `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`,
+    });
+    return rendered || accountInfo.name;
 }
-
+function pickVariantUrl(variants: {
+    name: string;
+    url: string;
+}[] | undefined, size: string, fallback: string): string {
+    if (variants && variants.length > 0) {
+        const match = variants.find((v) => v.name === size);
+        if (match?.url)
+            return match.url;
+    }
+    return fallback;
+}
 export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType = "all", newMediaCount = null, }: MediaListProps) {
     const settings = getSettings();
     const folderName = getAccountFolderName(accountInfo);
@@ -188,7 +212,13 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
     const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
     const [sortBy, setSortBy] = useState<string>("date-desc");
     const [filterType, setFilterType] = useState<string>("all");
-    const [viewMode, setViewMode] = useState<"large" | "small" | "list">("list");
+    const [viewMode, setViewMode] = useState<"large" | "small" | "list">(() => {
+        const stored = localStorage.getItem("resultViewMode");
+        return stored === "large" || stored === "small" || stored === "list" ? stored : "list";
+    });
+    useEffect(() => {
+        localStorage.setItem("resultViewMode", viewMode);
+    }, [viewMode]);
     const [isDownloading, setIsDownloading] = useState(false);
     const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
     const [hasDownloaded, setHasDownloaded] = useState(false);
@@ -466,6 +496,8 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
                 delete_incomplete_files: settings.deleteIncompleteFiles,
                 retry_attempts: settings.retryAttempts,
                 proxy: settings.proxy || "",
+                filename_template: settings.filenameTemplate || "",
+                folder_template: settings.folderTemplate || "",
             });
             const response = await DownloadMediaWithMetadata(request);
             if (response.cancelled) {
@@ -535,6 +567,30 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
         }
         catch (error) {
             console.error("Failed to stop download:", error);
+        }
+    };
+    const handleDownloadProfileImage = async (kind: "avatar" | "banner") => {
+        const settings = getSettings();
+        const url = kind === "avatar"
+            ? pickVariantUrl(accountInfo.avatar_variants, settings.avatarSize, accountInfo.profile_image)
+            : pickVariantUrl(accountInfo.banner_variants, settings.bannerSize, accountInfo.banner || "");
+        if (!url) {
+            toast.error(`No ${kind} available`);
+            return;
+        }
+        try {
+            await DownloadProfileImage(new main.DownloadProfileImageRequest({
+                url,
+                output_dir: settings.downloadPath,
+                username: folderName,
+                kind,
+                proxy: settings.proxy || "",
+            }));
+            toast.success(`${kind === "avatar" ? "Avatar" : "Banner"} downloaded`);
+        }
+        catch (error) {
+            logger.error(`Failed to download ${kind}: ${error}`);
+            toast.error(`Failed to download ${kind}`);
         }
     };
     const handleOpenFolder = async () => {
@@ -633,40 +689,69 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
             </div>
             <div className="text-sm text-muted-foreground">items found</div>
           </div>
-        </div>) : (<div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
-          <img src={accountInfo.profile_image} alt={accountInfo.nick} className="w-16 h-16 rounded-full"/>
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl">{accountInfo.nick}</h2>
-              <span className="text-muted-foreground">@{accountInfo.name}</span>
+        </div>) : (<div className="rounded-lg overflow-hidden bg-muted/50 border">
+          {accountInfo.banner && (<div className="group/banner relative h-24 w-full bg-cover bg-center" style={{ backgroundImage: `url("${accountInfo.banner}")` }}>
+            <button type="button" aria-label="Download banner" onClick={() => void handleDownloadProfileImage("banner")} className="absolute top-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-all hover:scale-105 hover:bg-primary hover:text-primary-foreground group-hover/banner:opacity-100">
+              <Download className="h-4 w-4"/>
+            </button>
+          </div>)}
+          <div className="p-4">
+            <div className="flex items-end justify-between gap-4">
+              <div className="flex items-end gap-3 min-w-0">
+                <div className={`group/avatar relative shrink-0 ${accountInfo.banner ? "-mt-14" : ""}`}>
+                  <img src={accountInfo.profile_image} alt={accountInfo.nick} className={`w-20 h-20 rounded-full object-cover bg-muted ${accountInfo.banner ? "ring-4 ring-background" : ""}`}/>
+                  <button type="button" aria-label="Download avatar" onClick={() => void handleDownloadProfileImage("avatar")} className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 text-white opacity-0 transition-opacity hover:bg-black/62 group-hover/avatar:opacity-100">
+                    <Download className="h-5 w-5"/>
+                  </button>
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <h2 className="text-xl font-bold truncate">{accountInfo.nick}</h2>
+                    {(accountInfo.verified || accountInfo.blue_verified) && (<BadgeCheck className="h-4 w-4 text-blue-500 shrink-0"/>)}
+                    {accountInfo.protected && (<Lock className="h-3.5 w-3.5 text-muted-foreground shrink-0"/>)}
+                  </div>
+                  <div className="text-sm text-muted-foreground truncate">@{accountInfo.name}</div>
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <div className="flex items-center justify-end gap-2">
+                  {newMediaCount !== null && newMediaCount > 0 && (<div className="text-lg font-semibold text-green-600 dark:text-green-400 animate-in fade-in slide-in-from-left-2 duration-300">
+                      {formatNumberWithComma(newMediaCount)}+
+                    </div>)}
+                  <div className="text-2xl font-bold text-primary">{formatNumberWithComma(totalUrls)}</div>
+                </div>
+                <div className="text-sm text-muted-foreground">items found</div>
+              </div>
             </div>
-            <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-              <span className="flex items-center gap-1">
-                <Users className="h-3.5 w-3.5"/>
-                {formatNumber(accountInfo.followers_count)} followers
-              </span>
-              <span className="flex items-center gap-1">
-                <UserPlus className="h-3.5 w-3.5"/>
-                {formatNumber(accountInfo.friends_count)} following
-              </span>
-              <span className="flex items-center gap-1">
-                <MessageSquare className="h-3.5 w-3.5"/>
-                {formatNumber(accountInfo.statuses_count)} posts
-              </span>
+
+            {accountInfo.bio && (<p className="text-sm mt-3 whitespace-pre-wrap wrap-break-word">{accountInfo.bio}</p>)}
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground mt-3">
+              {accountInfo.location && (<span className="flex items-center gap-1">
+                  <MapPin className="h-3.5 w-3.5"/>
+                  {accountInfo.location}
+                </span>)}
+              {accountInfo.url && (<button type="button" onClick={() => openExternal(accountInfo.url!)} className="flex items-center gap-1 hover:underline">
+                  <Link2 className="h-3.5 w-3.5"/>
+                  {accountInfo.url.replace(/^https?:\/\//, "").replace(/\/+$/, "")}
+                </button>)}
               {accountInfo.date && (<span className="flex items-center gap-1">
                   <Calendar className="h-3.5 w-3.5"/>
                   Joined {formatJoinDate(accountInfo.date)}
                 </span>)}
             </div>
-          </div>
-          <div className="text-right">
-            <div className="flex items-center justify-end gap-2">
-              {newMediaCount !== null && newMediaCount > 0 && (<div className="text-lg font-semibold text-green-600 dark:text-green-400 animate-in fade-in slide-in-from-left-2 duration-300">
-                  {formatNumberWithComma(newMediaCount)}+
-                </div>)}
-              <div className="text-2xl font-bold text-primary">{formatNumberWithComma(totalUrls)}</div>
+
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm mt-3">
+              <span><strong className="text-foreground">{formatNumber(accountInfo.statuses_count)}</strong> <span className="text-muted-foreground">posts</span></span>
+              <span className="text-muted-foreground">·</span>
+              <span><strong className="text-foreground">{formatNumber(accountInfo.friends_count)}</strong> <span className="text-muted-foreground">following</span></span>
+              <span className="text-muted-foreground">·</span>
+              <span><strong className="text-foreground">{formatNumber(accountInfo.followers_count)}</strong> <span className="text-muted-foreground">followers</span></span>
+              {accountInfo.media_count ? (<>
+                  <span className="text-muted-foreground">·</span>
+                  <span><strong className="text-foreground">{formatNumber(accountInfo.media_count)}</strong> <span className="text-muted-foreground">media</span></span>
+                </>) : null}
             </div>
-            <div className="text-sm text-muted-foreground">items found</div>
           </div>
         </div>)}
 
@@ -705,6 +790,12 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
                   <span className="flex items-center gap-2">
                     <Film className="h-4 w-4 text-green-500"/>
                     GIFs ({formatNumberWithComma(mediaCounts.gif)})
+                  </span>
+                </SelectItem>)}
+              {mediaCounts.text > 0 && (<SelectItem value="text">
+                  <span className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-orange-500"/>
+                    Text ({formatNumberWithComma(mediaCounts.text)})
                   </span>
                 </SelectItem>)}
             </SelectContent>
@@ -783,15 +874,17 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
                 const isItemFailed = failedItems.has(itemKey);
                 const isItemSkipped = skippedItems.has(itemKey);
                 const isItemDownloading = downloadingItem === itemKey;
-                return (<div key={itemKey} className={`flex items-center gap-4 p-3 rounded-lg border-2 transition-all ${isSelected ? "border-primary bg-primary/5" : "border-transparent hover:bg-muted/50"}`}>
-                <Checkbox checked={isSelected} onCheckedChange={() => toggleItem(itemKey)}/>
-                <span className="text-sm text-muted-foreground w-8 text-center shrink-0">
-                  {index + 1}
-                </span>
-                <div className="w-16 h-16 rounded overflow-hidden bg-muted shrink-0 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => openPreview(index)}>
-                  {item.type === "photo" || item.type === "animated_gif" || item.type === "gif" ? (<img src={getThumbnailUrl(item.url)} alt="" className="w-full h-full object-cover" loading="lazy"/>) : (<div className="w-full h-full flex items-center justify-center">
-                      {getMediaIcon(item.type)}
-                    </div>)}
+                return (<div key={itemKey} onClick={() => openPreview(index)} className={`flex items-center gap-4 p-3 rounded-lg border-2 transition-all cursor-pointer ${isSelected ? "border-primary bg-primary/5" : "border-transparent hover:bg-muted/50"}`}>
+                <Checkbox checked={isSelected} onCheckedChange={() => toggleItem(itemKey)} onClick={(e) => e.stopPropagation()}/>
+                <div className="relative shrink-0">
+                  <span className="absolute -top-1.5 -left-1.5 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-medium text-primary-foreground">
+                    {index + 1}
+                  </span>
+                  <div className="w-16 h-16 rounded overflow-hidden bg-muted">
+                    {item.type !== "text" && getEntryThumbnail(item) ? (<img src={getEntryThumbnail(item)} alt="" className="w-full h-full object-cover" loading="lazy"/>) : (<div className="w-full h-full flex items-center justify-center">
+                        {getMediaIcon(item.type)}
+                      </div>)}
+                  </div>
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -841,6 +934,8 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
                                 delete_incomplete_files: settings.deleteIncompleteFiles,
                                 retry_attempts: settings.retryAttempts,
                                 proxy: settings.proxy || "",
+                                filename_template: settings.filenameTemplate || "",
+                                folder_template: settings.folderTemplate || "",
                             });
                             const response = await DownloadMediaWithMetadata(request);
                             if (response.cancelled) {
@@ -888,7 +983,10 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
                 return (<div key={itemKey} className={`relative group rounded-lg overflow-hidden border-2 transition-all ${isSelected ? "border-primary" : "border-transparent hover:border-muted-foreground/30"}`}>
                 
                 <div className="aspect-square bg-muted relative cursor-pointer" onClick={() => openPreview(index)}>
-                  {item.type === "photo" || item.type === "animated_gif" || item.type === "gif" ? (<img src={getThumbnailUrl(item.url)} alt="" className="w-full h-full object-cover" loading="lazy"/>) : (<div className="w-full h-full flex items-center justify-center bg-muted">
+                  <span className="absolute top-1.5 left-1.5 z-20 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-medium text-primary-foreground">
+                    {index + 1}
+                  </span>
+                  {item.type !== "text" && getEntryThumbnail(item) ? (<img src={getEntryThumbnail(item)} alt="" className="w-full h-full object-cover" loading="lazy"/>) : (<div className="w-full h-full flex items-center justify-center bg-muted">
                       {getMediaIcon(item.type)}
                     </div>)}
 
@@ -918,6 +1016,8 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
                                 delete_incomplete_files: settings.deleteIncompleteFiles,
                                 retry_attempts: settings.retryAttempts,
                                 proxy: settings.proxy || "",
+                                filename_template: settings.filenameTemplate || "",
+                                folder_template: settings.folderTemplate || "",
                             });
                             const response = await DownloadMediaWithMetadata(request);
                             if (response.cancelled) {
@@ -1095,6 +1195,8 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
                                 delete_incomplete_files: settings.deleteIncompleteFiles,
                                 retry_attempts: settings.retryAttempts,
                                 proxy: settings.proxy || "",
+                                filename_template: settings.filenameTemplate || "",
+                                folder_template: settings.folderTemplate || "",
                             });
                             const response = await DownloadMediaWithMetadata(request);
                             if (response.cancelled) {

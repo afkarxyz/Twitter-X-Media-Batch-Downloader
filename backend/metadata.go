@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	filenameSafeRegex = regexp.MustCompile(`^[A-Za-z0-9_]+$`)
+	filenameSafeRegex   = regexp.MustCompile(`^[A-Za-z0-9_]+$`)
 	filenameLetterRegex = regexp.MustCompile(`[A-Za-z]`)
 )
 

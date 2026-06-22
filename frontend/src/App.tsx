@@ -26,22 +26,19 @@ import { ExtractTimeline, ExtractDateRange, SaveAccountToDBWithStatus, CleanupEx
 const HISTORY_KEY = "twitter_media_fetch_history";
 const MAX_HISTORY = 10;
 const CURRENT_VERSION = __APP_VERSION__;
-const BATCH_SIZE = 200;
+const BATCH_SIZE = 100;
 function formatNumberWithComma(num: number): string {
     return num.toLocaleString();
 }
-
 function normalizeTimeline(timeline: TwitterResponse["timeline"] | null | undefined): TwitterResponse["timeline"] {
     return Array.isArray(timeline) ? timeline : [];
 }
-
 function normalizeTwitterResponse(data: TwitterResponse): TwitterResponse {
     return {
         ...data,
         timeline: normalizeTimeline(data.timeline),
     };
 }
-
 async function loadSavedAccountResponse(username: string, mediaType: string): Promise<TwitterResponse | null> {
     try {
         const savedResponseJSON = await GetSavedAccountFromDB(username, mediaType);
@@ -51,7 +48,6 @@ async function loadSavedAccountResponse(username: string, mediaType: string): Pr
         return null;
     }
 }
-
 function App() {
     const [currentPage, setCurrentPage] = useState<PageType>("main");
     const [username, setUsername] = useState("");
@@ -102,12 +98,20 @@ function App() {
             }
             return;
         }
+        const canResume = !!savedState.cursor && !savedState.completed;
+        if (!canResume) {
+            clearFetchState(cleanUsername);
+            clearCursor(cleanUsername);
+            setResumeInfo(null);
+        }
         const partialResponse = await loadSavedAccountResponse(cleanUsername, savedState.mediaType || mediaType);
-        setResumeInfo({ canResume: true, mediaCount: savedState.totalFetched });
+        if (canResume) {
+            setResumeInfo({ canResume: true, mediaCount: savedState.totalFetched });
+        }
         if (partialResponse) {
             setResult(partialResponse);
             try {
-                await SaveAccountToDBWithStatus(partialResponse.account_info.name, partialResponse.account_info.nick, partialResponse.account_info.profile_image, partialResponse.total_urls, JSON.stringify(partialResponse), savedState.mediaType || mediaType, savedState.cursor || "", false);
+                await SaveAccountToDBWithStatus(partialResponse.account_info.name, partialResponse.account_info.nick, partialResponse.account_info.profile_image, partialResponse.total_urls, JSON.stringify(partialResponse), savedState.mediaType || mediaType, savedState.cursor || "", savedState.completed);
             }
             catch (dbErr) {
                 reportDatabaseSaveError("partial fetch data", dbErr);
@@ -193,7 +197,6 @@ function App() {
                 openExternal(url.toString());
             }
             catch {
-                // Ignore invalid URLs and allow the browser/webview to handle them.
             }
         };
         document.addEventListener("click", handleDocumentClick);
@@ -434,10 +437,8 @@ function App() {
                 }
             }
             else {
-                const settings = getSettings();
-                const isSingleMode = settings.fetchMode === "single";
-                const batchSize = isSingleMode ? 0 : BATCH_SIZE;
-                let timelineType = "timeline";
+                const batchSize = BATCH_SIZE;
+                let timelineType = (settings.includeText || retweets) ? "tweets" : "media";
                 if (isBookmarks) {
                     timelineType = "bookmarks";
                 }
@@ -446,6 +447,7 @@ function App() {
                 }
                 let hasMore = true;
                 let page = 0;
+                const seenCursors = new Set<string>();
                 while (hasMore && !stopFetchRef.current) {
                     if (fetchStartTimeRef.current !== null) {
                         const settings = getSettings();
@@ -492,7 +494,7 @@ function App() {
                         }
                     }
                     const batchNum = page + 1;
-                    logger.info(isSingleMode ? "Fetching all media..." : `Fetching batch ${batchNum}${cursor ? " (resuming)" : ""}...`);
+                    logger.info(`Fetching batch ${batchNum}${cursor ? " (resuming)" : ""}...`);
                     const response = await ExtractTimeline({
                         username: isBookmarks ? "" : username.trim(),
                         auth_token: authToken.trim(),
@@ -502,6 +504,12 @@ function App() {
                         media_type: requestedMediaType,
                         retweets: retweets || false,
                         cursor: cursor,
+                        include_photos: settings.includePhotos,
+                        include_videos: settings.includeVideos,
+                        include_gifs: settings.includeGifs,
+                        include_text: settings.includeText,
+                        video_quality: settings.videoQuality,
+                        image_size: settings.imageSize,
                     });
                     const data = normalizeTwitterResponse(JSON.parse(response) as TwitterResponse);
                     if (!accountInfo && data.account_info) {
@@ -524,6 +532,14 @@ function App() {
                     }
                     cursor = data.cursor;
                     hasMore = !!data.cursor && !data.completed;
+                    if (hasMore && cursor) {
+                        if (seenCursors.has(cursor) || (data.timeline.length > 0 && newCount === 0)) {
+                            hasMore = false;
+                        }
+                        else {
+                            seenCursors.add(cursor);
+                        }
+                    }
                     page++;
                     if (cursor) {
                         saveCursor(cleanUsername, cursor);
@@ -579,7 +595,7 @@ function App() {
                         }
                     }
                 }
-                if (stopFetchRef.current) {
+                if (stopFetchRef.current && hasMore && cursor) {
                     const elapsedSecs = fetchStartTimeRef.current ? Math.floor((Date.now() - fetchStartTimeRef.current) / 1000) : 0;
                     logger.info(`Stopped at ${allTimeline.length} items - can resume later (${elapsedSecs}s)`);
                     toast.info(`Stopped at ${formatNumberWithComma(allTimeline.length)} items`);
@@ -808,7 +824,7 @@ function App() {
             return;
         }
         const settings = getSettings();
-        const selectedMediaType = settings.mediaType || "all";
+        const selectedMediaType = "all";
         setFetchedMediaType(selectedMediaType);
         const timeoutSeconds = settings.fetchTimeout || 60;
         setMultipleAccounts((prev) => prev.map((acc) => ({
@@ -882,15 +898,14 @@ function App() {
                     }));
                     continue;
                 }
-                const fetchSettings = getSettings();
-                const isSingleModeMultiple = fetchSettings.fetchMode === "single";
-                const batchSizeMultiple = isSingleModeMultiple ? 0 : BATCH_SIZE;
+                const batchSizeMultiple = BATCH_SIZE;
                 const cleanUsername = account.username.trim();
                 let allTimeline: TwitterResponse["timeline"] = [];
                 let accountInfo: TwitterResponse["account_info"] | null = null;
                 let cursor: string | undefined;
                 let hasMore = true;
                 let page = 0;
+                const seenCursors = new Set<string>();
                 let previousMediaCount = account.mediaCount || 0;
                 while (hasMore && !stopAllRef.current) {
                     if (accountStopFlagsRef.current.get(accountId)) {
@@ -930,20 +945,35 @@ function App() {
                     const response = await ExtractTimeline({
                         username: cleanUsername,
                         auth_token: authToken.trim(),
-                        timeline_type: "timeline",
+                        timeline_type: (settings.includeText || settings.includeRetweets) ? "tweets" : "media",
                         batch_size: batchSizeMultiple,
                         page: page,
                         media_type: selectedMediaType,
-                        retweets: false,
+                        retweets: settings.includeRetweets,
                         cursor: cursor,
+                        include_photos: settings.includePhotos,
+                        include_videos: settings.includeVideos,
+                        include_gifs: settings.includeGifs,
+                        include_text: settings.includeText,
+                        video_quality: settings.videoQuality,
+                        image_size: settings.imageSize,
                     });
                     const data = normalizeTwitterResponse(JSON.parse(response) as TwitterResponse);
                     if (!accountInfo && data.account_info) {
                         accountInfo = data.account_info;
                     }
+                    const previousMergeCount = allTimeline.length;
                     allTimeline = mergeTimelines(allTimeline, data.timeline);
                     cursor = data.cursor;
                     hasMore = !!data.cursor && !data.completed;
+                    if (hasMore && cursor) {
+                        if (seenCursors.has(cursor) || (data.timeline.length > 0 && allTimeline.length === previousMergeCount)) {
+                            hasMore = false;
+                        }
+                        else {
+                            seenCursors.add(cursor);
+                        }
+                    }
                     page++;
                     if (cursor) {
                         saveCursor(cleanUsername, cursor);
@@ -997,7 +1027,7 @@ function App() {
                                 },
                                 cursor: cursor,
                                 completed: !hasMore,
-                                }), selectedMediaType, cursor || "", !hasMore);
+                            }), selectedMediaType, cursor || "", !hasMore);
                         }
                         catch (err) {
                             reportDatabaseSaveError("multi-account progress", err);
@@ -1144,10 +1174,9 @@ function App() {
             return;
         }
         const retrySettings = getSettings();
-        const selectedMediaType = retrySettings.mediaType || fetchedMediaType || "all";
+        const selectedMediaType = fetchedMediaType || "all";
         setFetchedMediaType(selectedMediaType);
-        const isSingleModeRetry = retrySettings.fetchMode === "single";
-        const batchSizeRetry = isSingleModeRetry ? 0 : BATCH_SIZE;
+        const batchSizeRetry = BATCH_SIZE;
         const cleanUsername = account.username.trim();
         let existingState: FetchState | null = null;
         let cursor: string | undefined = account.cursor;
@@ -1157,7 +1186,12 @@ function App() {
         existingState = getFetchState(cleanUsername);
         if (existingState && existingState.cursor && !existingState.completed) {
             cursor = existingState.cursor;
-            const savedResponse = await loadSavedAccountResponse(cleanUsername, existingState.mediaType || selectedMediaType);
+            const resumeMediaType = existingState.mediaType || selectedMediaType;
+            const canonicalHandle = account.accountInfo?.name?.trim();
+            let savedResponse = await loadSavedAccountResponse(cleanUsername, resumeMediaType);
+            if (!savedResponse && canonicalHandle && canonicalHandle.toLowerCase() !== cleanUsername.toLowerCase()) {
+                savedResponse = await loadSavedAccountResponse(canonicalHandle, resumeMediaType);
+            }
             if (savedResponse) {
                 allTimeline = savedResponse.timeline;
                 accountInfo = savedResponse.account_info;
@@ -1167,7 +1201,8 @@ function App() {
             else {
                 clearFetchState(cleanUsername);
                 clearCursor(cleanUsername);
-                logger.info(`Saved retry state for @${cleanUsername} was missing. Starting from beginning...`);
+                logger.warning(`Saved data for @${cleanUsername} is missing (Saved Accounts entry was cleared). Re-fetching from the beginning...`);
+                toast.warning(`@${cleanUsername}: saved progress was lost, re-fetching from the start`);
                 cursor = undefined;
                 allTimeline = [];
                 accountInfo = null;
@@ -1261,6 +1296,7 @@ function App() {
         try {
             let hasMore = true;
             let page = 0;
+            const seenCursors = new Set<string>();
             while (hasMore && !stopAllRef.current) {
                 if (accountStopFlagsRef.current.get(accountId)) {
                     break;
@@ -1268,20 +1304,35 @@ function App() {
                 const response = await ExtractTimeline({
                     username: cleanUsername,
                     auth_token: authToken.trim(),
-                    timeline_type: "timeline",
+                    timeline_type: (retrySettings.includeText || retrySettings.includeRetweets) ? "tweets" : "media",
                     batch_size: batchSizeRetry,
                     page: page,
                     media_type: selectedMediaType,
-                    retweets: false,
+                    retweets: retrySettings.includeRetweets,
                     cursor: cursor,
+                    include_photos: retrySettings.includePhotos,
+                    include_videos: retrySettings.includeVideos,
+                    include_gifs: retrySettings.includeGifs,
+                    include_text: retrySettings.includeText,
+                    video_quality: retrySettings.videoQuality,
+                    image_size: retrySettings.imageSize,
                 });
                 const data = normalizeTwitterResponse(JSON.parse(response) as TwitterResponse);
                 if (!accountInfo && data.account_info) {
                     accountInfo = data.account_info;
                 }
+                const previousRetryCount = allTimeline.length;
                 allTimeline = mergeTimelines(allTimeline, data.timeline);
                 cursor = data.cursor;
                 hasMore = !!data.cursor && !data.completed;
+                if (hasMore && cursor) {
+                    if (seenCursors.has(cursor) || (data.timeline.length > 0 && allTimeline.length === previousRetryCount)) {
+                        hasMore = false;
+                    }
+                    else {
+                        seenCursors.add(cursor);
+                    }
+                }
                 page++;
                 if (cursor) {
                     saveCursor(cleanUsername, cursor);
@@ -1433,7 +1484,7 @@ function App() {
                 return (<>
             <Header version={CURRENT_VERSION} hasUpdate={hasUpdate} releaseDate={releaseDate}/>
 
-            <SearchBar username={username} loading={loading} onUsernameChange={setUsername} onFetch={handleFetch} onStopFetch={handleStopFetch} onResume={handleResume} onClearResume={handleClearResume} resumeInfo={resumeInfo} history={fetchHistory} onHistorySelect={handleHistorySelect} onHistoryRemove={removeFromHistory} hasResult={!!result} elapsedTime={elapsedTime} remainingTime={remainingTime} fetchType={fetchType} onFetchTypeChange={handleFetchTypeChange} multipleAccounts={multipleAccounts} onImportAccounts={handleImportAccounts} onFetchAll={handleFetchAll} onStopAll={handleStopAll} onStopAccount={handleStopAccount} onRetryAccount={handleRetryAccount} onClearMultipleAccounts={handleClearMultipleAccounts} onRemoveMultipleAccount={handleRemoveMultipleAccount} isFetchingAll={isFetchingAll} mode={searchMode} privateType={searchPrivateType} onModeChange={(mode, privateType) => {
+            <SearchBar username={username} loading={loading} onUsernameChange={setUsername} onFetch={handleFetch} onStopFetch={handleStopFetch} onResume={handleResume} onClearResume={handleClearResume} resumeInfo={resumeInfo} history={fetchHistory} onHistorySelect={handleHistorySelect} onHistoryRemove={removeFromHistory} hasResult={!!result} elapsedTime={elapsedTime} remainingTime={remainingTime} fetchType={fetchType} onFetchTypeChange={handleFetchTypeChange} multipleAccounts={multipleAccounts} onImportAccounts={handleImportAccounts} onFetchAll={handleFetchAll} onStopAll={handleStopAll} onStopAccount={handleStopAccount} onRetryAccount={handleRetryAccount} onClearMultipleAccounts={handleClearMultipleAccounts} onRemoveMultipleAccount={handleRemoveMultipleAccount} onOpenSavedAccounts={() => setCurrentPage("database")} isFetchingAll={isFetchingAll} mode={searchMode} privateType={searchPrivateType} onModeChange={(mode, privateType) => {
                         setSearchMode(mode);
                         if (privateType) {
                             setSearchPrivateType(privateType);

@@ -58,6 +58,10 @@ export function DownloadMediaWithMetadata(arg1) {
   return window['go']['main']['App']['DownloadMediaWithMetadata'](arg1);
 }
 
+export function DownloadProfileImage(arg1) {
+  return window['go']['main']['App']['DownloadProfileImage'](arg1);
+}
+
 export function ExportAccountJSON(arg1, arg2) {
   return window['go']['main']['App']['ExportAccountJSON'](arg1, arg2);
 }
