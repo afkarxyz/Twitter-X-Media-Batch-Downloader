@@ -11,6 +11,7 @@ import (
 )
 
 func OpenFolderInExplorer(path string) error {
+    os.WriteFile(filepath.Join(os.TempDir(), "openfolder.txt"), []byte(path), 0644)
 	info, err := os.Stat(path)
 	if err != nil {
 		return err
@@ -23,7 +24,7 @@ func OpenFolderInExplorer(path string) error {
 
 	switch runtime.GOOS {
 	case "windows":
-		cmd = exec.Command("explorer", path)
+		cmd = exec.Command("cmd", "/C", "start", "", path)
 	case "darwin":
 		cmd = exec.Command("open", path)
 	case "linux":
