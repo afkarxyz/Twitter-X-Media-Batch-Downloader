@@ -350,9 +350,9 @@ func (a *App) DownloadMediaWithMetadata(req DownloadMediaWithMetadataRequest) (D
 		}
 
 		username := req.Username
-		if item.AuthorUsername != "" {
-			username = item.AuthorUsername
-		}
+if (req.Username == "bookmarks" || req.Username == "likes") && item.AuthorUsername != "" {
+    username = item.AuthorUsername
+}
 
 		items[i] = backend.MediaItem{
 			URL:              item.URL,
