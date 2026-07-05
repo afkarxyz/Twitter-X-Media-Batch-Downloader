@@ -13,16 +13,11 @@ import { Spinner } from "@/components/ui/spinner";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, } from "@/components/ui/dropdown-menu";
 import { Trash2, FileInput, FileOutput, Pencil, Tag, Shuffle, X, XCircle, Download, StopCircle, Globe, Lock, Bookmark, Heart, Image, Images, Video, Film, FileText, Filter, AlertCircle, MoreVertical, FileBraces, CloudBackup, Search, LayoutGrid, Grid3X3, List, ArrowUpDown, ArrowUp, FolderOpen, Users, MessageSquare } from "lucide-react";
 import { toastWithSound as toast } from "@/lib/toast-with-sound";
-import { getSettings } from "@/lib/settings";
+import { getSettings, renderFolderTemplate } from "@/lib/settings";
+import { beginDownload, finishDownload, useDownloadState } from "@/lib/download-state";
 import { openExternal } from "@/lib/utils";
 import { GetAllAccountsFromDB, GetAccountFromDB, DeleteAccountFromDB, SaveAccountToDB, ExportAccountJSON, ExportAccountsTXT, UpdateAccountGroup, GetAllGroups, DownloadMediaWithMetadata, StopDownload, CheckFoldersExist, OpenFolder, GetFolderPath, } from "../../wailsjs/go/main/App";
-import { EventsOn } from "../../wailsjs/runtime/runtime";
 import { main } from "../../wailsjs/go/models";
-interface DownloadProgress {
-    current: number;
-    total: number;
-    percent: number;
-}
 function formatNumberWithComma(num: number): string {
     return num.toLocaleString();
 }
@@ -93,23 +88,31 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
     const [editGroupName, setEditGroupName] = useState("");
     const [editGroupColor, setEditGroupColor] = useState("");
     const [clearAllDialogOpen, setClearAllDialogOpen] = useState(false);
-    const [isDownloading, setIsDownloading] = useState(false);
-    const [downloadingAccountId, setDownloadingAccountId] = useState<number | null>(null);
-    const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
     const [isBulkDownloading, setIsBulkDownloading] = useState(false);
     const [bulkDownloadCurrent, setBulkDownloadCurrent] = useState(0);
     const [bulkDownloadTotal, setBulkDownloadTotal] = useState(0);
     const stopBulkDownloadRef = useRef(false);
     const loadMoreRef = useRef<HTMLDivElement>(null);
     const [folderExistence, setFolderExistence] = useState<Map<number, boolean>>(new Map());
-    const getFolderNameForAccount = (username: string) => {
+    const downloadState = useDownloadState();
+    const anyDownloadActive = downloadState.active;
+    const isDownloading = downloadState.active && (downloadState.scope === "database" || downloadState.scope === "database-bulk");
+    const downloadingAccountId = isDownloading ? downloadState.accountId : null;
+    const downloadProgress = isDownloading ? downloadState.progress : null;
+    const getFolderNameForAccount = (username: string, accountName?: string) => {
         if (username === "bookmarks") {
             return "My Bookmarks";
         }
         if (username === "likes") {
             return "My Likes";
         }
-        return username;
+        const now = new Date();
+        const date = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+        return renderFolderTemplate(getSettings().folderTemplate, {
+            username,
+            accountName: accountName || username,
+            date,
+        }) || username;
     };
     const loadAccounts = useCallback(async () => {
         setLoading(true);
@@ -146,14 +149,6 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
         handleScroll();
         scrollElement.addEventListener("scroll", handleScroll);
         return () => scrollElement.removeEventListener("scroll", handleScroll);
-    }, []);
-    useEffect(() => {
-        const unsubscribe = EventsOn("download-progress", (progress: DownloadProgress) => {
-            setDownloadProgress(progress);
-        });
-        return () => {
-            unsubscribe();
-        };
     }, []);
     const scrollToTop = () => {
         getContentScrollElement()?.scrollTo({ top: 0, behavior: "smooth" });
@@ -226,7 +221,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
     }, [accountViewMode, filterGroup, filterMediaType, privateAccounts, publicAccounts, deferredSearchQuery, sortOrder]);
     const visibleAccounts = useMemo(() => filteredAccounts.slice(0, visibleCount), [filteredAccounts, visibleCount]);
     const visibleAccountsKey = visibleAccounts
-        .map((account) => `${account.id}:${account.username}`)
+        .map((account) => `${account.id}:${account.username}:${account.name}`)
         .join("|");
     useEffect(() => {
         const basePath = currentDownloadPath;
@@ -240,7 +235,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
         let active = true;
         const loadVisibleFolderExistence = async () => {
             try {
-                const folderNames = visibleAccounts.map((account) => getFolderNameForAccount(account.username));
+                const folderNames = visibleAccounts.map((account) => getFolderNameForAccount(account.username, account.name));
                 const results = await CheckFoldersExist(basePath, folderNames);
                 if (!active) {
                     return;
@@ -248,7 +243,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                 setFolderExistence((prev) => {
                     const next = new Map(prev);
                     for (const account of visibleAccounts) {
-                        next.set(account.id, results[getFolderNameForAccount(account.username)] ?? false);
+                        next.set(account.id, results[getFolderNameForAccount(account.username, account.name)] ?? false);
                     }
                     return next;
                 });
@@ -316,21 +311,15 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
             toast.error("Failed to load account data");
         }
     };
-    const handleOpenFolder = async (username: string) => {
+    const handleOpenFolder = async (account: AccountListItem) => {
         const settings = getSettings();
-        let folderName = username;
-        if (username === "bookmarks") {
-            folderName = "My Bookmarks";
-        }
-        else if (username === "likes") {
-            folderName = "My Likes";
-        }
+        const folderName = getFolderNameForAccount(account.username, account.name);
         const folderPath = await GetFolderPath(settings.downloadPath, folderName);
         try {
             await OpenFolder(folderPath);
         }
         catch (error) {
-            console.error(`Failed to open folder for @${username}:`, error);
+            console.error(`Failed to open folder for @${account.username}:`, error);
             toast.error("Failed to open folder");
         }
     };
@@ -356,9 +345,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                 outputDir = `${settings.downloadPath}${separator}My Likes`;
             }
             const actualUsername = data.account_info?.name || username;
-            setIsDownloading(true);
-            setDownloadingAccountId(id);
-            setDownloadProgress({ current: 0, total: timeline.length, percent: 0 });
+            beginDownload({ current: 0, total: timeline.length, percent: 0 }, { scope: "database", accountId: id });
             const request = new main.DownloadMediaWithMetadataRequest({
                 items: timeline.map((item: {
                     url: string;
@@ -367,6 +354,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                     type: string;
                     original_filename?: string;
                     author_username?: string;
+                    author_name?: string;
                 }) => new main.MediaItemRequest({
                     url: item.url,
                     date: item.date,
@@ -374,6 +362,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                     type: item.type,
                     original_filename: item.original_filename || "",
                     author_username: item.author_username || "",
+                    account_name: item.author_name || data.account_info?.nick || actualUsername,
                 })),
                 output_dir: outputDir,
                 username: actualUsername,
@@ -384,6 +373,9 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                 proxy: settings.proxy || "",
                 filename_template: settings.filenameTemplate || "",
                 folder_template: settings.folderTemplate || "",
+                auto_convert_gifs: settings.autoConvertGifs,
+                gif_quality: settings.gifQuality || "fast",
+                gif_resolution: settings.gifResolution || "original",
             });
             const response = await DownloadMediaWithMetadata(request);
             if (response.cancelled) {
@@ -420,15 +412,14 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
             toast.error(`Download failed: ${errorMsg}`);
         }
         finally {
-            setIsDownloading(false);
-            setDownloadingAccountId(null);
-            setDownloadProgress(null);
+            finishDownload();
         }
     };
     const handleStopDownload = async () => {
         try {
             const stopped = await StopDownload();
             if (stopped) {
+                finishDownload();
                 toast.info("Download stopped");
             }
         }
@@ -460,7 +451,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
             if (!account)
                 continue;
             setBulkDownloadCurrent(i + 1);
-            setDownloadingAccountId(id);
+            beginDownload({ current: 0, total: 0, percent: 0 }, { scope: "database-bulk", accountId: id });
             try {
                 const responseJSON = await GetAccountFromDB(id);
                 const data = JSON.parse(responseJSON);
@@ -471,7 +462,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                     toast.info("Bulk download stopped");
                     break;
                 }
-                setDownloadProgress({ current: 0, total: timeline.length, percent: 0 });
+                beginDownload({ current: 0, total: timeline.length, percent: 0 }, { scope: "database-bulk", accountId: id });
                 const isBookmarks = data.account_info?.nick === "My Bookmarks" || account.username === "bookmarks";
                 const isLikes = data.account_info?.nick === "My Likes" || account.username === "likes";
                 let outputDir = settings.downloadPath;
@@ -491,6 +482,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                         tweet_id: string;
                         type: string;
                         author_username?: string;
+                        author_name?: string;
                         original_filename?: string;
                     }) => new main.MediaItemRequest({
                         url: item.url,
@@ -498,6 +490,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                         tweet_id: item.tweet_id,
                         type: item.type,
                         author_username: item.author_username || "",
+                        account_name: item.author_name || data.account_info?.nick || actualUsername,
                         original_filename: item.original_filename || "",
                     })),
                     output_dir: outputDir,
@@ -509,6 +502,9 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                     proxy: settings.proxy || "",
                     filename_template: settings.filenameTemplate || "",
                     folder_template: settings.folderTemplate || "",
+                    auto_convert_gifs: settings.autoConvertGifs,
+                    gif_quality: settings.gifQuality || "fast",
+                    gif_resolution: settings.gifResolution || "original",
                 });
                 const response = await DownloadMediaWithMetadata(request);
                 if (response.cancelled) {
@@ -527,8 +523,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
             }
         }
         setIsBulkDownloading(false);
-        setDownloadingAccountId(null);
-        setDownloadProgress(null);
+        finishDownload();
         setBulkDownloadCurrent(0);
         setBulkDownloadTotal(0);
         if ((totalDownloaded > 0 || totalSkipped > 0) && !stopBulkDownloadRef.current) {
@@ -825,7 +820,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
               <TooltipContent>Stop Bulk Download</TooltipContent>
             </Tooltip>) : (<Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="default" size="icon" onClick={handleBulkDownload} disabled={selectedIds.size === 0 || isDownloading}>
+                <Button variant="default" size="icon" onClick={handleBulkDownload} disabled={selectedIds.size === 0 || anyDownloadActive}>
                   <Download className="h-4 w-4"/>
                 </Button>
               </TooltipTrigger>
@@ -1056,10 +1051,10 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                     <div className="flex gap-1">
                       {downloadingAccountId === account.id ? (<Button variant="outline" size="icon" className="h-8 w-8" onClick={handleStopDownload}>
                           <StopCircle className="h-4 w-4 text-destructive"/>
-                        </Button>) : (<Button variant="default" size="icon" className="h-8 w-8" onClick={() => handleDownload(account.id, account.username)} disabled={isDownloading}>
+                        </Button>) : (<Button variant="default" size="icon" className="h-8 w-8" onClick={() => handleDownload(account.id, account.username)} disabled={anyDownloadActive}>
                           <Download className="h-4 w-4"/>
                         </Button>)}
-                      <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleOpenFolder(account.username)} disabled={!folderExistence.get(account.id)}>
+                      <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleOpenFolder(account)} disabled={!folderExistence.get(account.id)}>
                         <FolderOpen className="h-4 w-4"/>
                       </Button>
                       <DropdownMenu>
@@ -1150,10 +1145,10 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                     <div className="flex gap-1">
                       {downloadingAccountId === account.id ? (<Button variant="outline" size="icon" className="h-7 w-7" onClick={handleStopDownload}>
                           <StopCircle className="h-3 w-3 text-destructive"/>
-                        </Button>) : (<Button variant="default" size="icon" className="h-7 w-7" onClick={() => handleDownload(account.id, account.username)} disabled={isDownloading}>
+                        </Button>) : (<Button variant="default" size="icon" className="h-7 w-7" onClick={() => handleDownload(account.id, account.username)} disabled={anyDownloadActive}>
                           <Download className="h-3 w-3"/>
                         </Button>)}
-                      <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleOpenFolder(account.username)} disabled={!folderExistence.get(account.id)}>
+                      <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleOpenFolder(account)} disabled={!folderExistence.get(account.id)}>
                         <FolderOpen className="h-3 w-3"/>
                       </Button>
                       <DropdownMenu>
@@ -1268,7 +1263,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                       <TooltipContent>Stop Download</TooltipContent>
                     </Tooltip>) : (<Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="default" size="icon" onClick={() => handleDownload(account.id, account.username)} disabled={isDownloading}>
+                        <Button variant="default" size="icon" onClick={() => handleDownload(account.id, account.username)} disabled={anyDownloadActive}>
                           {isDownloading && downloadingAccountId === account.id ? (<Spinner className="h-4 w-4"/>) : (<Download className="h-4 w-4"/>)}
                         </Button>
                       </TooltipTrigger>
@@ -1276,7 +1271,7 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                     </Tooltip>)}
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="outline" size="icon" onClick={() => handleOpenFolder(account.username)} disabled={!folderExistence.get(account.id)}>
+                      <Button variant="outline" size="icon" onClick={() => handleOpenFolder(account)} disabled={!folderExistence.get(account.id)}>
                         <FolderOpen className="h-4 w-4"/>
                       </Button>
                     </TooltipTrigger>

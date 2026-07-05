@@ -243,6 +243,7 @@ type MediaItemRequest struct {
 	Content          string                `json:"content,omitempty"`
 	OriginalFilename string                `json:"original_filename,omitempty"`
 	AuthorUsername   string                `json:"author_username,omitempty"`
+	AccountName      string                `json:"account_name,omitempty"`
 }
 
 type DownloadMediaWithMetadataRequest struct {
@@ -256,6 +257,9 @@ type DownloadMediaWithMetadataRequest struct {
 	Proxy                 string             `json:"proxy,omitempty"`
 	FilenameTemplate      string             `json:"filename_template,omitempty"`
 	FolderTemplate        string             `json:"folder_template,omitempty"`
+	AutoConvertGIFs       bool               `json:"auto_convert_gifs,omitempty"`
+	GIFQuality            string             `json:"gif_quality,omitempty"`
+	GIFResolution         string             `json:"gif_resolution,omitempty"`
 }
 
 type DownloadMediaResponse struct {
@@ -350,9 +354,9 @@ func (a *App) DownloadMediaWithMetadata(req DownloadMediaWithMetadataRequest) (D
 		}
 
 		username := req.Username
-if (req.Username == "bookmarks" || req.Username == "likes") && item.AuthorUsername != "" {
-    username = item.AuthorUsername
-}
+		if (req.Username == "bookmarks" || req.Username == "likes") && item.AuthorUsername != "" {
+			username = item.AuthorUsername
+		}
 
 		items[i] = backend.MediaItem{
 			URL:              item.URL,
@@ -360,6 +364,7 @@ if (req.Username == "bookmarks" || req.Username == "likes") && item.AuthorUserna
 			TweetID:          int64(item.TweetID),
 			Type:             item.Type,
 			Username:         username,
+			AccountName:      item.AccountName,
 			Content:          item.Content,
 			OriginalFilename: originalFilename,
 		}
@@ -402,6 +407,9 @@ if (req.Username == "bookmarks" || req.Username == "likes") && item.AuthorUserna
 		RetryAttempts:         req.RetryAttempts,
 		FilenameTemplate:      req.FilenameTemplate,
 		FolderTemplate:        req.FolderTemplate,
+		AutoConvertGIFs:       req.AutoConvertGIFs,
+		GIFQuality:            req.GIFQuality,
+		GIFResolution:         req.GIFResolution,
 	}
 
 	downloaded, skipped, failed, err := backend.DownloadMediaWithMetadataProgressAndStatus(

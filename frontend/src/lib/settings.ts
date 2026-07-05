@@ -58,67 +58,86 @@ export const BANNER_SIZES: {
     { value: "600x200", label: "600×200" },
     { value: "300x100", label: "300×100" },
 ];
-export const DEFAULT_FILENAME_TEMPLATE = "{username}_{date}_{tweet_id}_{index}";
+export const DEFAULT_FILENAME_TEMPLATE = "{handle}_{date}_{tweet_id}";
 export interface TemplateToken {
     key: string;
     description: string;
     example: string;
 }
 export const FILENAME_TEMPLATE_VARIABLES: TemplateToken[] = [
-    { key: "{username}", description: "Author handle", example: "NASA" },
+    { key: "{handle}", description: "Author handle", example: "elonmusk" },
+    { key: "{name}", description: "Author display name", example: "Elon Musk" },
     { key: "{date}", description: "Tweet date & time", example: "20250620_104556" },
     { key: "{tweet_id}", description: "Tweet ID", example: "1989033613824815258" },
-    { key: "{index}", description: "Media position in tweet", example: "01" },
     { key: "{media_id}", description: "Unique media ID (prevents overwrites)", example: "Gx1aB2cXkAA7Yz9" },
     { key: "{type}", description: "Media type", example: "photo" },
 ];
 export interface FilenameTemplateData {
     username?: string;
+    accountName?: string;
     date?: string;
     tweetId?: string;
     index?: number;
+    mediaID?: string;
     type?: string;
 }
 export const SAMPLE_FILENAME_DATA: FilenameTemplateData = {
-    username: "NASA",
+    username: "elonmusk",
+    accountName: "Elon Musk",
     date: "20250620_104556",
     tweetId: "1989033613824815258",
     index: 1,
+    mediaID: "Gx1aB2cXkAA7Yz9",
     type: "photo",
 };
+function sanitizeTemplatePart(input: string): string {
+    const cleaned = input
+        .replace(/[\u0000-\u001f\\/:*?"<>|]/g, "")
+        .trim()
+        .replace(/[. ]+$/g, "");
+    return /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/i.test(cleaned) ? `${cleaned}_` : cleaned;
+}
 export function renderFilenameTemplate(template: string, data: FilenameTemplateData): string {
     if (!template)
         return "";
-    const safe = (s: string) => s.replace(/[\\/:*?"<>|]/g, "").trim();
-    return template
-        .replace(/\{username\}/g, safe(data.username ?? ""))
-        .replace(/\{date\}/g, safe(data.date ?? ""))
-        .replace(/\{tweet_id\}/g, safe(data.tweetId ?? ""))
+    return sanitizeTemplatePart(template
+        .replace(/\{handle\}/g, sanitizeTemplatePart(data.username ?? ""))
+        .replace(/\{name\}/g, sanitizeTemplatePart(data.accountName ?? ""))
+        .replace(/\{username\}/g, sanitizeTemplatePart(data.username ?? ""))
+        .replace(/\{account_name\}/g, sanitizeTemplatePart(data.accountName ?? ""))
+        .replace(/\{date\}/g, sanitizeTemplatePart(data.date ?? ""))
+        .replace(/\{tweet_id\}/g, sanitizeTemplatePart(data.tweetId ?? ""))
         .replace(/\{index\}/g, String(data.index ?? 1).padStart(2, "0"))
-        .replace(/\{type\}/g, safe(data.type ?? ""))
-        .trim();
+        .replace(/\{media_id\}/g, sanitizeTemplatePart(data.mediaID ?? ""))
+        .replace(/\{type\}/g, sanitizeTemplatePart(data.type ?? ""))
+        .trim());
 }
-export const DEFAULT_FOLDER_TEMPLATE = "{username}";
+export const DEFAULT_FOLDER_TEMPLATE = "{handle}";
 export const FOLDER_TEMPLATE_VARIABLES: TemplateToken[] = [
-    { key: "{username}", description: "Author handle", example: "NASA" },
+    { key: "{handle}", description: "Author handle", example: "elonmusk" },
+    { key: "{name}", description: "Author display name", example: "Elon Musk" },
     { key: "{date}", description: "Download date", example: "20250620" },
 ];
 export interface FolderTemplateData {
     username?: string;
+    accountName?: string;
     date?: string;
 }
 export const SAMPLE_FOLDER_DATA: FolderTemplateData = {
-    username: "NASA",
+    username: "elonmusk",
+    accountName: "Elon Musk",
     date: "20250620",
 };
 export function renderFolderTemplate(template: string, data: FolderTemplateData): string {
     if (!template)
         return "";
-    const safe = (s: string) => s.replace(/[\\/:*?"<>|]/g, "").trim();
-    return template
-        .replace(/\{username\}/g, safe(data.username ?? ""))
-        .replace(/\{date\}/g, safe(data.date ?? ""))
-        .trim();
+    return sanitizeTemplatePart(template
+        .replace(/\{handle\}/g, sanitizeTemplatePart(data.username ?? ""))
+        .replace(/\{name\}/g, sanitizeTemplatePart(data.accountName ?? ""))
+        .replace(/\{username\}/g, sanitizeTemplatePart(data.username ?? ""))
+        .replace(/\{account_name\}/g, sanitizeTemplatePart(data.accountName ?? ""))
+        .replace(/\{date\}/g, sanitizeTemplatePart(data.date ?? ""))
+        .trim());
 }
 const DEFAULT_CONCURRENT_DOWNLOADS = 10;
 const MIN_CONCURRENT_DOWNLOADS = 1;
@@ -137,6 +156,7 @@ export interface Settings {
     fontFamily: FontFamily;
     customFonts: CustomFontOption[];
     sfxEnabled: boolean;
+    autoConvertGifs: boolean;
     gifQuality: GifQuality;
     gifResolution: GifResolution;
     proxy: string;
@@ -164,6 +184,7 @@ export const DEFAULT_SETTINGS: Settings = {
     fontFamily: "google-sans",
     customFonts: [],
     sfxEnabled: true,
+    autoConvertGifs: false,
     gifQuality: "fast",
     gifResolution: "original",
     proxy: "",
@@ -428,6 +449,21 @@ function normalizeRetryAttempts(value: unknown): number {
     }
     return rounded;
 }
+function normalizeTemplateTokens(value: unknown, fallback: string): string {
+    if (typeof value !== "string") {
+        return fallback;
+    }
+    return value
+        .replace(/\{username\}/g, "{handle}")
+        .replace(/\{account_name\}/g, "{name}");
+}
+function normalizeFilenameTemplate(value: unknown): string {
+    const template = normalizeTemplateTokens(value, DEFAULT_FILENAME_TEMPLATE);
+    return template === "{handle}_{date}_{tweet_id}_{index}" ? DEFAULT_FILENAME_TEMPLATE : template;
+}
+function normalizeFolderTemplate(value: unknown): string {
+    return normalizeTemplateTokens(value, DEFAULT_FOLDER_TEMPLATE);
+}
 export function getFontOptions(customFonts: CustomFontOption[] = []): FontOption[] {
     return [...FONT_OPTIONS, ...normalizeCustomFonts(customFonts)];
 }
@@ -480,6 +516,9 @@ function toNormalizedSettings(settings: Partial<Settings>): Settings {
         skipExistingFiles: normalizeBoolean(settings.skipExistingFiles, DEFAULT_SETTINGS.skipExistingFiles),
         deleteIncompleteFiles: normalizeBoolean(settings.deleteIncompleteFiles, DEFAULT_SETTINGS.deleteIncompleteFiles),
         retryAttempts: normalizeRetryAttempts(settings.retryAttempts),
+        autoConvertGifs: normalizeBoolean(settings.autoConvertGifs, DEFAULT_SETTINGS.autoConvertGifs),
+        filenameTemplate: normalizeFilenameTemplate(settings.filenameTemplate),
+        folderTemplate: normalizeFolderTemplate(settings.folderTemplate),
         customFonts,
         fontFamily: normalizeFontFamily(settings.fontFamily, customFonts),
     };

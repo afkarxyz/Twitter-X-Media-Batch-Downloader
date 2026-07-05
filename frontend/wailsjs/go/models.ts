@@ -187,6 +187,7 @@ export namespace main {
 	    content?: string;
 	    original_filename?: string;
 	    author_username?: string;
+	    account_name?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new MediaItemRequest(source);
@@ -201,6 +202,7 @@ export namespace main {
 	        this.content = source["content"];
 	        this.original_filename = source["original_filename"];
 	        this.author_username = source["author_username"];
+	        this.account_name = source["account_name"];
 	    }
 	}
 	export class DownloadMediaWithMetadataRequest {
@@ -214,6 +216,9 @@ export namespace main {
 	    proxy?: string;
 	    filename_template?: string;
 	    folder_template?: string;
+	    auto_convert_gifs?: boolean;
+	    gif_quality?: string;
+	    gif_resolution?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new DownloadMediaWithMetadataRequest(source);
@@ -231,6 +236,9 @@ export namespace main {
 	        this.proxy = source["proxy"];
 	        this.filename_template = source["filename_template"];
 	        this.folder_template = source["folder_template"];
+	        this.auto_convert_gifs = source["auto_convert_gifs"];
+	        this.gif_quality = source["gif_quality"];
+	        this.gif_resolution = source["gif_resolution"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

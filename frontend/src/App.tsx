@@ -9,6 +9,7 @@ import { openExternal } from "@/lib/utils";
 import { compareVersionNumbers } from "@/lib/version";
 import { toastWithSound as toast } from "@/lib/toast-with-sound";
 import { logger } from "@/lib/logger";
+import { initDownloadProgressEvents } from "@/lib/download-state";
 import { saveFetchState, getFetchState, clearFetchState, getResumableInfo, mergeTimelines, saveCursor, getCursor, clearCursor, type FetchState, } from "@/lib/fetch-state";
 import { TitleBar } from "@/components/TitleBar";
 import { Sidebar, type PageType } from "@/components/Sidebar";
@@ -165,10 +166,12 @@ function App() {
             }
         };
         mediaQuery.addEventListener("change", handleChange);
+        const cleanupDownloadProgress = initDownloadProgressEvents();
         checkForUpdates();
         loadHistory();
         return () => {
             mediaQuery.removeEventListener("change", handleChange);
+            cleanupDownloadProgress();
         };
     }, []);
     useEffect(() => {

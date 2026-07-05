@@ -44,6 +44,7 @@ export interface TimelineEntry {
     verified?: boolean;
     original_filename?: string;
     author_username?: string;
+    author_name?: string;
 }
 export interface ExtractMetadata {
     new_entries: number;

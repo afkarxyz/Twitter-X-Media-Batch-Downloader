@@ -591,14 +591,18 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
                     </Tooltip>
                   </Label>
                   <div className="flex items-center justify-between gap-4">
-                    <Label htmlFor="gif-quality" className={!ffmpegInstalled ? "text-muted-foreground" : undefined}>GIF Quality</Label>
+                    <Label htmlFor="auto-convert-gifs" className={!ffmpegInstalled ? "text-muted-foreground" : undefined}>Auto Convert GIFs</Label>
+                    <Switch id="auto-convert-gifs" checked={tempSettings.autoConvertGifs} onCheckedChange={(checked) => setTempSettings((prev) => ({ ...prev, autoConvertGifs: checked }))} disabled={!ffmpegInstalled}/>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <Label htmlFor="gif-quality" className={!ffmpegInstalled || !tempSettings.autoConvertGifs ? "text-muted-foreground" : undefined}>GIF Quality</Label>
                     <div className="flex items-center gap-2">
                       <Select value={tempSettings.gifQuality} onValueChange={(value: GifQuality) => {
                 setTempSettings((prev) => ({
                     ...prev,
                     gifQuality: value,
                 }));
-            }} disabled={!ffmpegInstalled}>
+            }} disabled={!ffmpegInstalled || !tempSettings.autoConvertGifs}>
                         <SelectTrigger id="gif-quality" className="w-fit">
                           <SelectValue placeholder="Select quality"/>
                         </SelectTrigger>
@@ -607,7 +611,7 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
                           <SelectItem value="better">Better</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Select value={tempSettings.gifResolution} onValueChange={(value: GifResolution) => setTempSettings((prev) => ({ ...prev, gifResolution: value }))} disabled={!ffmpegInstalled}>
+                      <Select value={tempSettings.gifResolution} onValueChange={(value: GifResolution) => setTempSettings((prev) => ({ ...prev, gifResolution: value }))} disabled={!ffmpegInstalled || !tempSettings.autoConvertGifs}>
                         <SelectTrigger id="gif-resolution" className="w-fit">
                           <SelectValue placeholder="Resolution"/>
                         </SelectTrigger>

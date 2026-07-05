@@ -272,6 +272,7 @@ type TimelineEntry struct {
 	Verified         bool          `json:"verified,omitempty"`
 	OriginalFilename string        `json:"original_filename,omitempty"`
 	AuthorUsername   string        `json:"author_username,omitempty"`
+	AuthorName       string        `json:"author_name,omitempty"`
 }
 
 type AccountInfo struct {
@@ -575,6 +576,7 @@ func textEntry(t richTweet) TimelineEntry {
 		Source:         t.Source,
 		Verified:       isVerified(t.Author),
 		AuthorUsername: t.Author.Username,
+		AuthorName:     t.Author.Name,
 	}
 }
 
@@ -608,6 +610,7 @@ func mediaEntry(t richTweet, m richMedia, videoQuality, imageSize string) Timeli
 		Source:         t.Source,
 		Verified:       isVerified(t.Author),
 		AuthorUsername: t.Author.Username,
+		AuthorName:     t.Author.Name,
 	}
 }
 

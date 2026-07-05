@@ -4,30 +4,40 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { toastWithSound as toast } from "@/lib/toast-with-sound";
+import { compareVersionNumbers } from "@/lib/version";
 import { Quit } from "../../wailsjs/runtime/runtime";
-import { DownloadExtractor, IsExtractorInstalled } from "../../wailsjs/go/main/App";
+import { DownloadExtractor, GetExtractorVersionStatus } from "../../wailsjs/go/main/App";
 interface DependencySetupDialogProps {
     onInstalled?: () => void;
 }
-interface GithubReleaseResponse {
-    tag_name?: string;
+interface ExtractorVersionStatus {
+    installed: boolean;
+    installed_version?: string;
+    latest_version?: string;
 }
-const extractorReleaseAPIURL = "https://api.github.com/repos/afkarxyz/xtractor-binaries/releases/latest";
 export function DependencySetupDialog({ onInstalled }: DependencySetupDialogProps) {
     const [open, setOpen] = useState(false);
     const [checking, setChecking] = useState(true);
     const [downloading, setDownloading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [updateRequired, setUpdateRequired] = useState(false);
+    const [installedVersion, setInstalledVersion] = useState<string | null>(null);
     const [releaseVersion, setReleaseVersion] = useState<string | null>(null);
     const [releaseStatusMessage, setReleaseStatusMessage] = useState("Checking latest GitHub release...");
     useEffect(() => {
         let cancelled = false;
-        const abortController = new AbortController();
         const checkDependency = async () => {
             try {
-                const installed = await IsExtractorInstalled();
+                const status = await GetExtractorVersionStatus() as ExtractorVersionStatus;
+                const nextInstalledVersion = status.installed_version?.trim() || null;
+                const nextLatestVersion = status.latest_version?.trim() || null;
+                const nextUpdateRequired = !!(status.installed && nextLatestVersion && (!nextInstalledVersion || compareVersionNumbers(nextLatestVersion, nextInstalledVersion) > 0));
                 if (!cancelled) {
-                    setOpen(!installed);
+                    setUpdateRequired(nextUpdateRequired);
+                    setInstalledVersion(nextInstalledVersion);
+                    setReleaseVersion(nextLatestVersion);
+                    setReleaseStatusMessage(nextLatestVersion ? `Latest GitHub release: ${nextLatestVersion}` : "Latest GitHub release unavailable.");
+                    setOpen(!status.installed || nextUpdateRequired);
                     setErrorMessage(null);
                 }
             }
@@ -43,39 +53,9 @@ export function DependencySetupDialog({ onInstalled }: DependencySetupDialogProp
                 }
             }
         };
-        const loadReleaseInfo = async () => {
-            try {
-                const response = await fetch(extractorReleaseAPIURL, {
-                    headers: {
-                        Accept: "application/vnd.github+json",
-                    },
-                    signal: abortController.signal,
-                });
-                if (!response.ok) {
-                    throw new Error(`GitHub release status ${response.status}`);
-                }
-                const release = (await response.json()) as GithubReleaseResponse;
-                const version = release.tag_name?.trim();
-                if (!version) {
-                    throw new Error("Missing GitHub release tag");
-                }
-                if (!cancelled) {
-                    setReleaseVersion(version);
-                    setReleaseStatusMessage(`Latest GitHub release: ${version}`);
-                }
-            }
-            catch {
-                if (!cancelled && !abortController.signal.aborted) {
-                    setReleaseVersion(null);
-                    setReleaseStatusMessage("Latest GitHub release unavailable.");
-                }
-            }
-        };
         void checkDependency();
-        void loadReleaseInfo();
         return () => {
             cancelled = true;
-            abortController.abort();
         };
     }, []);
     const handleDownload = async () => {
@@ -84,7 +64,7 @@ export function DependencySetupDialog({ onInstalled }: DependencySetupDialogProp
         try {
             await DownloadExtractor();
             setOpen(false);
-            toast.success("Xtractor installed");
+            toast.success(updateRequired ? "Xtractor updated" : "Xtractor installed");
             onInstalled?.();
         }
         catch (error) {
@@ -114,11 +94,16 @@ export function DependencySetupDialog({ onInstalled }: DependencySetupDialogProp
           <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-2xl border bg-muted/50">
             <Package className="h-6 w-6"/>
           </div>
-          <DialogTitle>Download Xtractor</DialogTitle>
-          <DialogDescription>Xtractor is required before you can use this app.</DialogDescription>
+          <DialogTitle>{updateRequired ? "Update Xtractor" : "Download Xtractor"}</DialogTitle>
+          <DialogDescription>
+            {updateRequired ? "A newer Xtractor binary is available or the installed version could not be verified." : "Xtractor is required before you can use this app."}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
+          {updateRequired && releaseVersion && (<p className="text-sm text-amber-600 dark:text-amber-400">
+              Installed: {installedVersion || "unknown"} - Latest: {releaseVersion}
+            </p>)}
           <p className="text-sm text-muted-foreground">{releaseVersion ? `Latest GitHub release: ${releaseVersion}` : releaseStatusMessage}</p>
 
           {errorMessage && (<div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
@@ -134,10 +119,10 @@ export function DependencySetupDialog({ onInstalled }: DependencySetupDialogProp
           <Button onClick={handleDownload} disabled={downloading}>
             {downloading ? (<>
                 <Spinner />
-                Downloading Xtractor...
+                {updateRequired ? "Updating Xtractor..." : "Downloading Xtractor..."}
               </>) : (<>
                 <Download className="h-4 w-4"/>
-                Download Xtractor
+                {updateRequired ? "Update Xtractor" : "Download Xtractor"}
               </>)}
           </Button>
         </DialogFooter>

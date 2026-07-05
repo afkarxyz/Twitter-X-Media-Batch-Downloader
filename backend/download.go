@@ -49,6 +49,9 @@ type DownloadOptions struct {
 	RetryAttempts         int
 	FilenameTemplate      string
 	FolderTemplate        string
+	AutoConvertGIFs       bool
+	GIFQuality            string
+	GIFResolution         string
 }
 
 func NormalizeDownloadOptions(options DownloadOptions) DownloadOptions {
@@ -63,6 +66,7 @@ type MediaItem struct {
 	TweetID          int64  `json:"tweet_id"`
 	Type             string `json:"type"`
 	Username         string `json:"username"`
+	AccountName      string `json:"account_name,omitempty"`
 	Content          string `json:"content,omitempty"`
 	OriginalFilename string `json:"original_filename,omitempty"`
 }
@@ -247,6 +251,13 @@ type downloadTask struct {
 	index      int
 }
 
+type pendingDownloadTask struct {
+	task     downloadTask
+	typeDir  string
+	baseName string
+	ext      string
+}
+
 func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir string, username string, progress ProgressCallback, itemStatus ItemStatusCallback, ctx context.Context, options DownloadOptions, customProxy string) (downloaded int, skipped int, failed int, err error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -259,7 +270,8 @@ func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir str
 	}
 
 	tweetMediaCount := make(map[string]map[int64]int)
-	tasks := make([]downloadTask, 0, total)
+	pendingTasks := make([]pendingDownloadTask, 0, total)
+	filenameCounts := make(map[string]int)
 	downloadDate := time.Now().Format("20060102")
 
 	for i, item := range items {
@@ -267,6 +279,10 @@ func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir str
 		itemUsername := item.Username
 		if itemUsername == "" {
 			itemUsername = username
+		}
+		itemAccountName := item.AccountName
+		if itemAccountName == "" {
+			itemAccountName = itemUsername
 		}
 
 		if tweetMediaCount[itemUsername] == nil {
@@ -287,7 +303,7 @@ func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir str
 			subfolder = "other"
 		}
 
-		baseDir := filepath.Join(outputDir, renderFolder(options.FolderTemplate, itemUsername, downloadDate))
+		baseDir := filepath.Join(outputDir, renderFolder(options.FolderTemplate, itemUsername, itemAccountName, downloadDate))
 		if err := os.MkdirAll(baseDir, 0755); err != nil {
 			continue
 		}
@@ -309,20 +325,34 @@ func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir str
 			mediaID = ExtractOriginalFilename(item.URL)
 		}
 
-		filename := renderFilename(options.FilenameTemplate, itemUsername, timestamp, item.TweetID, item.Type, mediaIndex, mediaID) + ext
-		outputPath := filepath.Join(typeDir, filename)
+		baseName := renderFilename(options.FilenameTemplate, itemUsername, itemAccountName, timestamp, item.TweetID, item.Type, mediaIndex, mediaID)
+		filenameCounts[filenameCollisionKey(typeDir, baseName, ext)]++
 
-		tasks = append(tasks, downloadTask{
-			item:       item,
-			outputPath: outputPath,
-			index:      i,
+		pendingTasks = append(pendingTasks, pendingDownloadTask{
+			task: downloadTask{
+				item:  item,
+				index: i,
+			},
+			typeDir:  typeDir,
+			baseName: baseName,
+			ext:      ext,
 		})
+	}
+
+	filenameIndexes := make(map[string]int, len(filenameCounts))
+	tasks := make([]downloadTask, 0, len(pendingTasks))
+	for _, pending := range pendingTasks {
+		key := filenameCollisionKey(pending.typeDir, pending.baseName, pending.ext)
+		filenameIndexes[key]++
+		pending.task.outputPath = filepath.Join(pending.typeDir, formatDownloadFilename(pending.baseName, pending.ext, filenameCounts[key], filenameIndexes[key]))
+		tasks = append(tasks, pending.task)
 	}
 
 	var downloadedCount int64
 	var skippedCount int64
 	var failedCount int64
 	var completedCount int64
+	var conversionWG sync.WaitGroup
 
 	taskChan := make(chan downloadTask, len(tasks))
 	var wg sync.WaitGroup
@@ -421,6 +451,15 @@ func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir str
 
 					atomic.AddInt64(&downloadedCount, 1)
 					status = "success"
+
+					if shouldAutoConvertGIF(task.item.Type, options) && ctx.Err() == nil {
+						conversionWG.Add(1)
+						go func(inputPath string) {
+							defer conversionWG.Done()
+							outputPath := strings.TrimSuffix(inputPath, filepath.Ext(inputPath)) + ".gif"
+							_ = ConvertMP4ToGIFWithContext(ctx, inputPath, outputPath, normalizeGIFQuality(options.GIFQuality), normalizeGIFResolution(options.GIFResolution))
+						}(task.outputPath)
+					}
 				}
 
 				if itemStatus != nil {
@@ -444,12 +483,41 @@ func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir str
 	close(taskChan)
 
 	wg.Wait()
+	conversionWG.Wait()
 
 	if err := ctx.Err(); err != nil {
 		return int(downloadedCount), int(skippedCount), int(failedCount), err
 	}
 
 	return int(downloadedCount), int(skippedCount), int(failedCount), nil
+}
+
+func shouldAutoConvertGIF(mediaType string, options DownloadOptions) bool {
+	if !options.AutoConvertGIFs || !IsFFmpegInstalled() {
+		return false
+	}
+	switch mediaType {
+	case "gif", "animated_gif":
+		return true
+	default:
+		return false
+	}
+}
+
+func normalizeGIFQuality(quality string) string {
+	if quality == "better" {
+		return quality
+	}
+	return "fast"
+}
+
+func normalizeGIFResolution(resolution string) string {
+	switch resolution {
+	case "original", "high", "medium", "low":
+		return resolution
+	default:
+		return "original"
+	}
 }
 
 func downloadFileWithContext(ctx context.Context, client *http.Client, url, outputPath string, allowOverwrite bool, keepPartialOnFailure bool) error {
@@ -527,12 +595,15 @@ func formatTimestamp(dateStr string) string {
 	return "00000000_000000"
 }
 
-func renderFilename(template, username, timestamp string, tweetID int64, mediaType string, index int, mediaID string) string {
+func renderFilename(template, username, accountName, timestamp string, tweetID int64, mediaType string, index int, mediaID string) string {
 	if strings.TrimSpace(template) == "" {
-		template = "{username}_{date}_{tweet_id}_{index}"
+		template = "{handle}_{date}_{tweet_id}"
 	}
 	replacer := strings.NewReplacer(
+		"{handle}", sanitizeFilenamePart(username),
+		"{name}", sanitizeFilenamePart(accountName),
 		"{username}", sanitizeFilenamePart(username),
+		"{account_name}", sanitizeFilenamePart(accountName),
 		"{date}", timestamp,
 		"{tweet_id}", fmt.Sprintf("%d", tweetID),
 		"{index}", fmt.Sprintf("%02d", index),
@@ -540,25 +611,37 @@ func renderFilename(template, username, timestamp string, tweetID int64, mediaTy
 		"{type}", sanitizeFilenamePart(mediaType),
 	)
 	name := strings.TrimSpace(replacer.Replace(template))
+	name = sanitizeFilenamePart(name)
 	if name == "" {
-		name = fmt.Sprintf("%s_%s_%d_%02d", username, timestamp, tweetID, index)
-	}
-
-	if mediaID != "" && !strings.Contains(template, "{media_id}") {
-		name = name + "_" + sanitizeFilenamePart(mediaID)
+		name = sanitizeFilenamePart(fmt.Sprintf("%s_%s_%d", username, timestamp, tweetID))
 	}
 	return name
 }
 
-func renderFolder(template, username, date string) string {
+func filenameCollisionKey(dir, baseName, ext string) string {
+	return dir + "\x00" + baseName + ext
+}
+
+func formatDownloadFilename(baseName, ext string, duplicateCount, duplicateIndex int) string {
+	if duplicateCount > 1 {
+		return fmt.Sprintf("%s_%02d%s", baseName, duplicateIndex, ext)
+	}
+	return baseName + ext
+}
+
+func renderFolder(template, username, accountName, date string) string {
 	if strings.TrimSpace(template) == "" {
-		template = "{username}"
+		template = "{handle}"
 	}
 	replacer := strings.NewReplacer(
+		"{handle}", sanitizeFilenamePart(username),
+		"{name}", sanitizeFilenamePart(accountName),
 		"{username}", sanitizeFilenamePart(username),
+		"{account_name}", sanitizeFilenamePart(accountName),
 		"{date}", date,
 	)
 	name := strings.TrimSpace(replacer.Replace(template))
+	name = sanitizeFilenamePart(name)
 	if name == "" {
 		name = sanitizeFilenamePart(username)
 	}
@@ -566,13 +649,36 @@ func renderFolder(template, username, date string) string {
 }
 
 func sanitizeFilenamePart(s string) string {
-	return strings.TrimSpace(strings.Map(func(r rune) rune {
+	cleaned := strings.TrimSpace(strings.Map(func(r rune) rune {
 		switch r {
 		case '\\', '/', ':', '*', '?', '"', '<', '>', '|':
 			return -1
 		}
+		if r >= 0 && r < 32 {
+			return -1
+		}
 		return r
 	}, s))
+	cleaned = strings.TrimRight(cleaned, ". ")
+	if isWindowsReservedName(cleaned) {
+		return cleaned + "_"
+	}
+	return cleaned
+}
+
+func isWindowsReservedName(name string) bool {
+	base := name
+	if dotIndex := strings.IndexByte(base, '.'); dotIndex >= 0 {
+		base = base[:dotIndex]
+	}
+	base = strings.ToUpper(strings.TrimSpace(base))
+	switch base {
+	case "CON", "PRN", "AUX", "NUL":
+		return true
+	}
+	return len(base) == 4 &&
+		((strings.HasPrefix(base, "COM") && base[3] >= '1' && base[3] <= '9') ||
+			(strings.HasPrefix(base, "LPT") && base[3] >= '1' && base[3] <= '9'))
 }
 
 func getExtension(mediaURL string, mediaType string) string {

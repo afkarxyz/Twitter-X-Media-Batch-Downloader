@@ -2,6 +2,7 @@ package backend
 
 import (
 	"archive/zip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -531,10 +532,17 @@ func normalizeFFmpegVersion(version string) string {
 }
 
 func ConvertMP4ToGIF(inputPath, outputPath, quality, resolution string) error {
+	return ConvertMP4ToGIFWithContext(context.Background(), inputPath, outputPath, quality, resolution)
+}
+
+func ConvertMP4ToGIFWithContext(ctx context.Context, inputPath, outputPath, quality, resolution string) error {
 	ffmpegPath := GetFFmpegPath()
 
 	if !IsFFmpegInstalled() {
 		return fmt.Errorf("ffmpeg not installed")
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
 	var args []string
@@ -598,10 +606,13 @@ func ConvertMP4ToGIF(inputPath, outputPath, quality, resolution string) error {
 		}
 	}
 
-	cmd := exec.Command(ffmpegPath, args...)
+	cmd := exec.CommandContext(ctx, ffmpegPath, args...)
 	hideWindow(cmd)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		return fmt.Errorf("ffmpeg error: %v, output: %s", err, string(output))
 	}
 

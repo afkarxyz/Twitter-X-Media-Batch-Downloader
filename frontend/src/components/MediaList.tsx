@@ -11,21 +11,11 @@ import type { TimelineEntry, AccountInfo } from "@/types/api";
 import { logger } from "@/lib/logger";
 import { toastWithSound as toast } from "@/lib/toast-with-sound";
 import { getSettings, renderFolderTemplate } from "@/lib/settings";
-import { getCachedDependencyStatus, getCachedMediaFolderStatus, setCachedDependencyStatus, setCachedMediaFolderStatus } from "@/lib/runtime-cache";
+import { beginDownload, finishDownload, setDownloadItemStatus, useDownloadState } from "@/lib/download-state";
+import { getCachedMediaFolderStatus, setCachedMediaFolderStatus } from "@/lib/runtime-cache";
 import { openExternal } from "@/lib/utils";
-import { DownloadMediaWithMetadata, DownloadProfileImage, OpenFolder, IsFFmpegInstalled, ConvertGIFs, StopDownload, CheckFolderExists, CheckGifsFolderHasMP4 } from "../../wailsjs/go/main/App";
-import { EventsOn } from "../../wailsjs/runtime/runtime";
+import { DownloadMediaWithMetadata, DownloadProfileImage, OpenFolder, StopDownload, CheckFolderExists } from "../../wailsjs/go/main/App";
 import { main } from "../../wailsjs/go/models";
-interface DownloadProgress {
-    current: number;
-    total: number;
-    percent: number;
-}
-interface DownloadItemStatus {
-    tweet_id: number;
-    index: number;
-    status: "success" | "failed" | "skipped";
-}
 interface MediaListProps {
     accountInfo: AccountInfo;
     timeline: TimelineEntry[];
@@ -188,6 +178,7 @@ function getAccountFolderName(accountInfo: AccountInfo): string {
     const now = new Date();
     const rendered = renderFolderTemplate(template, {
         username: accountInfo.name,
+        accountName: accountInfo.nick,
         date: `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`,
     });
     return rendered || accountInfo.name;
@@ -206,6 +197,12 @@ function pickVariantUrl(variants: {
 export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType = "all", newMediaCount = null, }: MediaListProps) {
     const settings = getSettings();
     const folderName = getAccountFolderName(accountInfo);
+    const downloadState = useDownloadState();
+    const anyDownloadActive = downloadState.active;
+    const isDownloading = downloadState.active && downloadState.scope === "media";
+    const downloadProgress = isDownloading ? downloadState.progress : null;
+    const downloadingItem = isDownloading ? downloadState.currentItemKey : null;
+    const itemStatusByKey = downloadState.itemStatusByKey;
     const cachedMediaFolderStatus = settings.downloadPath
         ? getCachedMediaFolderStatus(settings.downloadPath, folderName)
         : null;
@@ -219,19 +216,10 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
     useEffect(() => {
         localStorage.setItem("resultViewMode", viewMode);
     }, [viewMode]);
-    const [isDownloading, setIsDownloading] = useState(false);
-    const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
     const [hasDownloaded, setHasDownloaded] = useState(false);
-    const [isConverting, setIsConverting] = useState(false);
-    const [ffmpegInstalled, setFfmpegInstalled] = useState(() => getCachedDependencyStatus("ffmpeg").installed ?? false);
     const [showScrollTop, setShowScrollTop] = useState(false);
     const [folderExists, setFolderExists] = useState(cachedMediaFolderStatus?.folderExists ?? false);
-    const [gifsFolderHasMP4, setGifsFolderHasMP4] = useState(cachedMediaFolderStatus?.gifsFolderHasMP4 ?? false);
     const [previewIndex, setPreviewIndex] = useState<number | null>(null);
-    const [downloadedItems, setDownloadedItems] = useState<Set<string>>(new Set());
-    const [failedItems, setFailedItems] = useState<Set<string>>(new Set());
-    const [skippedItems, setSkippedItems] = useState<Set<string>>(new Set());
-    const [downloadingItem, setDownloadingItem] = useState<string | null>(null);
     const [visibleCount, setVisibleCount] = useState<number>(MEDIA_LIST_PAGE_SIZE);
     const loadMoreRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
@@ -282,24 +270,19 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
         setVisibleCount(MEDIA_LIST_PAGE_SIZE);
     }, [filteredTimeline.length]);
     useEffect(() => {
-        const checkFoldersAndFFmpeg = async () => {
+        const checkFolders = async () => {
             const settings = getSettings();
             const basePath = settings.downloadPath;
-            const installed = await IsFFmpegInstalled();
-            setCachedDependencyStatus("ffmpeg", { installed });
-            setFfmpegInstalled(installed);
             if (!basePath || !accountInfo.name)
                 return;
             const exists = await CheckFolderExists(basePath, folderName);
-            const hasMP4 = exists ? await CheckGifsFolderHasMP4(basePath, folderName) : false;
             setCachedMediaFolderStatus(basePath, folderName, {
                 folderExists: exists,
-                gifsFolderHasMP4: hasMP4,
+                gifsFolderHasMP4: false,
             });
             setFolderExists(exists);
-            setGifsFolderHasMP4(hasMP4);
         };
-        checkFoldersAndFFmpeg();
+        checkFolders();
     }, [accountInfo.name, accountInfo.nick, folderName, hasDownloaded]);
     useEffect(() => {
         const sentinel = loadMoreRef.current;
@@ -340,58 +323,6 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
             document.body.style.overflow = previousOverflow;
         };
     }, [previewIndex]);
-    useEffect(() => {
-        const unsubscribe = EventsOn("download-progress", (progress: DownloadProgress) => {
-            setDownloadProgress(progress);
-        });
-        return () => {
-            unsubscribe();
-        };
-    }, []);
-    const currentDownloadingItemKeyRef = useRef<string | null>(null);
-    const bulkDownloadKeyMapRef = useRef<Map<number, string>>(new Map());
-    useEffect(() => {
-        const unsubscribe = EventsOn("download-item-status", (status: DownloadItemStatus) => {
-            const currentKey = currentDownloadingItemKeyRef.current;
-            const keyMap = bulkDownloadKeyMapRef.current;
-            let itemKey: string;
-            if (currentKey) {
-                itemKey = currentKey;
-            }
-            else if (keyMap.size > 0) {
-                itemKey = keyMap.get(status.index) ?? `${String(status.tweet_id)}-${status.index}`;
-            }
-            else {
-                itemKey = `${String(status.tweet_id)}-${status.index}`;
-            }
-            if (status.status === "success") {
-                setDownloadedItems((prev) => new Set(prev).add(itemKey));
-                if (currentKey) {
-                    toast.success("Downloaded");
-                }
-            }
-            else if (status.status === "failed") {
-                setFailedItems((prev) => new Set(prev).add(itemKey));
-                if (currentKey) {
-                    toast.error("Download failed");
-                }
-            }
-            else if (status.status === "skipped") {
-                setDownloadedItems((prev) => {
-                    const newSet = new Set(prev);
-                    newSet.delete(itemKey);
-                    return newSet;
-                });
-                setSkippedItems((prev) => new Set(prev).add(itemKey));
-                if (currentKey) {
-                    toast.info("Already exists");
-                }
-            }
-        });
-        return () => {
-            unsubscribe();
-        };
-    }, []);
     const goToPrevious = () => {
         if (previewIndex !== null && previewIndex > 0) {
             setPreviewIndex(previewIndex - 1);
@@ -459,6 +390,73 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
         }
         return settings.downloadPath;
     };
+    const createMediaItemRequest = (item: TimelineEntry) => new main.MediaItemRequest({
+        url: item.url,
+        date: item.date,
+        tweet_id: item.tweet_id,
+        type: item.type,
+        content: item.content || "",
+        original_filename: item.original_filename || "",
+        author_username: item.author_username || "",
+        account_name: item.author_name || accountInfo.nick || accountInfo.name,
+    });
+    const getItemStatusFlags = (itemKey: string) => {
+        const status = itemStatusByKey[itemKey];
+        return {
+            isItemDownloaded: status === "success",
+            isItemFailed: status === "failed",
+            isItemSkipped: status === "skipped",
+            isItemDownloading: downloadingItem === itemKey,
+        };
+    };
+    const handleDownloadItem = async (item: TimelineEntry, itemKey: string) => {
+        beginDownload({ current: 0, total: 1, percent: 0 }, { scope: "media", currentItemKey: itemKey, itemKeyByIndex: { 0: itemKey } });
+        try {
+            const settings = getSettings();
+            const request = new main.DownloadMediaWithMetadataRequest({
+                items: [createMediaItemRequest(item)],
+                output_dir: getOutputDir(),
+                username: accountInfo.name,
+                concurrent_downloads: settings.concurrentDownloads || 10,
+                skip_existing: settings.skipExistingFiles,
+                delete_incomplete_files: settings.deleteIncompleteFiles,
+                retry_attempts: settings.retryAttempts,
+                proxy: settings.proxy || "",
+                filename_template: settings.filenameTemplate || "",
+                folder_template: settings.folderTemplate || "",
+                auto_convert_gifs: settings.autoConvertGifs,
+                gif_quality: settings.gifQuality || "fast",
+                gif_resolution: settings.gifResolution || "original",
+            });
+            const response = await DownloadMediaWithMetadata(request);
+            if (response.cancelled) {
+                toast.info(response.message || "Download stopped");
+            }
+            else if (response.success) {
+                if (response.skipped > 0) {
+                    setDownloadItemStatus(itemKey, "skipped");
+                    toast.info("Already exists");
+                }
+                else if (response.downloaded > 0) {
+                    setDownloadItemStatus(itemKey, "success");
+                    toast.success("Downloaded");
+                }
+                setHasDownloaded(true);
+            }
+            else {
+                setDownloadItemStatus(itemKey, "failed");
+                toast.error(response.message || "Download failed");
+            }
+        }
+        catch (error) {
+            setDownloadItemStatus(itemKey, "failed");
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            toast.error(`Download failed: ${errorMsg}`);
+        }
+        finally {
+            finishDownload();
+        }
+    };
     const handleDownload = async () => {
         const itemsWithIndices = selectedItems.size > 0
             ? filteredTimeline
@@ -469,26 +467,16 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
             toast.error("No media to download");
             return;
         }
-        const keyMap = new Map<number, string>();
+        const keyMap: Record<number, string> = {};
         itemsWithIndices.forEach((entry, backendIndex) => {
-            keyMap.set(backendIndex, getItemKey(entry.item));
+            keyMap[backendIndex] = getItemKey(entry.item);
         });
-        bulkDownloadKeyMapRef.current = keyMap;
-        setIsDownloading(true);
-        setDownloadProgress({ current: 0, total: itemsWithIndices.length, percent: 0 });
+        beginDownload({ current: 0, total: itemsWithIndices.length, percent: 0 }, { scope: "media", itemKeyByIndex: keyMap });
         logger.info(`Starting download of ${itemsWithIndices.length} files...`);
         try {
             const settings = getSettings();
             const request = new main.DownloadMediaWithMetadataRequest({
-                items: itemsWithIndices.map(({ item }) => new main.MediaItemRequest({
-                    url: item.url,
-                    date: item.date,
-                    tweet_id: item.tweet_id,
-                    type: item.type,
-                    content: item.content || "",
-                    original_filename: item.original_filename || "",
-                    author_username: item.author_username || "",
-                })),
+                items: itemsWithIndices.map(({ item }) => createMediaItemRequest(item)),
                 output_dir: getOutputDir(),
                 username: accountInfo.name,
                 concurrent_downloads: settings.concurrentDownloads || 10,
@@ -498,6 +486,9 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
                 proxy: settings.proxy || "",
                 filename_template: settings.filenameTemplate || "",
                 folder_template: settings.folderTemplate || "",
+                auto_convert_gifs: settings.autoConvertGifs,
+                gif_quality: settings.gifQuality || "fast",
+                gif_resolution: settings.gifResolution || "original",
             });
             const response = await DownloadMediaWithMetadata(request);
             if (response.cancelled) {
@@ -528,17 +519,12 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
                     toast.success(message);
                 }
                 setHasDownloaded(true);
-                const installed = await IsFFmpegInstalled();
-                setCachedDependencyStatus("ffmpeg", { installed });
-                setFfmpegInstalled(installed);
                 if (settings.downloadPath) {
-                    const hasMP4 = await CheckGifsFolderHasMP4(settings.downloadPath, folderName);
                     setCachedMediaFolderStatus(settings.downloadPath, folderName, {
                         folderExists: true,
-                        gifsFolderHasMP4: hasMP4,
+                        gifsFolderHasMP4: false,
                     });
                     setFolderExists(true);
-                    setGifsFolderHasMP4(hasMP4);
                 }
             }
             else {
@@ -552,15 +538,14 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
             toast.error("Download failed");
         }
         finally {
-            setIsDownloading(false);
-            setDownloadProgress(null);
-            bulkDownloadKeyMapRef.current = new Map();
+            finishDownload();
         }
     };
     const handleStopDownload = async () => {
         try {
             const stopped = await StopDownload();
             if (stopped) {
+                finishDownload();
                 logger.info("Download stopped by user");
                 toast.info("Stopped");
             }
@@ -607,8 +592,8 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
         }
         else {
             folderPath = settings.downloadPath
-                ? `${settings.downloadPath}/${accountInfo.name}`
-                : accountInfo.name;
+                ? `${settings.downloadPath}/${folderName}`
+                : folderName;
         }
         try {
             await OpenFolder(folderPath);
@@ -624,52 +609,6 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
     };
     const handleOpenTweet = (tweetId: string) => {
         openExternal(`https://x.com/${accountInfo.name}/status/${tweetId}`);
-    };
-    const handleConvertGifs = async () => {
-        const settings = getSettings();
-        const isBookmarks = accountInfo.nick === "My Bookmarks";
-        const isLikes = accountInfo.nick === "My Likes";
-        let folderPath: string;
-        if (isBookmarks || isLikes) {
-            const separator = settings.downloadPath.includes("/") ? "/" : "\\";
-            const folderName = isBookmarks ? "My Bookmarks" : "My Likes";
-            folderPath = `${settings.downloadPath}${separator}${folderName}`;
-        }
-        else {
-            folderPath = `${settings.downloadPath}/${accountInfo.name}`;
-        }
-        setIsConverting(true);
-        logger.info("Converting GIFs...");
-        try {
-            const response = await ConvertGIFs({
-                folder_path: folderPath,
-                quality: settings.gifQuality || "fast",
-                resolution: settings.gifResolution || "high",
-                delete_original: false,
-            });
-            if (response.success) {
-                logger.success(`Converted ${response.converted} GIFs`);
-                toast.success(`${response.converted} GIFs converted`);
-                const hasMP4 = await CheckGifsFolderHasMP4(settings.downloadPath, folderName);
-                setCachedMediaFolderStatus(settings.downloadPath, folderName, {
-                    folderExists: true,
-                    gifsFolderHasMP4: hasMP4,
-                });
-                setGifsFolderHasMP4(hasMP4);
-            }
-            else {
-                logger.error(response.message);
-                toast.error("Convert failed");
-            }
-        }
-        catch (error) {
-            const errorMsg = error instanceof Error ? error.message : String(error);
-            logger.error(`Convert failed: ${errorMsg}`);
-            toast.error("Convert failed");
-        }
-        finally {
-            setIsConverting(false);
-        }
     };
     return (<div className="space-y-4">
       
@@ -819,21 +758,12 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
           <FolderOpen className="h-4 w-4"/>
           Open Folder
         </Button>
-        <Button variant="outline" onClick={handleConvertGifs} disabled={isConverting || !gifsFolderHasMP4 || !ffmpegInstalled}>
-          {isConverting ? (<>
-              <Spinner />
-              Converting...
-            </>) : (<>
-              <Film className="h-4 w-4"/>
-              Convert GIFs
-            </>)}
-        </Button>
         <div className="flex items-center gap-2">
           {isDownloading && (<Button variant="destructive" onClick={handleStopDownload}>
               <StopCircle className="h-4 w-4"/>
               Stop
             </Button>)}
-          <Button onClick={handleDownload} disabled={isDownloading}>
+          <Button onClick={handleDownload} disabled={anyDownloadActive}>
           {isDownloading ? (<>
               <Spinner />
               Downloading...
@@ -870,10 +800,7 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
           {filteredTimeline.slice(0, visibleCount).map((item, index) => {
                 const itemKey = getItemKey(item);
                 const isSelected = selectedItems.has(itemKey);
-                const isItemDownloaded = downloadedItems.has(itemKey);
-                const isItemFailed = failedItems.has(itemKey);
-                const isItemSkipped = skippedItems.has(itemKey);
-                const isItemDownloading = downloadingItem === itemKey;
+                const { isItemDownloaded, isItemFailed, isItemSkipped, isItemDownloading } = getItemStatusFlags(itemKey);
                 return (<div key={itemKey} onClick={() => openPreview(index)} className={`flex items-center gap-4 p-3 rounded-lg border-2 transition-all cursor-pointer ${isSelected ? "border-primary bg-primary/5" : "border-transparent hover:bg-muted/50"}`}>
                 <Checkbox checked={isSelected} onCheckedChange={() => toggleItem(itemKey)} onClick={(e) => e.stopPropagation()}/>
                 <div className="relative shrink-0">
@@ -912,53 +839,7 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
                 <div className="flex items-center gap-2 shrink-0">
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button size="icon" variant="default" onClick={async () => {
-                        setDownloadingItem(itemKey);
-                        currentDownloadingItemKeyRef.current = itemKey;
-                        try {
-                            const settings = getSettings();
-                            const request = new main.DownloadMediaWithMetadataRequest({
-                                items: [new main.MediaItemRequest({
-                                        url: item.url,
-                                        date: item.date,
-                                        tweet_id: item.tweet_id,
-                                        type: item.type,
-                                        content: item.content || "",
-                                        original_filename: item.original_filename || "",
-                                        author_username: item.author_username || "",
-                                    })],
-                                output_dir: getOutputDir(),
-                                username: accountInfo.name,
-                                concurrent_downloads: settings.concurrentDownloads || 10,
-                                skip_existing: settings.skipExistingFiles,
-                                delete_incomplete_files: settings.deleteIncompleteFiles,
-                                retry_attempts: settings.retryAttempts,
-                                proxy: settings.proxy || "",
-                                filename_template: settings.filenameTemplate || "",
-                                folder_template: settings.folderTemplate || "",
-                            });
-                            const response = await DownloadMediaWithMetadata(request);
-                            if (response.cancelled) {
-                                toast.info(response.message || "Download stopped");
-                            }
-                            else if (response.success) {
-                                setHasDownloaded(true);
-                            }
-                            else {
-                                setFailedItems((prev) => new Set(prev).add(itemKey));
-                                toast.error(response.message || "Download failed");
-                            }
-                        }
-                        catch (error) {
-                            setFailedItems((prev) => new Set(prev).add(itemKey));
-                            const errorMsg = error instanceof Error ? error.message : String(error);
-                            toast.error(`Download failed: ${errorMsg}`);
-                        }
-                        finally {
-                            setDownloadingItem(null);
-                            setTimeout(() => { currentDownloadingItemKeyRef.current = null; }, 1000);
-                        }
-                    }} disabled={downloadingItem !== null}>
+                      <Button size="icon" variant="default" onClick={() => void handleDownloadItem(item, itemKey)} disabled={anyDownloadActive}>
                         {isItemDownloading ? (<Spinner />) : isItemSkipped ? (<FileCheck className="h-4 w-4"/>) : isItemDownloaded ? (<CheckCircle className="h-4 w-4"/>) : isItemFailed ? (<XCircle className="h-4 w-4"/>) : (<Download className="h-4 w-4"/>)}
                       </Button>
                     </TooltipTrigger>
@@ -976,10 +857,7 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
           {filteredTimeline.slice(0, visibleCount).map((item, index) => {
                 const itemKey = getItemKey(item);
                 const isSelected = selectedItems.has(itemKey);
-                const isItemDownloaded = downloadedItems.has(itemKey);
-                const isItemFailed = failedItems.has(itemKey);
-                const isItemSkipped = skippedItems.has(itemKey);
-                const isItemDownloading = downloadingItem === itemKey;
+                const { isItemDownloaded, isItemFailed, isItemSkipped, isItemDownloading } = getItemStatusFlags(itemKey);
                 return (<div key={itemKey} className={`relative group rounded-lg overflow-hidden border-2 transition-all ${isSelected ? "border-primary" : "border-transparent hover:border-muted-foreground/30"}`}>
                 
                 <div className="aspect-square bg-muted relative cursor-pointer" onClick={() => openPreview(index)}>
@@ -996,51 +874,8 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
                       <TooltipTrigger asChild>
                         <Button size="icon" variant="default" className="h-8 w-8" onClick={async (e) => {
                         e.stopPropagation();
-                        setDownloadingItem(itemKey);
-                        currentDownloadingItemKeyRef.current = itemKey;
-                        try {
-                            const settings = getSettings();
-                            const request = new main.DownloadMediaWithMetadataRequest({
-                                items: [new main.MediaItemRequest({
-                                        url: item.url,
-                                        date: item.date,
-                                        tweet_id: item.tweet_id,
-                                        type: item.type,
-                                        content: item.content || "",
-                                        author_username: item.author_username || "",
-                                    })],
-                                output_dir: getOutputDir(),
-                                username: accountInfo.name,
-                                concurrent_downloads: settings.concurrentDownloads || 10,
-                                skip_existing: settings.skipExistingFiles,
-                                delete_incomplete_files: settings.deleteIncompleteFiles,
-                                retry_attempts: settings.retryAttempts,
-                                proxy: settings.proxy || "",
-                                filename_template: settings.filenameTemplate || "",
-                                folder_template: settings.folderTemplate || "",
-                            });
-                            const response = await DownloadMediaWithMetadata(request);
-                            if (response.cancelled) {
-                                toast.info(response.message || "Download stopped");
-                            }
-                            else if (response.success) {
-                                setHasDownloaded(true);
-                            }
-                            else {
-                                setFailedItems((prev) => new Set(prev).add(itemKey));
-                                toast.error(response.message || "Download failed");
-                            }
-                        }
-                        catch (error) {
-                            setFailedItems((prev) => new Set(prev).add(itemKey));
-                            const errorMsg = error instanceof Error ? error.message : String(error);
-                            toast.error(`Download failed: ${errorMsg}`);
-                        }
-                        finally {
-                            setDownloadingItem(null);
-                            setTimeout(() => { currentDownloadingItemKeyRef.current = null; }, 1000);
-                        }
-                    }} disabled={downloadingItem !== null}>
+                        await handleDownloadItem(item, itemKey);
+                    }} disabled={anyDownloadActive}>
                           {isItemDownloading ? (<Spinner />) : isItemSkipped ? (<FileCheck className="h-4 w-4"/>) : isItemDownloaded ? (<CheckCircle className="h-4 w-4"/>) : isItemFailed ? (<XCircle className="h-4 w-4"/>) : (<Download className="h-4 w-4"/>)}
                         </Button>
                       </TooltipTrigger>
@@ -1169,56 +1004,10 @@ export function MediaList({ accountInfo, timeline, totalUrls, fetchedMediaType =
             {(() => {
                 const item = filteredTimeline[previewIndex];
                 const itemKey = getItemKey(item);
-                const isItemDownloaded = downloadedItems.has(itemKey);
-                const isItemFailed = failedItems.has(itemKey);
-                const isItemSkipped = skippedItems.has(itemKey);
-                const isItemDownloading = downloadingItem === itemKey;
+                const { isItemDownloaded, isItemFailed, isItemSkipped, isItemDownloading } = getItemStatusFlags(itemKey);
                 return (<Button variant="default" size="sm" className="h-9" onClick={async () => {
-                        setDownloadingItem(itemKey);
-                        currentDownloadingItemKeyRef.current = itemKey;
-                        try {
-                            const settings = getSettings();
-                            const request = new main.DownloadMediaWithMetadataRequest({
-                                items: [new main.MediaItemRequest({
-                                        url: item.url,
-                                        date: item.date,
-                                        tweet_id: item.tweet_id,
-                                        type: item.type,
-                                        content: item.content || "",
-                                        original_filename: item.original_filename || "",
-                                        author_username: item.author_username || "",
-                                    })],
-                                output_dir: getOutputDir(),
-                                username: accountInfo.name,
-                                concurrent_downloads: settings.concurrentDownloads || 10,
-                                skip_existing: settings.skipExistingFiles,
-                                delete_incomplete_files: settings.deleteIncompleteFiles,
-                                retry_attempts: settings.retryAttempts,
-                                proxy: settings.proxy || "",
-                                filename_template: settings.filenameTemplate || "",
-                                folder_template: settings.folderTemplate || "",
-                            });
-                            const response = await DownloadMediaWithMetadata(request);
-                            if (response.cancelled) {
-                                toast.info(response.message || "Download stopped");
-                            }
-                            else if (response.success) {
-                                setHasDownloaded(true);
-                            }
-                            else {
-                                setFailedItems((prev) => new Set(prev).add(itemKey));
-                                toast.error("Download failed");
-                            }
-                        }
-                        catch {
-                            setFailedItems((prev) => new Set(prev).add(itemKey));
-                            toast.error("Download failed");
-                        }
-                        finally {
-                            setDownloadingItem(null);
-                            setTimeout(() => { currentDownloadingItemKeyRef.current = null; }, 1000);
-                        }
-                    }} disabled={downloadingItem !== null}>
+                        await handleDownloadItem(item, itemKey);
+                    }} disabled={anyDownloadActive}>
                   {isItemDownloading ? (<Spinner className="mr-1"/>) : isItemSkipped ? (<FileCheck className="h-4 w-4 mr-1"/>) : isItemDownloaded ? (<CheckCircle className="h-4 w-4 mr-1"/>) : isItemFailed ? (<XCircle className="h-4 w-4 mr-1"/>) : (<Download className="h-4 w-4 mr-1"/>)}
                   {isItemDownloading ? "Downloading..." : isItemSkipped ? "Already exists" : isItemDownloaded ? "Downloaded" : isItemFailed ? "Failed" : "Download"}
                 </Button>);
