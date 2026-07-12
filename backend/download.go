@@ -340,13 +340,34 @@ func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir str
 	}
 
 	filenameIndexes := make(map[string]int, len(filenameCounts))
-	tasks := make([]downloadTask, 0, len(pendingTasks))
-	for _, pending := range pendingTasks {
-		key := filenameCollisionKey(pending.typeDir, pending.baseName, pending.ext)
-		filenameIndexes[key]++
-		pending.task.outputPath = filepath.Join(pending.typeDir, formatDownloadFilename(pending.baseName, pending.ext, filenameCounts[key], filenameIndexes[key]))
-		tasks = append(tasks, pending.task)
+tasks := make([]downloadTask, 0, len(pendingTasks))
+
+for _, pending := range pendingTasks {
+	key := filenameCollisionKey(pending.typeDir, pending.baseName, pending.ext)
+
+	filenameIndexes[key]++
+
+	filename := formatDownloadFilename(
+		pending.baseName,
+		pending.ext,
+		filenameCounts[key],
+		filenameIndexes[key],
+	)
+
+	// If skipping existing files, first check the canonical filename.
+	// This prevents existing files from being downloaded again as _01, _02, etc.
+	if options.SkipExistingFiles {
+		canonicalPath := filepath.Join(pending.typeDir, formatDownloadFilename(pending.baseName, pending.ext, 1, 1))
+		if exists, err := fileExists(canonicalPath); err == nil && exists {
+			pending.task.outputPath = canonicalPath
+			tasks = append(tasks, pending.task)
+			continue
+		}
 	}
+
+	pending.task.outputPath = filepath.Join(pending.typeDir, filename)
+	tasks = append(tasks, pending.task)
+}
 
 	var downloadedCount int64
 	var skippedCount int64
