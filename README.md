@@ -1,14 +1,29 @@
-# Twitter/X Media Batch Downloader
-
-A GUI tool to download original-quality images and videos from Twitter/X accounts.
-
-![Windows](https://img.shields.io/badge/Windows-10%2B-0078D6?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiB2aWV3Qm94PSIwIDAgMjAgMjAiPjxwYXRoIGZpbGw9IiNmZmZmZmYiIGZpbGwtcnVsZT0iZXZlbm9kZCIgZD0iTTIwIDEwLjg3M1YyMEw4LjQ3OSAxOC41MzdsLjAwMS03LjY2NEgyMFptLTEzLjEyIDBsLS4wMDEgNy40NjFMMCAxNy40NjF2LTYuNTg4aDYuODhaTTIwIDkuMjczSDguNDhsLS4wMDEtNy44MUwyMCAwdjkuMjczWk02Ljg3OSAxLjY2NmwuMDAxIDcuNjA3SDBWMi41MzlsNi44NzktLjg3M1oiLz48L3N2Zz4=)
-![macOS](https://img.shields.io/badge/macOS-10.13%2B-000000?style=for-the-badge&logo=apple&logoColor=white)
-![Linux](https://img.shields.io/badge/Linux-Any-FCC624?style=for-the-badge&logo=linux&logoColor=white)
+<div align="left">
+  <h1>Twitter/X Media Batch Downloader</h1>
+  <p>
+    Downloads original-quality images and videos from Twitter/X accounts.
+  </p>
+  <p>
+    <a href="https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/stargazers"><img
+        src="https://img.shields.io/github/stars/afkarxyz/Twitter-X-Media-Batch-Downloader?color=ffcb47&labelColor=black&logo=github&label=Stars" /></a><a
+      href="https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases"><img
+        src="https://img.shields.io/github/downloads/afkarxyz/Twitter-X-Media-Batch-Downloader/total?color=22c55e&labelColor=black&logo=github&label=Downloads" /></a><a
+      href="https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/latest"><img
+        src="https://img.shields.io/github/v/release/afkarxyz/Twitter-X-Media-Batch-Downloader?color=8b5cf6&labelColor=black&logo=github&label=Latest%20Release" /></a><a
+      href="https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/latest"><img
+        src="https://img.shields.io/badge/Windows-10%2B-369eff?labelColor=black&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiB2aWV3Qm94PSIwIDAgMjAgMjAiPjxwYXRoIGZpbGw9IiNmZmZmZmYiIGZpbGwtcnVsZT0iZXZlbm9kZCIgZD0iTTIwIDEwLjg3M1YyMEw4LjQ3OSAxOC41MzdsLjAwMS03LjY2NEgyMFptLTEzLjEyIDBsLS4wMDEgNy40NjFMMCAxNy40NjF2LTYuNTg4aDYuODhaTTIwIDkuMjczSDguNDhsLS4wMDEtNy44MUwyMCAwdjkuMjczWk02Ljg3OSAxLjY2NmwuMDAxIDcuNjA3SDBWMi41MzlsNi44NzktLjg3M1oiLz48L3N2Zz4=" /></a><a
+      href="https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/latest"><img
+        src="https://img.shields.io/badge/macOS-10.13%2B-FFFFFF?labelColor=black&logo=apple&logoColor=white" /></a><a
+      href="https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/latest"><img
+        src="https://img.shields.io/badge/Linux-Any-FCC624?labelColor=black&logo=linux&logoColor=white" /></a>
+    <br />
+    <br />
+    <a href="https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/latest" target="_blank"><img
+        src="https://github.com/user-attachments/assets/cef7b7e6-5a64-497a-91fe-b6fb549f3b09" alt="Twitter/X Media Batch Downloader" /></a>
+  </p>
+</div>
 
 ### [Download](https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases)
-
-![Image](https://github.com/user-attachments/assets/cef7b7e6-5a64-497a-91fe-b6fb549f3b09)
 
 - If you're familiar with userscripts, install it [**here**](https://greasyfork.org/en/scripts/523157)
 
