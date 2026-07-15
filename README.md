@@ -29,7 +29,7 @@
 
 - To install the Chrome extension version, click [**here**](https://chromewebstore.google.com/detail/cboceolmgkoobpfjiojkigmihijfgmdo)
 
-- Also available on the web at [**MediaBatchDL.com**](https://mediabatchdl.com)
+- Also available on the web at [**TwitterDL.app**](https://twitterdl.app)
 
 ## How to Obtain Auth Token
 
