@@ -19,7 +19,11 @@
     <br />
     <br />
     <a href="https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/latest" target="_blank"><img
-        src="https://github.com/user-attachments/assets/cef7b7e6-5a64-497a-91fe-b6fb549f3b09" alt="Twitter/X Media Batch Downloader" /></a>
+        src="https://github.com/user-attachments/assets/556bc876-871b-4ac1-af9e-a9001c6b9bbf" alt="Dark"
+        width="49%" /></a>
+    <a href="https://github.com/afkarxyz/Twitter-X-Media-Batch-Downloader/releases/latest" target="_blank"><img
+        src="https://github.com/user-attachments/assets/338f11b5-9ddb-4074-8185-aaee13772bdf" alt="Light"
+        width="49%" /></a>
   </p>
 </div>
 
