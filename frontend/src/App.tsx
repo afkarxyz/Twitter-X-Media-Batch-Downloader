@@ -441,7 +441,7 @@ function App() {
             }
             else {
                 const batchSize = BATCH_SIZE;
-                let timelineType = (settings.includeText || retweets) ? "tweets" : "media";
+                let timelineType = settings.includeText ? "tweets" : "media";
                 if (isBookmarks) {
                     timelineType = "bookmarks";
                 }

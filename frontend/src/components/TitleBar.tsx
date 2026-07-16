@@ -5,7 +5,7 @@ import { openExternal } from "@/lib/utils";
 const INFO_LINKS = [
     { label: "Chrome Extension", icon: Puzzle, url: "https://chromewebstore.google.com/detail/cboceolmgkoobpfjiojkigmihijfgmdo" },
     { label: "Userscript", icon: FileCode2, url: "https://greasyfork.org/en/scripts/523157" },
-    { label: "Website", icon: Globe, url: "https://mediabatchdl.com" },
+    { label: "Website", icon: Globe, url: "https://twitterdl.app" },
 ];
 export function TitleBar() {
     const handleMinimize = () => {

@@ -317,34 +317,30 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
         }
     };
     const handleOpenFolder = async (account: AccountListItem) => {
-    const settings = getSettings();
-    const basePath = settings.downloadPath || "";
-
-    if (!basePath) {
-        toast.error("Download folder is not set");
-        return;
-    }
-
-    let username = account.username || account.name || "";
-
-    try {
-        const responseJSON = await GetAccountFromDB(account.id);
-        const data = JSON.parse(responseJSON);
-        username = data.account_info?.name || username;
-    } catch {
-        // fall back to saved row data
-    }
-
-    const folderName = getFolderNameForAccount(username);
-
-    try {
-        const folderPath = await GetFolderPath(basePath, folderName);
-        await OpenFolder(folderPath);
-    } catch (error) {
-        console.error(`Failed to open folder for @${username}:`, error);
-        toast.error("Failed to open folder");
-    }
-};
+        const settings = getSettings();
+        const basePath = settings.downloadPath || "";
+        if (!basePath) {
+            toast.error("Download folder is not set");
+            return;
+        }
+        let username = account.username || account.name || "";
+        try {
+            const responseJSON = await GetAccountFromDB(account.id);
+            const data = JSON.parse(responseJSON);
+            username = data.account_info?.name || username;
+        }
+        catch {
+        }
+        const folderName = getFolderNameForAccount(username);
+        try {
+            const folderPath = await GetFolderPath(basePath, folderName);
+            await OpenFolder(folderPath);
+        }
+        catch (error) {
+            console.error(`Failed to open folder for @${username}:`, error);
+            toast.error("Failed to open folder");
+        }
+    };
     const handleDownload = async (id: number, username: string) => {
         try {
             const responseJSON = await GetAccountFromDB(id);
@@ -1080,12 +1076,10 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          {!isPrivateAccount(account.username) && (<DropdownMenuItem
-                              onSelect={(event) => {
-                                  event.preventDefault();
-                                  handleEditGroup(account);
-                              }}
-                            >
+                          {!isPrivateAccount(account.username) && (<DropdownMenuItem onSelect={(event) => {
+                            event.preventDefault();
+                            handleEditGroup(account);
+                        }}>
                               <Pencil className="h-4 w-4 mr-2"/>
                               Edit Group
                             </DropdownMenuItem>)}
@@ -1179,12 +1173,10 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          {!isPrivateAccount(account.username) && (<DropdownMenuItem
-                              onSelect={(event) => {
-                                  event.preventDefault();
-                                  handleEditGroup(account);
-                              }}
-                            >
+                          {!isPrivateAccount(account.username) && (<DropdownMenuItem onSelect={(event) => {
+                            event.preventDefault();
+                            handleEditGroup(account);
+                        }}>
                               <Pencil className="h-4 w-4 mr-2"/>
                               Edit Group
                             </DropdownMenuItem>)}
@@ -1315,12 +1307,10 @@ export function DatabaseView({ onLoadAccount, onUpdateSelected }: DatabaseViewPr
                       <TooltipContent>More Options</TooltipContent>
                     </Tooltip>
                     <DropdownMenuContent align="end">
-                      {!isPrivateAccount(account.username) && (<DropdownMenuItem
-                          onSelect={(event) => {
-                              event.preventDefault();
-                              handleEditGroup(account);
-                          }}
-                        >
+                      {!isPrivateAccount(account.username) && (<DropdownMenuItem onSelect={(event) => {
+                        event.preventDefault();
+                        handleEditGroup(account);
+                    }}>
                           <Pencil className="h-4 w-4 mr-2"/>
                           Edit Group
                         </DropdownMenuItem>)}

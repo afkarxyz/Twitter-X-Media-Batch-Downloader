@@ -1,21 +1,17 @@
 import { useSyncExternalStore } from "react";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
-
 export interface DownloadProgress {
     current: number;
     total: number;
     percent: number;
 }
-
 export interface DownloadItemStatus {
     tweet_id: number;
     index: number;
     status: "success" | "failed" | "skipped" | "cancelled";
 }
-
 export type DownloadScope = "media" | "database" | "database-bulk";
 export type DownloadItemResult = "success" | "failed" | "skipped";
-
 export interface DownloadState {
     active: boolean;
     scope: DownloadScope | null;
@@ -25,9 +21,7 @@ export interface DownloadState {
     itemKeyByIndex: Record<number, string>;
     itemStatusByKey: Record<string, DownloadItemResult>;
 }
-
 const listeners = new Set<() => void>();
-
 let state: DownloadState = {
     active: false,
     scope: null,
@@ -37,20 +31,16 @@ let state: DownloadState = {
     itemKeyByIndex: {},
     itemStatusByKey: {},
 };
-
 let unsubscribeEvents: (() => void) | null = null;
-
 function emit() {
     for (const listener of listeners) {
         listener();
     }
 }
-
 function setState(next: Partial<DownloadState>) {
     state = { ...state, ...next };
     emit();
 }
-
 export function initDownloadProgressEvents() {
     if (unsubscribeEvents) {
         return unsubscribeEvents;
@@ -80,11 +70,7 @@ export function initDownloadProgressEvents() {
     };
     return unsubscribeEvents;
 }
-
-export function beginDownload(
-    progress: DownloadProgress,
-    meta: Pick<DownloadState, "scope"> & Partial<Pick<DownloadState, "accountId" | "currentItemKey" | "itemKeyByIndex">>
-) {
+export function beginDownload(progress: DownloadProgress, meta: Pick<DownloadState, "scope"> & Partial<Pick<DownloadState, "accountId" | "currentItemKey" | "itemKeyByIndex">>) {
     setState({
         active: true,
         scope: meta.scope,
@@ -94,7 +80,6 @@ export function beginDownload(
         itemKeyByIndex: meta.itemKeyByIndex ?? {},
     });
 }
-
 export function finishDownload() {
     setState({
         active: false,
@@ -105,7 +90,6 @@ export function finishDownload() {
         itemKeyByIndex: {},
     });
 }
-
 export function setDownloadItemStatus(itemKey: string, status: DownloadItemResult) {
     setState({
         itemStatusByKey: {
@@ -114,18 +98,15 @@ export function setDownloadItemStatus(itemKey: string, status: DownloadItemResul
         },
     });
 }
-
 export function subscribeDownloadState(listener: () => void) {
     listeners.add(listener);
     return () => {
         listeners.delete(listener);
     };
 }
-
 export function getDownloadState() {
     return state;
 }
-
 export function useDownloadState() {
     return useSyncExternalStore(subscribeDownloadState, getDownloadState, getDownloadState);
 }

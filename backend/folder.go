@@ -11,7 +11,7 @@ import (
 )
 
 func OpenFolderInExplorer(path string) error {
-    os.WriteFile(filepath.Join(os.TempDir(), "openfolder.txt"), []byte(path), 0644)
+	os.WriteFile(filepath.Join(os.TempDir(), "openfolder.txt"), []byte(path), 0644)
 	info, err := os.Stat(path)
 	if err != nil {
 		return err

@@ -11,7 +11,7 @@ import { toastWithSound as toast } from "@/lib/toast-with-sound";
 import { cn } from "@/lib/utils";
 import { getSettings, updateSettings, VIDEO_QUALITIES, IMAGE_SIZES, AVATAR_SIZES, BANNER_SIZES, type VideoQuality, type ImageSize, type AvatarSize, type BannerSize } from "@/lib/settings";
 import { GetStoredAuthToken, SetStoredAuthToken } from "../../wailsjs/go/main/App";
-import { AlertCircle, Bookmark, CheckCircle, CloudDownload, Clock, Database, Eye, EyeOff, Globe, Heart, Hourglass, Info, Lock, RotateCcw, SlidersHorizontal, StopCircle, Trash2, User, Users, XCircle } from "lucide-react";
+import { AlertCircle, Bookmark, CheckCircle, Clipboard, CloudDownload, Clock, Database, Eye, EyeOff, Globe, Heart, Hourglass, Info, Lock, RotateCcw, SlidersHorizontal, StopCircle, Trash2, User, Users, XCircle } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 function formatNumberWithComma(num: number): string {
     return num.toLocaleString();
@@ -207,6 +207,17 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
             onFetch(false, undefined, undefined, undefined, retweets, mode, privateType, authToken, false);
         });
     };
+    const handleClipboardPaste = async () => {
+        try {
+            const clipboardText = (await navigator.clipboard.readText()).trim();
+            if (clipboardText) {
+                onUsernameChange(clipboardText);
+            }
+        }
+        catch (error) {
+            console.error("Failed to read clipboard:", error);
+        }
+    };
     const handleResume = () => {
         if (onResume) {
             requireAuthToken((authToken) => {
@@ -370,6 +381,10 @@ export function SearchBar({ username, loading, onUsernameChange, onFetch, onStop
                   <XCircle className="h-4 w-4"/>
                 </button>)}
             </div>
+
+            <Button variant="outline" size="icon" className="shrink-0" aria-label="Paste from clipboard" onClick={() => void handleClipboardPaste()}>
+              <Clipboard className="h-4 w-4"/>
+            </Button>
 
             <div className="flex items-center gap-2">
               {loading && (<Button variant="destructive" onClick={onStopFetch}>

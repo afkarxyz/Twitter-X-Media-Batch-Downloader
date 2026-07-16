@@ -698,11 +698,10 @@ func ExtractTimeline(req TimelineRequest) (*TwitterResponse, error) {
 	}
 
 	includeText := req.IncludeText
-	wantsRetweets := req.Retweets
 
 	timelineType := req.TimelineType
 	if timelineType == "" {
-		if includeText || wantsRetweets {
+		if includeText {
 			timelineType = "tweets"
 		} else {
 			timelineType = "media"
@@ -725,7 +724,7 @@ func ExtractTimeline(req TimelineRequest) (*TwitterResponse, error) {
 		args = append(args, "--limit", fmt.Sprintf("%d", req.BatchSize))
 	}
 
-	if timelineType == "tweets" || timelineType == "timeline" {
+	if timelineType == "tweets" || timelineType == "timeline" || timelineType == "media" {
 		if req.Retweets {
 			args = append(args, "--retweets", "include")
 		} else {
