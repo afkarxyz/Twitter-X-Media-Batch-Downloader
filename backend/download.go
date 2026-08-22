@@ -798,7 +798,7 @@ func formatDownloadFilename(baseName, ext string, duplicateCount, duplicateIndex
 
 func renderFolder(template, username, accountName, date string) string {
 	if strings.TrimSpace(template) == "" {
-		template = "{handle}"
+		template = ""
 	}
 	replacer := strings.NewReplacer(
 		"{handle}", sanitizeFilenamePart(username),
