@@ -290,6 +290,7 @@ type DownloadMediaWithMetadataRequest struct {
 	ConcurrentDownloads       int                `json:"concurrent_downloads,omitempty"`
 	SkipExisting              bool               `json:"skip_existing"`
 	DeleteIncompleteFiles     bool               `json:"delete_incomplete_files"`
+	SeparateMediaFolders 	  bool				 `json:"separate_media_folders"`
 	RetryAttempts             int                `json:"retry_attempts,omitempty"`
 	DownloadSpeedLimitKBps    int                `json:"download_speed_limit_kbps,omitempty"`
 	DownloadDelayMillis       int                `json:"download_delay_ms,omitempty"`
@@ -447,6 +448,7 @@ func (a *App) DownloadMediaWithMetadata(req DownloadMediaWithMetadataRequest) (D
 		ConcurrentDownloads:       req.ConcurrentDownloads,
 		SkipExistingFiles:         req.SkipExisting,
 		DeleteIncompleteFiles:     req.DeleteIncompleteFiles,
+		SeparateMediaFolders:      req.SeparateMediaFolders,
 		RetryAttempts:             req.RetryAttempts,
 		DownloadSpeedLimitKBps:    req.DownloadSpeedLimitKBps,
 		DownloadDelayMillis:       req.DownloadDelayMillis,
