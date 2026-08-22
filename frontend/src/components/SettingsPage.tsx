@@ -573,6 +573,10 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
                   <Switch id="delete-incomplete-files" checked={tempSettings.deleteIncompleteFiles} onCheckedChange={(checked) => setTempSettings((prev) => ({ ...prev, deleteIncompleteFiles: checked }))}/>
                   <Label htmlFor="delete-incomplete-files" className="cursor-pointer font-normal">Delete Incomplete Files</Label>
                 </div>
+                <div className="flex items-center gap-3">
+                  <Switch id="separate-media-folders" checked={tempSettings.separateMediaFolders} onCheckedChange={(checked) => setTempSettings((prev) => ({ ...prev, separateMediaFolders: checked, }))}/>
+                  <Label htmlFor="separate-media-folders" className="cursor-pointer font-normal"> Separate Media Type Into Folders </Label>
+                </div>
               </div>
 
               <div className="space-y-3">

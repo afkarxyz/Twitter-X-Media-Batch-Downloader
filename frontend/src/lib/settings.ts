@@ -155,6 +155,7 @@ export interface Settings {
     concurrentDownloads: number;
     skipExistingFiles: boolean;
     deleteIncompleteFiles: boolean;
+    separateMediaFolders: boolean;
     retryAttempts: number;
     downloadSpeedLimitKBps: number;
     downloadDelaySeconds: number;
@@ -182,12 +183,14 @@ export interface Settings {
     bannerSize: BannerSize;
     filenameTemplate: string;
     folderTemplate: string;
+
 }
 export const DEFAULT_SETTINGS: Settings = {
     downloadPath: "",
     concurrentDownloads: DEFAULT_CONCURRENT_DOWNLOADS,
     skipExistingFiles: true,
     deleteIncompleteFiles: true,
+    separateMediaFolders: true,
     retryAttempts: DEFAULT_RETRY_ATTEMPTS,
     downloadSpeedLimitKBps: DEFAULT_DOWNLOAD_SPEED_LIMIT_KBPS,
     downloadDelaySeconds: DEFAULT_DOWNLOAD_DELAY_SECONDS,
@@ -546,6 +549,7 @@ function toNormalizedSettings(settings: Partial<Settings>): Settings {
         concurrentDownloads: normalizeConcurrentDownloads(settings.concurrentDownloads),
         skipExistingFiles: normalizeBoolean(settings.skipExistingFiles, DEFAULT_SETTINGS.skipExistingFiles),
         deleteIncompleteFiles: normalizeBoolean(settings.deleteIncompleteFiles, DEFAULT_SETTINGS.deleteIncompleteFiles),
+        separateMediaFolders: normalizeBoolean(settings.separateMediaFolders,DEFAULT_SETTINGS.separateMediaFolders),
         retryAttempts: normalizeRetryAttempts(settings.retryAttempts),
         downloadSpeedLimitKBps: normalizeDownloadSpeedLimit(settings.downloadSpeedLimitKBps),
         downloadDelaySeconds: normalizeDownloadDelay(settings.downloadDelaySeconds),

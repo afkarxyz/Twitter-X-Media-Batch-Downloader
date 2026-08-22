@@ -78,6 +78,7 @@ type DownloadOptions struct {
 	AutoConvertGIFs           bool
 	GIFQuality                string
 	GIFResolution             string
+	SeparateMediaFolders      bool
 }
 
 func NormalizeDownloadOptions(options DownloadOptions) DownloadOptions {
@@ -451,7 +452,11 @@ func DownloadMediaWithMetadataProgressAndStatus(items []MediaItem, outputDir str
 			continue
 		}
 
-		typeDir := filepath.Join(baseDir, subfolder)
+		typeDir := baseDir
+
+		if options.SeparateMediaFolders {
+    		typeDir = filepath.Join(baseDir, subfolder)
+		}
 		if err := os.MkdirAll(typeDir, 0755); err != nil {
 			continue
 		}
