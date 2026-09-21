@@ -3,6 +3,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { getSettings, applyThemeMode, applyFont } from "@/lib/settings";
+import { createFetchDelayGate } from "@/lib/fetch-delay";
 import { applyTheme } from "@/lib/themes";
 import { openExternal } from "@/lib/utils";
 import { isNewerVersion } from "@/lib/version";
@@ -29,6 +30,7 @@ const HISTORY_KEY = "twitter_media_fetch_history";
 const MAX_HISTORY = 10;
 const CURRENT_VERSION = __APP_VERSION__;
 const BATCH_SIZE = 100;
+const waitForFetch = createFetchDelayGate();
 function formatNumberWithComma(num: number): string {
     return num.toLocaleString();
 }
@@ -446,6 +448,7 @@ function App() {
                         return;
                     }
                 }
+                if (!await waitForFetch(settings.fetchDelaySeconds, settings.fetchDelayJitterSeconds, () => stopFetchRef.current)) return;
                 const response = await ExtractDateRange({
                     username: username.trim(),
                     auth_token: authToken.trim(),
@@ -522,6 +525,7 @@ function App() {
                         }
                     }
                     const batchNum = page + 1;
+                    if (!await waitForFetch(settings.fetchDelaySeconds, settings.fetchDelayJitterSeconds, () => stopFetchRef.current)) break;
                     logger.info(`Fetching batch ${batchNum}${cursor ? " (resuming)" : ""}...`);
                     const response = await ExtractTimeline({
                         username: isBookmarks ? "" : username.trim(),
@@ -977,6 +981,7 @@ function App() {
                         }
                         break;
                     }
+                    if (!await waitForFetch(settings.fetchDelaySeconds, settings.fetchDelayJitterSeconds, () => stopAllRef.current || !!accountStopFlagsRef.current.get(accountId))) break;
                     const response = await ExtractTimeline({
                         username: cleanUsername,
                         auth_token: authToken.trim(),
@@ -1336,6 +1341,7 @@ function App() {
                 if (accountStopFlagsRef.current.get(accountId)) {
                     break;
                 }
+                if (!await waitForFetch(settings.fetchDelaySeconds, settings.fetchDelayJitterSeconds, () => stopAllRef.current || !!accountStopFlagsRef.current.get(accountId))) break;
                 const response = await ExtractTimeline({
                     username: cleanUsername,
                     auth_token: authToken.trim(),
