@@ -744,6 +744,30 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest }: Setting
               </div>
 
               <div className="space-y-2">
+                <Label>Fetch Delay</Label>
+                <div className="flex flex-wrap gap-4">
+                  {([
+                    ["fetchDelaySeconds", "Base Delay"],
+                    ["fetchDelayJitterSeconds", "Random Extra"],
+                  ] as const).map(([key, label]) => (
+                    <div key={key} className="space-y-1.5">
+                      <Label htmlFor={key} className="text-xs">{label}</Label>
+                      <div className="flex items-center gap-2">
+                        <InputWithContext id={key} type="number" min="0" max="3600" step="0.1" value={tempSettings[key]} onChange={(e) => {
+                          const value = Number(e.target.value);
+                          setTempSettings((prev) => ({ ...prev, [key]: Number.isFinite(value) ? Math.min(3600, Math.max(0, value)) : 0 }));
+                        }} className="w-24"/>
+                        <span className="text-xs text-muted-foreground">sec</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">Spaces out fetch batch starts, including account switches and retries. Random Extra adds between 0 and the chosen number of seconds. Set both to 0 to disable.</p>
+                <p className="text-xs text-muted-foreground">Suggested starting point: 5 sec base + 5 sec random extra. No delay guarantees avoidance of rate limits. Waiting counts toward Fetch Timeout; increase it for longer delays.</p>
+                <p className="text-xs text-muted-foreground">Applies between extractor runs, including date-range fetches, rather than individual requests inside the extractor.</p>
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="fetch-timeout" className="flex items-center gap-2">
                   Fetch Timeout
                   <Tooltip>

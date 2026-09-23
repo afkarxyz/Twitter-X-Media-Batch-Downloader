@@ -730,7 +730,7 @@ func ExtractTimeline(req TimelineRequest) (*TwitterResponse, error) {
 		args = append(args, "--guest")
 	}
 
-	args = append(args, "--json", "--metadata")
+	args = append(args, "--json", "--metadata", "--no-discord")
 
 	if req.BatchSize > 0 {
 		args = append(args, "--limit", fmt.Sprintf("%d", req.BatchSize))
@@ -840,7 +840,7 @@ func ExtractDateRange(req DateRangeRequest) (*TwitterResponse, error) {
 		args = append(args, "--guest")
 	}
 
-	args = append(args, "--json", "--metadata")
+	args = append(args, "--json", "--metadata", "--no-discord")
 
 	if req.Retweets {
 		args = append(args, "--retweets", "include")

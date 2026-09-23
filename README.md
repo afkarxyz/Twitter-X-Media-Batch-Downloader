@@ -34,6 +34,19 @@
 
 - Also available on the web at [**TwitterDL.app**](https://twitterdl.app)
 
+## Fetch pacing
+
+Settings includes separate **Fetch Delay** controls: a base delay and a random
+extra from zero to the configured value, in seconds. Both default to zero
+(disabled). A suggested starting point is 5 seconds base plus up to 5 seconds
+extra; this is not a guaranteed safe rate for Twitter/X.
+
+The delay spaces out extractor starts across batches, accounts, resumes, retries,
+and date-range fetches. The first fetch starts immediately. It does not control
+requests made internally by the external extractor. Stop interrupts a pending
+wait, and waiting counts toward Fetch Timeout, so increase the timeout when
+using longer delays.
+
 ## How to Obtain Auth Token
 
 > [!Warning]

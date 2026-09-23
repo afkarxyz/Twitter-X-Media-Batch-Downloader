@@ -1,4 +1,5 @@
 import { GetDefaults } from "../../wailsjs/go/main/App";
+import { normalizeFetchDelay } from "./fetch-delay";
 import { normalizeBaseColorName, normalizeThemeName, type BaseColorName, type ThemeName } from "./themes";
 export type BuiltInFontFamily = "google-sans" | "inter" | "poppins" | "roboto" | "dm-sans" | "plus-jakarta-sans" | "manrope" | "space-grotesk" | "noto-sans" | "nunito-sans" | "figtree" | "raleway" | "public-sans" | "outfit" | "jetbrains-mono" | "geist-sans" | "bricolage-grotesque";
 export type CustomFontFamily = `custom-${string}`;
@@ -171,6 +172,8 @@ export interface Settings {
     gifResolution: GifResolution;
     proxy: string;
     fetchTimeout: number;
+    fetchDelaySeconds: number;
+    fetchDelayJitterSeconds: number;
     includePhotos: boolean;
     includeVideos: boolean;
     includeGifs: boolean;
@@ -204,6 +207,8 @@ export const DEFAULT_SETTINGS: Settings = {
     gifResolution: "original",
     proxy: "",
     fetchTimeout: 60,
+    fetchDelaySeconds: 0,
+    fetchDelayJitterSeconds: 0,
     includePhotos: true,
     includeVideos: true,
     includeGifs: true,
@@ -550,6 +555,8 @@ function toNormalizedSettings(settings: Partial<Settings>): Settings {
         downloadSpeedLimitKBps: normalizeDownloadSpeedLimit(settings.downloadSpeedLimitKBps),
         downloadDelaySeconds: normalizeDownloadDelay(settings.downloadDelaySeconds),
         downloadDelayJitterSeconds: normalizeDownloadDelay(settings.downloadDelayJitterSeconds),
+        fetchDelaySeconds: normalizeFetchDelay(settings.fetchDelaySeconds),
+        fetchDelayJitterSeconds: normalizeFetchDelay(settings.fetchDelayJitterSeconds),
         showUpdateNotifications: normalizeBoolean(settings.showUpdateNotifications, DEFAULT_SETTINGS.showUpdateNotifications),
         autoConvertGifs: normalizeBoolean(settings.autoConvertGifs, DEFAULT_SETTINGS.autoConvertGifs),
         filenameTemplate: normalizeFilenameTemplate(settings.filenameTemplate),
