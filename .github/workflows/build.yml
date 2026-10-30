@@ -42,21 +42,22 @@ jobs:
             os: windows-latest
             targets: x86_64-pc-windows-msvc
             asset: TwitterXMediaBatchDownloader.exe
-          # Ubuntu 22.04 keeps the glibc requirement at 2.35 for older distributions.
+          # Same runners as xtractor, whose Linux builds already require glibc 2.39.
           - name: linux-x64
-            os: ubuntu-22.04
+            os: ubuntu-24.04
             targets: x86_64-unknown-linux-gnu
             asset: TwitterXMediaBatchDownloader.AppImage
             appimage_arch: x86_64
             appimagetool_sha256: ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
           - name: linux-arm64
-            os: ubuntu-22.04-arm
+            os: ubuntu-24.04-arm
             targets: aarch64-unknown-linux-gnu
             asset: TwitterXMediaBatchDownloader-ARM.AppImage
             appimage_arch: aarch64
             appimagetool_sha256: f0837e7448a0c1e4e650a93bb3e85802546e60654ef287576f46c71c126a9158
+          # MACOSX_DEPLOYMENT_TARGET keeps the binary running on macOS 11 and later.
           - name: macos-universal
-            os: macos-14
+            os: macos-latest
             targets: aarch64-apple-darwin,x86_64-apple-darwin
             asset: TwitterXMediaBatchDownloader.dmg
     steps:
