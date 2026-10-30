@@ -3,7 +3,7 @@
 //! 3.4.0 packages (MIT License, Copyright (c) 2024 ubugeeei). Translucent
 //! colors are composited onto the scheme background.
 
-pub const DEFAULT: &str = "cacao";
+pub const DEFAULT: &str = "catppuccin";
 
 #[derive(Clone, Copy)]
 pub struct Colors {

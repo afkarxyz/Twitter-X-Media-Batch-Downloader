@@ -1,5 +1,5 @@
 msgid ""
-msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.1\nLanguage: fr\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=2; plural=(n != 1);\n"
+msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.2\nLanguage: fr\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=2; plural=(n != 1);\n"
 
 msgid "Ready for an X/Twitter URL."
 msgstr "Prêt pour une URL X/Twitter."
@@ -1588,3 +1588,6 @@ msgstr "médias trouvés"
 
 msgid "new"
 msgstr "nouveaux"
+
+msgid "Independent open-source project, not affiliated with or endorsed by X Corp. Media is downloaded directly from X to your device. You are responsible for how you use it."
+msgstr "Projet open source indépendant, non affilié à X Corp. ni approuvé par X Corp. Les médias sont téléchargés directement depuis X sur votre appareil. Vous êtes responsable de l’usage que vous en faites."

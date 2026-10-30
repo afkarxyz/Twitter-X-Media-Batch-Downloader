@@ -3380,7 +3380,7 @@ mod quality_tests {
         assert_eq!(old.avatar_size, "orig");
         assert_eq!(old.banner_size, "orig");
         assert_eq!(old.concurrent_downloads, 1);
-        assert_eq!(old.theme_preset, "cacao");
+        assert_eq!(old.theme_preset, "catppuccin");
         assert!(!old.separate_media_folders);
         assert_eq!(
             (

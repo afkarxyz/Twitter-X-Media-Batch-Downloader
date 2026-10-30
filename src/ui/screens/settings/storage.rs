@@ -429,6 +429,14 @@ impl Desktop {
                         this.app.invoke_open_link("https://twitterdl.app".into());
                     }
                 });
+                this.setting_divider(ui);
+                this.setting_text(
+                    ui,
+                    "Independent open-source project, not affiliated with or endorsed by X Corp. Media is downloaded directly from X to your device. You are responsible for how you use it.",
+                    12.0,
+                    false,
+                    this.colors(ui).secondary,
+                );
             });
         });
     }

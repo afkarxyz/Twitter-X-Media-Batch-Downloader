@@ -15,6 +15,7 @@ pub fn normalize(name: &str) -> &'static str {
         "green" => "emerald",
         "violet" | "purple" | "indigo" => "voltage",
         "rose" | "red" | "pink" => "horizon",
+        "amber" => "cacao",
         _ => schemes::DEFAULT,
     }
 }
@@ -43,7 +44,7 @@ mod tests {
         ] {
             assert_eq!(super::normalize(old), new, "{old}");
         }
-        assert_eq!(super::normalize("default"), "cacao");
-        assert_eq!(super::normalize("unknown"), "cacao");
+        assert_eq!(super::normalize("default"), "catppuccin");
+        assert_eq!(super::normalize("unknown"), "catppuccin");
     }
 }

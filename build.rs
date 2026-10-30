@@ -64,7 +64,7 @@ fn embed_windows_icon(out_dir: &Path) {
     let resources = format!(
         r#"1 ICON "{icon_file}"
 
-VS_VERSION_INFO VERSIONINFO
+1 VERSIONINFO
  FILEVERSION {file_version}
  PRODUCTVERSION {file_version}
  FILEFLAGSMASK 0x3fL

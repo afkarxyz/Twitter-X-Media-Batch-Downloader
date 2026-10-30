@@ -240,7 +240,7 @@ mod tests {
         );
         let all = planned(current.clone(), -1, false).unwrap();
         assert_eq!(all.auth_token, current.auth_token);
-        assert_eq!(all.theme_preset, "cacao");
+        assert_eq!(all.theme_preset, "catppuccin");
         assert!(all.output_dir.is_none());
         assert_eq!(all.renderer_mode, "cpu");
         assert!(planned(current, 1, true).is_none()); // Cookies are deliberately not reset.
