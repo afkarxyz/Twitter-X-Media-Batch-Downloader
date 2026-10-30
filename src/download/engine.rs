@@ -251,6 +251,9 @@ pub struct AppSettings {
     pub download_speed_kib: u32,
     pub download_delay_ms: u32,
     pub download_jitter_ms: u32,
+    pub fetch_delay_ms: u32,
+    pub fetch_jitter_ms: u32,
+    pub rotate_auth_tokens: bool,
     pub proxy_url: String,
     pub notify_updates: bool,
     pub incremental_fetch: bool,
@@ -295,6 +298,9 @@ impl Default for AppSettings {
             download_speed_kib: 0,
             download_delay_ms: 0,
             download_jitter_ms: 0,
+            fetch_delay_ms: 0,
+            fetch_jitter_ms: 0,
+            rotate_auth_tokens: false,
             proxy_url: String::new(),
             notify_updates: true,
             incremental_fetch: true,
@@ -1232,6 +1238,8 @@ pub async fn extract(
         .iter()
         .map(|candidate| candidate.url.clone())
         .collect::<HashSet<_>>();
+    // A rate-limited page may switch tokens; later pages keep the one that worked.
+    let mut token = options.auth_token.clone();
     let mut page_policy = crate::fetch::policy::Pages::default();
     let mut pages = 0usize;
     let mut preview_account = None;
@@ -1261,8 +1269,13 @@ pub async fn extract(
         );
 
         let page_result =
-            crate::fetch::retry::page(ui.clone(), cancel.clone(), &options.auth_token, || {
-                run_xtractor_page(&executable, &options, count, &cursor, cancel.clone())
+            crate::fetch::retry::page(ui.clone(), cancel.clone(), &mut token, true, |token| {
+                let options = ExtractionOptions {
+                    auth_token: token,
+                    ..options.clone()
+                };
+                let (executable, cursor, cancel) = (&executable, &cursor, cancel.clone());
+                async move { run_xtractor_page(executable, &options, count, cursor, cancel).await }
             })
             .await;
 
@@ -1371,7 +1384,6 @@ pub async fn extract(
         if !is_continuation {
             let ui_candidates = publish_results.then(|| candidates.clone());
             let media_count = candidates.len().min(i32::MAX as usize) as i32;
-            let media_count_text = candidates.len().to_string();
             let has_more = response_has_more && !next.is_empty();
             let ui_for_update = ui.clone();
             let _ = crate::ui::runtime::invoke_from_event_loop(move || {
@@ -1382,7 +1394,6 @@ pub async fn extract(
                     if let Some(ui_candidates) = ui_candidates {
                         app.set_media_items(to_ui_model(&ui_candidates));
                         app.set_media_count(media_count);
-                        app.set_media_count_text(media_count_text);
                         app.set_has_more(has_more);
                     } else if !app.get_library().job.is_empty() {
                         app.update_library(|data| {
@@ -3378,6 +3389,11 @@ mod quality_tests {
                 old.download_jitter_ms
             ),
             (0, 0, 0)
+        );
+        assert_eq!((old.fetch_delay_ms, old.fetch_jitter_ms), (0, 0));
+        assert!(
+            !old.rotate_auth_tokens,
+            "older settings never switch tokens on their own"
         );
         assert!(old.output_dir.is_none());
         assert!(!old.convert_gif);

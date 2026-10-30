@@ -151,11 +151,6 @@ fn back_and_forward_preserve_results_selection_filters_and_scroll() {
             app.set_results_sort(2);
             app.set_source_url("fixture-account".into());
             app.global::<MediaSelection>().invoke_toggle(3);
-            let cleared = Rc::new(std::cell::Cell::new(0));
-            app.on_clear_results({
-                let calls = cleared.clone();
-                move || calls.set(calls.get() + 1)
-            });
             let items = app.get_media_items();
             let mut h = harness(app.clone());
             h.set_size(Vec2::new(1024.0, 600.0));
@@ -190,7 +185,6 @@ fn back_and_forward_preserve_results_selection_filters_and_scroll() {
                 assert_eq!(app.get_source_url(), "fixture-account");
                 assert_eq!(h.state().kind, "photo");
                 assert_eq!(h.state().limit, 300);
-                assert_eq!(cleared.get(), 0);
                 if label == "Back to Home" {
                     assert!(app.get_home_results_hidden());
                     assert!(h.query_by_label("Download selected (1)").is_none());

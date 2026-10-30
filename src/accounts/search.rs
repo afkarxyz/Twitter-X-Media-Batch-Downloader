@@ -211,15 +211,21 @@ pub fn register(app: &AppWindow) {
             let result = async {
                 let executable =
                     crate::updates::xtractor::ensure_installed(Some(ui.clone())).await?;
-                crate::fetch::retry::page(ui.clone(), cancel.clone(), &options.auth_token, || {
-                    downloader::run_xtractor_page(
-                        &executable,
-                        &options,
-                        20,
-                        &cursor,
-                        cancel.clone(),
-                    )
-                })
+                crate::fetch::retry::page(
+                    ui.clone(),
+                    cancel.clone(),
+                    &mut options.auth_token.clone(),
+                    false,
+                    |_| {
+                        downloader::run_xtractor_page(
+                            &executable,
+                            &options,
+                            20,
+                            &cursor,
+                            cancel.clone(),
+                        )
+                    },
+                )
                 .await
             }
             .await;

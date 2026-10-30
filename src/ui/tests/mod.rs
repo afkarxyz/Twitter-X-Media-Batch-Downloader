@@ -94,7 +94,6 @@ fn original_home_fixture() -> AppWindow {
         .collect::<Vec<_>>();
     app.set_media_items(ui_runtime::ModelRc::new(ui_runtime::VecModel::from(rows)));
     app.set_media_count(15);
-    app.set_media_count_text("15".into());
     app
 }
 

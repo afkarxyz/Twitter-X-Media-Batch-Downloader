@@ -185,7 +185,6 @@ fn select(app: &AppWindow, controller: &Arc<Controller>, index: i32) {
     let playback = app.global::<PreviewPlayback>();
     playback.set_frame(None);
     playback.set_frame_count(0);
-    playback.set_current_index(index);
     playback.set_playing(false);
     playback.set_loading(false);
     playback.set_ready(false);

@@ -2,7 +2,6 @@ use crate::AppWindow;
 use crate::download::engine::{self as downloader, ExtractionProfile, HistoryEntry};
 use crate::fetch::request::{self as fetch_request, DateRange};
 use crate::ui::runtime::Model;
-use std::sync::{Arc, Mutex};
 
 pub fn profile(entry: &HistoryEntry) -> Option<(String, ExtractionProfile)> {
     if entry.download.is_some() {
@@ -84,54 +83,6 @@ pub fn reconcile(app: &AppWindow, entries: &[HistoryEntry]) {
             crate::ui::runtime::VecModel::from(ids),
         ));
     }
-}
-
-pub fn register(app: &AppWindow, history: Arc<Mutex<Vec<HistoryEntry>>>) {
-    app.global::<crate::HistorySelection>()
-        .on_is_selected(|ids, id| ids.iter().any(|value| value == id));
-    let ui = app.as_weak();
-    app.on_toggle_history_selection(move |id| {
-        let Some(app) = ui.upgrade() else {
-            return;
-        };
-        if app.get_is_busy()
-            || app.get_history_busy()
-            || !history
-                .lock()
-                .unwrap()
-                .iter()
-                .any(|entry| entry.id == id.as_str() && profile(entry).is_some())
-        {
-            return;
-        }
-        let mut ids = app.get_history_selection().iter().collect::<Vec<_>>();
-        if let Some(index) = ids.iter().position(|value| *value == id) {
-            ids.remove(index);
-        } else {
-            ids.push(id);
-        }
-        app.set_history_selection(crate::ui::runtime::ModelRc::new(
-            crate::ui::runtime::VecModel::from(ids),
-        ));
-    });
-    let ui = app.as_weak();
-    app.on_select_visible_history(move || {
-        let Some(app) = ui.upgrade() else {
-            return;
-        };
-        if app.get_is_busy() || app.get_history_busy() {
-            return;
-        }
-        let ids = app
-            .get_history_items()
-            .iter()
-            .filter(|row| row.update_eligible)
-            .map(|row| row.id)
-            .collect::<Vec<_>>();
-        app.set_history_selection(crate::ui::runtime::ModelRc::new(
-            crate::ui::runtime::VecModel::from(ids),
-        ));
-    });
 }
 
 #[cfg(test)]

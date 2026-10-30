@@ -191,7 +191,6 @@ fn history_search_and_card_icons_dispatch_without_account_management() {
     assert_eq!(*events.borrow(), ["export:demo"]);
     assert!(h.query_by_label("Select accounts").is_none());
     assert!(h.query_by_label("Filter group").is_none());
-    app.set_history_select_mode(true);
     h.get_by_role_and_label(egui::accesskit::Role::Button, "xbatchdemo")
         .click();
     h.run();
@@ -258,7 +257,6 @@ fn render_history_review() {
         app.set_download_batch_id(String::new());
         app.set_fetch_sessions_key(String::new());
         app.set_history_show_saved(false);
-        app.set_history_select_mode(false);
         app.set_history_selection(Default::default());
         app.set_history_items(model(rows()));
         h.remove_cursor();

@@ -273,6 +273,55 @@ impl Desktop {
         self.speed = speed;
         self.delay = delay;
         self.jitter = jitter;
+        // Stays editable during a fetch: the next page uses the new values.
+        let (fetch_delay, fetch_jitter) = self.setting_card(ui, "Fetch pacing", 12.0, |this, ui| {
+            let app = this.app.clone();
+            this.setting_heading(ui, "Fetch pacing");
+            this.setting_caption(
+                ui,
+                "Waits after each fetch page before requesting the next one, also between batch accounts and on retries. 0 disables it.",
+            );
+            let mut delay = this.fetch_delay.clone();
+            let mut jitter = this.fetch_jitter.clone();
+            let mut enter = false;
+            let width = (ui.available_width() - 12.0) / 2.0;
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = 12.0;
+                for (label, value) in [
+                    ("Delay between fetch pages (ms)", &mut delay),
+                    ("Random extra fetch delay (ms)", &mut jitter),
+                ] {
+                    ui.vertical(|ui| {
+                        ui.set_width(width);
+                        ui.spacing_mut().item_spacing.y = 6.0;
+                        this.setting_caption(ui, label);
+                        let response = this.setting_input(ui, (label, ""), value, false);
+                        enter |= response.lost_focus()
+                            && ui.input(|input| input.key_pressed(egui::Key::Enter));
+                    });
+                }
+            });
+            ui.allocate_ui_with_layout(
+                Vec2::new(ui.available_width(), 32.0),
+                egui::Layout::right_to_left(egui::Align::Center),
+                |ui| {
+                    let clicked = this
+                        .setting_action(ui, "Apply", Some(Icon::Check), 0, Vec2::new(100.0, 32.0), true)
+                        .clicked();
+                    if clicked || enter {
+                        app.invoke_apply_fetch_pacing(delay.clone(), jitter.clone());
+                    }
+                    this.setting_caption(
+                        ui,
+                        "If fetches get rate limited, start around 2000 ms with 1000 ms extra.",
+                    );
+                },
+            );
+            this.setting_error(ui, &app.get_fetch_pacing_error());
+            (delay, jitter)
+        });
+        self.fetch_delay = fetch_delay;
+        self.fetch_jitter = fetch_jitter;
     }
 
     fn setting_format(&mut self, ui: &mut Ui, folder: bool) {

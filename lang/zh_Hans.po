@@ -1,17 +1,8 @@
 msgid ""
-msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.0\nLanguage: zh_Hans\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=1; plural=0;\n"
+msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.1\nLanguage: zh_Hans\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=1; plural=0;\n"
 
 msgid "Ready for an X/Twitter URL."
 msgstr "已准备好接收 X/Twitter URL。"
-
-msgid "On"
-msgstr "开"
-
-msgid "Off"
-msgstr "关"
-
-msgid "Select"
-msgstr "选择"
 
 msgid "Home"
 msgstr "主页"
@@ -21,9 +12,6 @@ msgstr "设置"
 
 msgid "Theme"
 msgstr "主题"
-
-msgid "Color scheme"
-msgstr "配色方案"
 
 msgid "System"
 msgstr "跟随系统"
@@ -36,9 +24,6 @@ msgstr "浅色"
 
 msgid "Palette"
 msgstr "配色"
-
-msgid "Default"
-msgstr "默认"
 
 msgid "Teal"
 msgstr "青绿"
@@ -87,15 +72,6 @@ msgstr "粉色"
 
 msgid "Saved"
 msgstr "已保存"
-
-msgid "Primary"
-msgstr "主色"
-
-msgid "Canvas"
-msgstr "画布"
-
-msgid "Surface"
-msgstr "表面"
 
 msgid "Text"
 msgstr "文字"
@@ -151,9 +127,6 @@ msgstr "下载"
 msgid "Storage"
 msgstr "存储"
 
-msgid "Interface"
-msgstr "界面"
-
 msgid "Display language"
 msgstr "显示语言"
 
@@ -161,7 +134,7 @@ msgid "System language"
 msgstr "跟随系统"
 
 msgid "English"
-msgstr "English"
+msgstr "英语"
 
 msgid "Indonesian"
 msgstr "印度尼西亚语"
@@ -226,9 +199,6 @@ msgstr "清除"
 msgid "Extraction defaults"
 msgstr "提取默认设置"
 
-msgid "Media type"
-msgstr "媒体类型"
-
 msgid "All media"
 msgstr "所有媒体"
 
@@ -252,9 +222,6 @@ msgstr "原创"
 
 msgid "Exclude videos"
 msgstr "排除视频"
-
-msgid "Include text-only posts"
-msgstr "包含纯文本帖子"
 
 msgid "Download folder"
 msgstr "下载文件夹"
@@ -367,9 +334,6 @@ msgstr "GIF"
 
 msgid "Failed"
 msgstr "失败"
-
-msgid "Load more"
-msgstr "加载更多"
 
 msgid "Nothing in this filter."
 msgstr "此筛选条件下没有媒体。"
@@ -534,88 +498,88 @@ msgid "Clear fetch history?"
 msgstr "清空获取历史？"
 
 msgid "Buy Me a Coffee"
-msgstr ""
+msgstr "请我喝杯咖啡"
 
 msgid "Support"
 msgstr "支持"
 
 msgid "Scan the QR code or copy the address to support the project."
-msgstr ""
+msgstr "扫描二维码或复制地址以支持本项目。"
 
 msgid "Network"
-msgstr ""
+msgstr "网络"
 
 msgid "Copy wallet address"
-msgstr ""
+msgstr "复制钱包地址"
 
 msgid "Wallet address copied."
-msgstr ""
+msgstr "钱包地址已复制。"
 
 msgid "Could not copy wallet address."
-msgstr ""
+msgstr "无法复制钱包地址。"
 
 msgid "Free space"
-msgstr ""
+msgstr "可用空间"
 
 msgid "Download folder usage"
-msgstr ""
+msgstr "下载文件夹占用"
 
 msgid "Calculating…"
-msgstr ""
+msgstr "正在计算…"
 
 msgid "{} total on drive"
-msgstr ""
+msgstr "驱动器总容量 {}"
 
 msgid "{} files"
-msgstr ""
+msgstr "{} 个文件"
 
 msgid "Some files could not be read."
-msgstr ""
+msgstr "部分文件无法读取。"
 
 msgid "Counts final files in the selected folder, including subfolders."
-msgstr ""
+msgstr "统计所选文件夹（含子文件夹）中的最终文件。"
 
 msgid "Refresh"
-msgstr ""
+msgstr "刷新"
 
 msgid "Retry FFmpeg download"
-msgstr ""
+msgstr "重试下载 FFmpeg"
 
 msgid "Checking FFmpeg…"
-msgstr ""
+msgstr "正在检查 FFmpeg…"
 
 msgid "Downloading FFmpeg…"
-msgstr ""
+msgstr "正在下载 FFmpeg…"
 
 msgid "Installing FFmpeg…"
-msgstr ""
+msgstr "正在安装 FFmpeg…"
 
 msgid "Fetch sessions"
-msgstr ""
+msgstr "提取会话"
 
 msgid "View fetch sessions"
-msgstr ""
+msgstr "查看提取会话"
 
 msgid "{} fetch sessions"
-msgstr ""
+msgstr "{} 个提取会话"
 
 msgid "1 fetch session"
-msgstr ""
+msgstr "1 个提取会话"
 
 msgid "All fetch sessions in this group will be removed. Downloaded files will remain in your folder."
-msgstr ""
+msgstr "此组中的所有提取会话都将被移除。已下载的文件仍将保留在文件夹中。"
 
 msgid "Zinc"
-msgstr ""
+msgstr "锌灰色"
 
 msgid "Stone"
-msgstr ""
+msgstr "岩石色"
 
 msgid "Mauve"
-msgstr ""
+msgstr "淡紫色"
 
 msgid "Mist"
-msgstr ""
+msgstr "雾色"
 
 msgid "Drive storage"
 msgstr "驱动器存储空间"
@@ -985,3 +949,642 @@ msgstr "无法加载已保存的媒体。"
 
 msgid "Preparing downloads…"
 msgstr "正在准备下载…"
+
+msgid "Fetch pacing"
+msgstr "提取间隔"
+
+msgid "Waits after each fetch page before requesting the next one, also between batch accounts and on retries. 0 disables it."
+msgstr "每提取一页后先等待，再请求下一页；批量账户之间和重试时同样适用。0 表示关闭。"
+
+msgid "Delay between fetch pages (ms)"
+msgstr "提取页面间隔（毫秒）"
+
+msgid "Random extra fetch delay (ms)"
+msgstr "随机额外间隔（毫秒）"
+
+msgid "If fetches get rate limited, start around 2000 ms with 1000 ms extra."
+msgstr "如果提取遇到速率限制，可先设为约 2000 毫秒，并加 1000 毫秒随机间隔。"
+
+msgid "Enter whole numbers from 0 to 3600000 ms."
+msgstr "请输入 0 到 3600000 毫秒之间的整数。"
+
+msgid "Switch tokens when rate limited"
+msgstr "遇到速率限制时切换令牌"
+
+msgid "When X rate limits a fetch, continue with the next saved token that is not invalid or cooling down. That token becomes the active one."
+msgstr "当 X 对提取进行速率限制时，改用下一个未失效且不在冷却中的已保存令牌继续。该令牌会成为当前令牌。"
+
+msgid "New"
+msgstr "新"
+
+msgid "Convert downloaded GIFs"
+msgstr "转换已下载的 GIF"
+
+msgid "Convert {} GIF MP4 files from this download batch."
+msgstr "转换本批次下载中的 {} 个 GIF MP4 文件。"
+
+msgid "Conversion mode"
+msgstr "转换模式"
+
+msgid "Resolution"
+msgstr "分辨率"
+
+msgid "Keep original MP4 files"
+msgstr "保留原始 MP4 文件"
+
+msgid "Downloads will list both the GIF and its original MP4."
+msgstr "下载列表中将同时显示 GIF 及其原始 MP4。"
+
+msgid "Original MP4 files are removed only after conversion and history saving succeed."
+msgstr "仅在转换成功且历史记录保存成功后，才会删除原始 MP4 文件。"
+
+msgid "Convert"
+msgstr "转换"
+
+msgid "Convert GIFs"
+msgstr "转换 GIF"
+
+msgid "{} GIF MP4 files"
+msgstr "{} 个 GIF MP4 文件"
+
+msgid "Stop"
+msgstr "停止"
+
+msgid "Post date/time use UTC. Date uses the download date. Unknown post dates use unknown. The extension is added automatically."
+msgstr "帖子日期/时间使用 UTC。日期使用下载日期。未知的帖子日期显示为 unknown。扩展名会自动添加。"
+
+msgid "Fetch order"
+msgstr "提取顺序"
+
+msgid "Newest first"
+msgstr "最新优先"
+
+msgid "Oldest first"
+msgstr "最早优先"
+
+msgid "Grid view"
+msgstr "网格视图"
+
+msgid "List view"
+msgstr "列表视图"
+
+msgid "Diagnostics"
+msgstr "诊断"
+
+msgid "Session logs are stored in the portable data folder."
+msgstr "会话日志存储在便携数据文件夹中。"
+
+msgid "Open logs"
+msgstr "打开日志"
+
+msgid "Copy error details"
+msgstr "复制错误详情"
+
+msgid "Error details copied."
+msgstr "错误详情已复制。"
+
+msgid "Could not copy error details."
+msgstr "无法复制错误详情。"
+
+msgid "Could not open the logs folder."
+msgstr "无法打开日志文件夹。"
+
+msgid "The saved batch queue could not be restored. Its file has been preserved."
+msgstr "无法恢复已保存的批量队列，其文件已保留。"
+
+msgid "Download organization and limits"
+msgstr "下载整理与限制"
+
+msgid "Separate media folders"
+msgstr "按媒体类型分文件夹"
+
+msgid "Store media in Image, Video and GIF subfolders inside each account folder."
+msgstr "将媒体分别存放在每个账号文件夹内的 Image、Video 和 GIF 子文件夹中。"
+
+msgid "Total speed limit (KiB/s)"
+msgstr "总速度限制（KiB/s）"
+
+msgid "Delay between requests (ms)"
+msgstr "请求间隔（毫秒）"
+
+msgid "0 disables the limit. The speed budget is shared by parallel downloads."
+msgstr "0 表示不限速。速度上限由所有并行下载共享。"
+
+msgid "Cancel selection"
+msgstr "取消选择"
+
+msgid "Select accounts"
+msgstr "选择账号"
+
+msgid "Select visible"
+msgstr "选择可见项"
+
+msgid "Update selected ({})"
+msgstr "更新所选 ({})"
+
+msgid "Each account keeps its saved fetch filters."
+msgstr "每个账号保留各自已保存的提取筛选条件。"
+
+msgid "Embed post metadata"
+msgstr "嵌入帖子元数据"
+
+msgid "Write the post URL, original media name and post text into JPG/MP4 comments."
+msgstr "将帖子 URL、原始媒体名称和帖子文本写入 JPG/MP4 注释。"
+
+msgid "ExifTool is downloaded into the portable data folder when missing. Applies to new JPG/MP4 downloads; converted GIFs are excluded."
+msgstr "缺少 ExifTool 时，会将其下载到便携数据文件夹。仅适用于新下载的 JPG/MP4 文件，转换后的 GIF 除外。"
+
+msgid "All groups"
+msgstr "所有分组"
+
+msgid "Group"
+msgstr "分组"
+
+msgid "Tags, separated by commas"
+msgstr "标签，用逗号分隔"
+
+msgid "Assign group and tags"
+msgstr "设置分组和标签"
+
+msgid "Replace labels for selected accounts. Empty fields clear existing labels."
+msgstr "替换所选账号的标记。留空的字段将清除现有标记。"
+
+msgid "Filter group"
+msgstr "筛选分组"
+
+msgid "Export accounts TXT"
+msgstr "导出账号 TXT"
+
+msgid "Account groups and tags saved."
+msgstr "账号分组和标签已保存。"
+
+msgid "Account list exported."
+msgstr "账号列表已导出。"
+
+msgid "No accounts to export."
+msgstr "没有可导出的账号。"
+
+msgid "Group names must be at most 64 characters."
+msgstr "分组名称不能超过 64 个字符。"
+
+msgid "Tags must be at most 40 characters."
+msgstr "标签不能超过 40 个字符。"
+
+msgid "Use at most 16 tags per account."
+msgstr "每个账号最多使用 16 个标签。"
+
+msgid "Select accounts first."
+msgstr "请先选择账号。"
+
+msgid "Network timeouts"
+msgstr "网络超时"
+
+msgid "Fetch page timeout (seconds)"
+msgstr "提取页面超时（秒）"
+
+msgid "HTTP read timeout (seconds)"
+msgstr "HTTP 读取超时（秒）"
+
+msgid "5–3600 seconds. HTTP applies to downloads, previews and thumbnails."
+msgstr "5–3600 秒。HTTP 超时适用于下载、预览和缩略图。"
+
+msgid "Enter timeout values from 5 to 3600 seconds."
+msgstr "请输入 5 到 3600 秒之间的超时值。"
+
+msgid "Application and tool updates"
+msgstr "应用和工具更新"
+
+msgid "Checking…"
+msgstr "正在检查…"
+
+msgid "Application"
+msgstr "应用"
+
+msgid "Update available"
+msgstr "有可用更新"
+
+msgid "Up to date"
+msgstr "已是最新"
+
+msgid "Installed version is newer than the published release"
+msgstr "已安装版本比已发布的版本更新"
+
+msgid "Version could not be compared"
+msgstr "无法比较版本"
+
+msgid "Open release"
+msgstr "打开发布页"
+
+msgid "View logs"
+msgstr "查看日志"
+
+msgid "Session logs"
+msgstr "会话日志"
+
+msgid "Session"
+msgstr "会话"
+
+msgid "Session log contents"
+msgstr "会话日志内容"
+
+msgid "Export log"
+msgstr "导出日志"
+
+msgid "Random extra delay (ms)"
+msgstr "随机额外间隔（毫秒）"
+
+msgid "Adds a random 0 to this many milliseconds between download requests, including retries. 0 disables jitter."
+msgstr "在下载请求之间（包括重试）额外随机等待 0 到此数值的毫秒数。0 表示关闭随机延迟。"
+
+msgid "Showing the latest 256 KiB. Export saves the full session log."
+msgstr "仅显示最新的 256 KiB。导出将保存完整的会话日志。"
+
+msgid "No session logs yet."
+msgstr "暂无会话日志。"
+
+msgid "This session log is empty."
+msgstr "此会话日志为空。"
+
+msgid "Displayed log copied."
+msgstr "已复制显示的日志。"
+
+msgid "Session log exported."
+msgstr "会话日志已导出。"
+
+msgid "Enter whole numbers: speed 0–1048576 KiB/s, delay/jitter 0–3600000 ms."
+msgstr "请输入整数：速度 0–1048576 KiB/s，间隔/随机延迟 0–3600000 ms。"
+
+msgid "Merged archive"
+msgstr "合并存档"
+
+msgid "Media types"
+msgstr "媒体类型"
+
+msgid "Choose one or more media types. Result filters can also be combined."
+msgstr "选择一种或多种媒体类型。结果筛选也可以组合使用。"
+
+msgid "Show text-only posts as cards and save them as UTF-8 TXT files."
+msgstr "将纯文本帖子显示为卡片，并保存为 UTF-8 TXT 文件。"
+
+msgid "Download text"
+msgstr "下载文本"
+
+msgid "Select at least one media type or enable text posts."
+msgstr "请至少选择一种媒体类型，或启用文本帖子。"
+
+msgid "Manual proxy"
+msgstr "手动代理"
+
+msgid "Proxy URL"
+msgstr "代理 URL"
+
+msgid "Proxy settings saved."
+msgstr "代理设置已保存。"
+
+msgid "Update / Reinstall FFmpeg"
+msgstr "更新 / 重新安装 FFmpeg"
+
+msgid "Update / Reinstall ExifTool"
+msgstr "更新 / 重新安装 ExifTool"
+
+msgid "Install the latest tools in the portable data folder. Existing system installations are preserved."
+msgstr "将最新工具安装到便携数据文件夹。系统中已安装的版本将保留。"
+
+msgid "HTTP, HTTPS, SOCKS5 and SOCKS5H. Empty uses the system/environment proxy. Local preview traffic stays local."
+msgstr "支持 HTTP、HTTPS、SOCKS5 和 SOCKS5H。留空则使用系统/环境变量代理。本地预览流量不经过代理。"
+
+msgid "Enter a full HTTP, HTTPS, SOCKS5 or SOCKS5H proxy URL."
+msgstr "请输入完整的 HTTP、HTTPS、SOCKS5 或 SOCKS5H 代理 URL。"
+
+msgid "Use an HTTP, HTTPS, SOCKS5 or SOCKS5H proxy URL without a path, query or fragment."
+msgstr "请使用不含路径、查询参数或片段的 HTTP、HTTPS、SOCKS5 或 SOCKS5H 代理 URL。"
+
+msgid "A SOCKS proxy requires a port."
+msgstr "SOCKS 代理需要指定端口。"
+
+msgid "Alt text"
+msgstr "替代文本"
+
+msgid "Quotes"
+msgstr "引用"
+
+msgid "Bookmarks"
+msgstr "书签"
+
+msgid "Group color"
+msgstr "分组颜色"
+
+msgid "Default color"
+msgstr "默认颜色"
+
+msgid "Choose a valid group color."
+msgstr "请选择有效的分组颜色。"
+
+msgid "Live: On"
+msgstr "实时：开"
+
+msgid "Live: Off"
+msgstr "实时：关"
+
+msgid "Auto-scroll: On"
+msgstr "自动滚动：开"
+
+msgid "Auto-scroll: Off"
+msgstr "自动滚动：关"
+
+msgid "Export errors"
+msgstr "导出错误"
+
+msgid "Live refreshes every second. Copy uses the displayed text."
+msgstr "实时模式每秒刷新一次。复制的是当前显示的文本。"
+
+msgid "Notify about updates on startup"
+msgstr "启动时提示更新"
+
+msgid "Check for a new stable application release when the app opens."
+msgstr "打开应用时检查是否有新的稳定版本。"
+
+msgid "Later"
+msgstr "稍后"
+
+msgid "Version {} is available. Open the release page to download it."
+msgstr "版本 {} 已发布。请打开发布页下载。"
+
+msgid "Quick refresh"
+msgstr "快速刷新"
+
+msgid "Stop after reaching saved data. Turn off for a full fetch. Reposts and private lists always use a full fetch."
+msgstr "遇到已保存的数据时停止。关闭后将完整提取。转发和私有列表始终完整提取。"
+
+msgid "Choose 1–50 downloads, or Auto: images 8, video/GIF 3, mixed 10."
+msgstr "选择 1–50 个同时下载，或选择自动：图片 8 个，视频/GIF 3 个，混合 10 个。"
+
+msgid "Auto"
+msgstr "自动"
+
+msgid "Check downloaded files"
+msgstr "检查已下载文件"
+
+msgid "Quick checks presence and recorded size. Deep also compares SHA-256. Older files without a checksum remain unverified."
+msgstr "快速检查会核对文件是否存在及记录的大小，深度检查还会比对 SHA-256。没有校验和的旧文件仍为未验证状态。"
+
+msgid "Quick check"
+msgstr "快速检查"
+
+msgid "Deep check"
+msgstr "深度检查"
+
+msgid "Check files"
+msgstr "检查文件"
+
+msgid "Empty file"
+msgstr "空文件"
+
+msgid "Size mismatch"
+msgstr "大小不符"
+
+msgid "Restore database backup?"
+msgstr "恢复数据库备份？"
+
+msgid "Restore"
+msgstr "恢复"
+
+msgid "This replaces current history, account labels and download records. Media files and authentication settings stay as they are. A recovery backup is created first."
+msgstr "这将替换当前的历史记录、账号标记和下载记录。媒体文件和身份验证设置保持不变。操作前会先创建恢复备份。"
+
+msgid "Data and file checks"
+msgstr "数据与文件检查"
+
+msgid "Back up history, account labels and download records. Downloaded media and auth tokens are not included."
+msgstr "备份历史记录、账号标记和下载记录。不包括已下载的媒体和身份验证令牌。"
+
+msgid "Check downloads"
+msgstr "检查下载"
+
+msgid "Backup database"
+msgstr "备份数据库"
+
+msgid "Restore backup"
+msgstr "恢复备份"
+
+msgid "Working on database backup…"
+msgstr "正在处理数据库备份…"
+
+msgid "Search accounts"
+msgstr "搜索账号"
+
+msgid "Name or username"
+msgstr "名称或用户名"
+
+msgid "Searching…"
+msgstr "正在搜索…"
+
+msgid "Search"
+msgstr "搜索"
+
+msgid "{} followers"
+msgstr "{} 位粉丝"
+
+msgid "Protected"
+msgstr "受保护"
+
+msgid "Search for an account by name or username."
+msgstr "按名称或用户名搜索账号。"
+
+msgid "Cut"
+msgstr "剪切"
+
+msgid "Paste"
+msgstr "粘贴"
+
+msgid "Select all"
+msgstr "全选"
+
+msgid "Database backup created."
+msgstr "数据库备份已创建。"
+
+msgid "Database restored. A recovery backup was saved in the portable backups folder."
+msgstr "数据库已恢复。恢复备份已保存到便携备份文件夹中。"
+
+msgid "Click an account to fill its username in Home."
+msgstr "点击账号即可将其用户名填入主页。"
+
+msgid "Close account search"
+msgstr "关闭账号搜索"
+
+msgid "Close fetch options"
+msgstr "关闭提取选项"
+
+msgid "Yellow"
+msgstr "黄色"
+
+msgid "Lime"
+msgstr "青柠色"
+
+msgid "Fuchsia"
+msgstr "紫红色"
+
+msgid "Gray"
+msgstr "灰色"
+
+msgid "Neutral"
+msgstr "中性色"
+
+msgid "Olive"
+msgstr "橄榄色"
+
+msgid "Taupe"
+msgstr "灰褐色"
+
+msgid "Shade"
+msgstr "色阶"
+
+msgid "Fetch source"
+msgstr "提取来源"
+
+msgid "Public · Profile / URL"
+msgstr "公开 · 个人资料 / URL"
+
+msgid "Private · My Likes"
+msgstr "私有 · 我的点赞"
+
+msgid "Private · My Bookmarks"
+msgstr "私有 · 我的书签"
+
+msgid "Fetch Likes from the account signed in with your auth_token. Its username is detected automatically."
+msgstr "从你的 auth_token 所登录的账号提取点赞，用户名会自动识别。"
+
+msgid "Bookmarks are private to the account signed in with your auth_token. No username is needed."
+msgstr "书签仅对你的 auth_token 所登录的账号可见，无需填写用户名。"
+
+msgid "Enter a profile, media, or search URL in Home. Protected posts require access from the account signed in with your auth_token."
+msgstr "请在主页输入个人资料、媒体或搜索 URL。受保护的帖子需要你的 auth_token 所登录的账号拥有访问权限。"
+
+msgid "Set auth_token in Settings before fetching. Private lists cannot use batch accounts or date filters."
+msgstr "提取前请在设置中设置 auth_token。私有列表不能使用批量账户或日期筛选。"
+
+msgid "Private lists use a full fetch, so Quick refresh is unavailable."
+msgstr "私有列表始终完整提取，因此无法使用快速刷新。"
+
+msgid "Fetch your Likes using the account signed in with auth_token."
+msgstr "使用 auth_token 所登录的账号提取你的点赞。"
+
+msgid "Fetch your private Bookmarks using the account signed in with auth_token."
+msgstr "使用 auth_token 所登录的账号提取你的私有书签。"
+
+msgid "Fetch my Likes"
+msgstr "提取我的点赞"
+
+msgid "Fetch my Bookmarks"
+msgstr "提取我的书签"
+
+msgid "Reset defaults"
+msgstr "恢复默认"
+
+msgid "Restore preferences"
+msgstr "恢复偏好设置"
+
+msgid "Reset all preferences"
+msgstr "重置所有偏好设置"
+
+msgid "Reset all preferences to defaults. Keeps auth_token, history, account labels, tools and downloaded files."
+msgstr "将所有偏好设置重置为默认值。auth_token、历史记录、账号标记、工具和已下载的文件将保留。"
+
+msgid "Use portable Downloads folder"
+msgstr "使用便携 Downloads 文件夹"
+
+msgid "Reset fetch options"
+msgstr "重置提取选项"
+
+msgid "Default settings restored."
+msgstr "已恢复默认设置。"
+
+msgid "Could not save default settings. Please try again."
+msgstr "无法保存默认设置，请重试。"
+
+msgid "Could not prepare the portable Downloads folder."
+msgstr "无法准备便携 Downloads 文件夹。"
+
+msgid "Save your X auth_token locally. Up to 10 previous tokens are kept in the portable config.json."
+msgstr "在本地保存你的 X auth_token。便携 config.json 中最多保留 10 个以前的令牌。"
+
+msgid "Active token"
+msgstr "当前令牌"
+
+msgid "Check active token"
+msgstr "检查当前令牌"
+
+msgid "Previous auth_tokens"
+msgstr "以前的 auth_token"
+
+msgid "Check a previous token, use it as the active token, or remove it from local history."
+msgstr "检查以前的令牌、将其设为当前令牌，或从本地历史记录中移除。"
+
+msgid "Valid"
+msgstr "有效"
+
+msgid "Invalid / expired"
+msgstr "无效 / 已过期"
+
+msgid "Temporary error — check again"
+msgstr "临时错误 — 请重新检查"
+
+msgid "Could not determine validity"
+msgstr "无法确定有效性"
+
+msgid "Last checked"
+msgstr "上次检查"
+
+msgid "Check"
+msgstr "检查"
+
+msgid "Use"
+msgstr "使用"
+
+msgid "Remove from token history"
+msgstr "从令牌历史记录中移除"
+
+msgid "Could not save authentication settings."
+msgstr "无法保存身份验证设置。"
+
+msgid "Account profile"
+msgstr "账号资料"
+
+msgid "Cancel"
+msgstr "取消"
+
+msgid "Close"
+msgstr "关闭"
+
+msgid "Close session logs"
+msgstr "关闭会话日志"
+
+msgid "Copy"
+msgstr "复制"
+
+msgid "GitHub repository"
+msgstr "GitHub 仓库"
+
+msgid "Joined"
+msgstr "加入于"
+
+msgid "Next"
+msgstr "下一个"
+
+msgid "OpenGL (compatibility)"
+msgstr "OpenGL（兼容）"
+
+msgid "Ready"
+msgstr "就绪"
+
+msgid "Result order"
+msgstr "结果顺序"
+
+msgid "X/Twitter URL or username"
+msgstr "X/Twitter 链接或用户名"
+
+msgid "media found"
+msgstr "个媒体"
+
+msgid "new"
+msgstr "个新增"

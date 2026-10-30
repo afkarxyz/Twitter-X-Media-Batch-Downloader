@@ -10,6 +10,8 @@ pub(in crate::ui) struct InputSources {
     speed: i32,
     delay: i32,
     jitter: i32,
+    fetch_delay: i32,
+    fetch_jitter: i32,
     fetch: i32,
     http: i32,
 }
@@ -104,6 +106,8 @@ impl Desktop {
             speed: app.get_download_speed_kib(),
             delay: app.get_download_delay_ms(),
             jitter: app.get_download_jitter_ms(),
+            fetch_delay: app.get_fetch_delay_ms(),
+            fetch_jitter: app.get_fetch_jitter_ms(),
             fetch: app.get_fetch_timeout_secs(),
             http: app.get_http_timeout_secs(),
         };
@@ -119,6 +123,12 @@ impl Desktop {
         }
         if old.is_none_or(|old| old.jitter != current.jitter) {
             self.jitter = current.jitter.to_string();
+        }
+        if old.is_none_or(|old| old.fetch_delay != current.fetch_delay) {
+            self.fetch_delay = current.fetch_delay.to_string();
+        }
+        if old.is_none_or(|old| old.fetch_jitter != current.fetch_jitter) {
+            self.fetch_jitter = current.fetch_jitter.to_string();
         }
         if old.is_none_or(|old| old.fetch != current.fetch) {
             self.fetch_timeout = current.fetch.to_string();

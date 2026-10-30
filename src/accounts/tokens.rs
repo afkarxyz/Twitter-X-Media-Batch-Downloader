@@ -2,7 +2,68 @@ use crate::AppWindow;
 use crate::AuthTokenItem;
 use crate::download::engine::AppSettings;
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex, OnceLock, atomic::AtomicBool};
+use std::sync::{
+    Arc, Mutex, OnceLock,
+    atomic::{AtomicBool, Ordering},
+};
+
+type Writer = Arc<dyn Fn(AppSettings) -> bool + Send + Sync>;
+/// How tokens are saved; set when the handlers are registered.
+static WRITER: Mutex<Option<Writer>> = Mutex::new(None);
+/// Settings → Cookies: continue a rate-limited fetch with another saved token.
+static ROTATE: AtomicBool = AtomicBool::new(false);
+
+pub fn set_rotation(enabled: bool) {
+    ROTATE.store(enabled, Ordering::Relaxed);
+}
+pub fn rotation_enabled() -> bool {
+    ROTATE.load(Ordering::Relaxed)
+}
+/// The saved tokens a rate-limited fetch may continue with, in order: the active token,
+/// then the previous ones. Tokens a check found invalid are left out.
+pub fn rotation() -> Vec<String> {
+    let state = catalog().lock().unwrap();
+    std::iter::once(&state.active)
+        .chain(&state.history)
+        .filter(|record| !record.token.is_empty() && record.validation.status != "invalid")
+        .map(|record| record.token.clone())
+        .collect()
+}
+/// How a token is named in messages: its account when a check found one, otherwise
+/// its last characters, never the whole token.
+pub fn label(token: &str) -> String {
+    let state = catalog().lock().unwrap();
+    std::iter::once(&state.active)
+        .chain(&state.history)
+        .find(|record| record.token == token)
+        .map(|record| record.validation.username.clone())
+        .filter(|username| !username.is_empty())
+        .map(|username| format!("@{username}"))
+        .unwrap_or_else(|| {
+            let tail = token.chars().rev().take(4).collect::<Vec<_>>();
+            format!("…{}", tail.into_iter().rev().collect::<String>())
+        })
+}
+/// Makes a saved token the active one, as Use in Settings does. Unlike Use it also
+/// works during a fetch: a rate-limited fetch switches tokens while it runs.
+pub fn activate(app: &AppWindow, token: &str) -> bool {
+    let state = catalog().lock().unwrap().clone();
+    if state.active.token == token {
+        return true;
+    }
+    let Some(write) = WRITER.lock().unwrap().clone() else {
+        return false;
+    };
+    let next = switched(&state, token);
+    if persist(app, &next, &*write) {
+        app.set_auth_token(next.active.token.clone());
+        app.set_saved_auth_token(next.active.token.clone());
+        refresh(app);
+        true
+    } else {
+        false
+    }
+}
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -30,6 +91,10 @@ fn catalog() -> &'static Mutex<State> {
 fn now() -> String {
     chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
 }
+/// Previous tokens kept besides the active one; they are also what a rate-limited
+/// fetch can switch to.
+pub const HISTORY_LIMIT: usize = 10;
+
 fn normalized(mut state: State) -> State {
     let mut seen = std::collections::HashSet::new();
     state.history.retain(|entry| {
@@ -37,8 +102,56 @@ fn normalized(mut state: State) -> State {
             && entry.token != state.active.token
             && seen.insert(entry.token.clone())
     });
-    state.history.truncate(5);
+    // History is newest first. Make room by dropping the oldest token a check found
+    // invalid, and only then the oldest token.
+    while state.history.len() > HISTORY_LIMIT {
+        let oldest_invalid = state
+            .history
+            .iter()
+            .rposition(|entry| entry.validation.status == "invalid");
+        match oldest_invalid {
+            Some(index) => {
+                state.history.remove(index);
+            }
+            None => {
+                state.history.pop();
+            }
+        }
+    }
     state
+}
+
+/// Tokens `before` kept that `after` no longer does.
+fn dropped(before: &State, after: &State) -> Vec<String> {
+    let kept = std::iter::once(&after.active)
+        .chain(&after.history)
+        .map(|record| record.token.as_str())
+        .collect::<std::collections::HashSet<_>>();
+    std::iter::once(&before.active)
+        .chain(&before.history)
+        .filter(|record| !record.token.is_empty() && !kept.contains(record.token.as_str()))
+        .map(|record| record.token.clone())
+        .collect()
+}
+
+/// Says which saved tokens made room for a new one, so none disappears unnoticed.
+fn report_dropped(app: &AppWindow, before: &State, after: &State) {
+    for token in dropped(before, after) {
+        let name = std::iter::once(&before.active)
+            .chain(&before.history)
+            .find(|record| record.token == token)
+            .map(|record| record.validation.username.clone())
+            .filter(|username| !username.is_empty())
+            .map(|username| format!("@{username}"))
+            .unwrap_or_else(|| "the oldest token".into());
+        crate::app::notifications::show_toast(
+            app,
+            format!(
+                "Removed {name} from saved auth_tokens to keep {HISTORY_LIMIT} previous tokens."
+            ),
+            "info",
+        );
+    }
 }
 pub fn initialize(settings: &AppSettings) {
     *catalog().lock().unwrap() = normalized(State {
@@ -150,7 +263,8 @@ pub(crate) fn register_with_services(
     checker: impl Fn(String) -> CheckFuture + Send + Sync + 'static,
 ) {
     let checker = Arc::new(checker);
-    let write: Arc<dyn Fn(AppSettings) -> bool + Send + Sync> = Arc::new(write);
+    let write: Writer = Arc::new(write);
+    *WRITER.lock().unwrap() = Some(write.clone());
     let ui = app.as_weak();
     let save = write.clone();
     app.on_save_auth_token(move || {
@@ -167,6 +281,7 @@ pub(crate) fn register_with_services(
             app.set_auth_token(token.clone());
             app.set_saved_auth_token(token);
             refresh(&app);
+            report_dropped(&app, &state, &next);
         }
     });
     let ui = app.as_weak();
@@ -417,19 +532,68 @@ mod tests {
         crate::updates::worker::shutdown().await;
     }
     #[test]
-    fn history_keeps_five_unique_previous_tokens_and_restores_checked_metadata() {
+    fn history_keeps_ten_unique_previous_tokens_and_restores_checked_metadata() {
         let mut state = State::default();
-        for i in 0..8 {
+        for i in 0..14 {
             state = switched(&state, &format!("{i:040x}"));
         }
-        assert_eq!(state.history.len(), 5);
-        assert_eq!(state.history[0].token, format!("{:040x}", 6));
+        assert_eq!(state.history.len(), HISTORY_LIMIT);
+        assert_eq!(state.history[0].token, format!("{:040x}", 12));
         state.history[2].validation.status = "valid".into();
         let restored = state.history[2].token.clone();
         state = switched(&state, &restored);
         assert_eq!(state.active.validation.status, "valid");
         assert!(!state.history.iter().any(|entry| entry.token == restored));
-        assert_eq!(state.history.len(), 5);
+        assert_eq!(state.history.len(), HISTORY_LIMIT);
+        // Using a saved token only swaps it with the active one: nothing is dropped.
+        let before = state.clone();
+        let after = switched(&before, &before.history[5].token.clone());
+        assert!(dropped(&before, &after).is_empty());
+    }
+    #[test]
+    fn a_full_history_drops_invalid_tokens_before_the_oldest_valid_one() {
+        let token = |i: usize| format!("{i:040x}");
+        let mut state = State {
+            active: Record {
+                token: token(100),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        // Newest first; the third and the sixth were found invalid.
+        state.history = (0..HISTORY_LIMIT)
+            .map(|i| Record {
+                token: token(i),
+                validation: Validation {
+                    status: if i == 2 || i == 5 { "invalid" } else { "valid" }.into(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .collect();
+        let next = switched(&state, &token(200));
+        assert_eq!(next.history.len(), HISTORY_LIMIT);
+        assert_eq!(
+            next.history[0].token,
+            token(100),
+            "the previous active token is kept"
+        );
+        assert_eq!(
+            dropped(&state, &next),
+            [token(5)],
+            "the oldest invalid token goes first"
+        );
+        assert!(
+            next.history
+                .iter()
+                .any(|entry| entry.token == token(HISTORY_LIMIT - 1))
+        );
+        let next = switched(&next, &token(300));
+        assert_eq!(dropped(&state, &next), [token(2), token(5)]);
+        // No invalid token is left, so the oldest valid one makes room.
+        let last = next.history.last().unwrap().token.clone();
+        let after = switched(&next, &token(400));
+        assert_eq!(dropped(&next, &after), [last]);
     }
     #[test]
     fn temporary_failures_are_not_invalid_tokens() {

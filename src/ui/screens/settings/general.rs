@@ -461,7 +461,7 @@ impl Desktop {
             this.setting_heading(ui, "X/Twitter authentication");
             this.setting_text(
                 ui,
-                "Save your X auth_token locally. Up to 5 previous tokens are kept in the portable config.json.",
+                "Save your X auth_token locally. Up to 10 previous tokens are kept in the portable config.json.",
                 13.0,
                 false,
                 this.colors(ui).secondary,
@@ -506,14 +506,25 @@ impl Desktop {
                 this.setting_heading(
                     ui,
                     &format!(
-                        "{} ({}/5)",
+                        "{} ({}/{})",
                         this.tr("Previous auth_tokens"),
-                        app.get_auth_token_history().row_count()
+                        app.get_auth_token_history().row_count(),
+                        crate::accounts::tokens::HISTORY_LIMIT
                     ),
                 );
                 this.setting_caption(
                     ui,
                     "Check a previous token, use it as the active token, or remove it from local history.",
+                );
+                // Usable during a fetch: it takes effect at the next rate limit.
+                setting_switch!(
+                    this,
+                    ui,
+                    get_rotate_auth_tokens,
+                    set_rotate_auth_tokens,
+                    "Switch tokens when rate limited",
+                    "When X rate limits a fetch, continue with the next saved token that is not invalid or cooling down. That token becomes the active one.",
+                    true
                 );
                 for item in app.get_auth_token_history().iter() {
                     ui.push_id(item.index, |ui| {

@@ -33,28 +33,6 @@ const CATALOGS: [(&str, &str); 7] = [
     ),
 ];
 
-pub fn register(app: &AppWindow) {
-    let global = app.global::<crate::I18n>();
-    global.on_lookup(|language, key| translate(language.as_str(), key.as_str()));
-    global.on_lookup_string(|language, key, argument| {
-        translate_with(
-            language.as_str(),
-            key.as_str(),
-            std::slice::from_ref(&argument),
-        )
-    });
-    global.on_lookup_int(|language, key, argument| {
-        translate_with(language.as_str(), key.as_str(), &[argument.to_string()])
-    });
-    global.on_lookup_two_ints(|language, key, first, second| {
-        translate_with(
-            language.as_str(),
-            key.as_str(),
-            &[first.to_string(), second.to_string()],
-        )
-    });
-}
-
 pub fn apply_language(app: &AppWindow, mode: &str) {
     let normalized = match mode {
         "en" | "id" | "de" | "es" | "fr" | "pt" | "tr" | "zh_Hans" => mode,
@@ -179,22 +157,4 @@ pub fn translate(language: &str, key: &str) -> String {
         .filter(|value| !value.is_empty())
         .cloned()
         .unwrap_or_else(|| key.to_owned())
-}
-
-fn translate_with(language: &str, key: &str, arguments: &[String]) -> String {
-    let template = translate(language, key);
-    let mut output = String::with_capacity(template.len());
-    let mut remainder = template.as_str();
-    let mut arguments = arguments.iter();
-    while let Some(index) = remainder.find("{}") {
-        output.push_str(&remainder[..index]);
-        if let Some(argument) = arguments.next() {
-            output.push_str(argument);
-        } else {
-            output.push_str("{}");
-        }
-        remainder = &remainder[index + 2..];
-    }
-    output.push_str(remainder);
-    output
 }

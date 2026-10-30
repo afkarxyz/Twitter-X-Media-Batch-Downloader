@@ -97,25 +97,75 @@ async fn wait(
     }
     Ok(())
 }
+/// The end of `token`'s rate-limit cooldown, while it lasts.
+fn cooling(token: &str) -> Option<Instant> {
+    cooldowns()
+        .lock()
+        .unwrap()
+        .get(&key(token))
+        .copied()
+        .filter(|deadline| *deadline > Instant::now())
+}
+/// Moves `token` to the next saved token that is neither invalid nor cooling down,
+/// when Settings allows it, and makes that token the active one.
+fn switch_token(ui: &crate::ui::runtime::Weak<AppWindow>, token: &mut String) -> bool {
+    if !crate::accounts::tokens::rotation_enabled() {
+        return false;
+    }
+    let Some(next) = crate::accounts::tokens::rotation()
+        .into_iter()
+        .find(|candidate| candidate != token && cooling(candidate).is_none())
+    else {
+        return false;
+    };
+    let message = format!(
+        "Rate limited on {}. Continuing with the saved auth_token {}.",
+        crate::accounts::tokens::label(token),
+        crate::accounts::tokens::label(&next)
+    );
+    crate::platform::logging::warn(message.clone());
+    let active = next.clone();
+    let _ = ui.upgrade_in_event_loop(move |app| {
+        crate::accounts::tokens::activate(&app, &active);
+        crate::app::notifications::show_toast(&app, message, "info");
+    });
+    *token = next;
+    true
+}
+/// Fetches one page through `fetch`, which receives the token to use.
+///
+/// A `fetch_page` waits for the Fetch pacing delay before each attempt and, when its
+/// token is rate limited and Settings allows switching, continues with another saved
+/// token; `token` then holds the token the page was fetched with.
 pub async fn page<F, Fut>(
     ui: crate::ui::runtime::Weak<AppWindow>,
     cancel: Arc<AtomicBool>,
-    token: &str,
+    token: &mut String,
+    fetch_page: bool,
     mut fetch: F,
 ) -> Result<Value, String>
 where
-    F: FnMut() -> Fut,
+    F: FnMut(String) -> Fut,
     Fut: Future<Output = Result<Value, String>>,
 {
-    for attempt in 0..=3 {
+    let mut attempt = 0;
+    loop {
         if cancel.load(Ordering::Relaxed) {
             return Err("Extraction cancelled.".into());
         }
-        let deadline = cooldowns().lock().unwrap().get(&key(token)).copied();
-        if let Some(deadline) = deadline {
+        if let Some(deadline) = cooling(token) {
+            if fetch_page && switch_token(&ui, token) {
+                continue;
+            }
             wait(&ui, &cancel, deadline, "Rate limited").await?;
         }
-        let result = tokio::time::timeout(crate::network::timeouts::fetch(), fetch())
+        // Waited before the timeout starts; dropping the guard ends this request.
+        let _pace = if fetch_page {
+            Some(crate::fetch::pacing::start(&ui, &cancel).await?)
+        } else {
+            None
+        };
+        let result = tokio::time::timeout(crate::network::timeouts::fetch(), fetch(token.clone()))
             .await
             .unwrap_or_else(|_| {
                 Err(format!(
@@ -145,6 +195,10 @@ where
                 let delay = match failure {
                     Failure::Limited(delay) if delay <= Duration::from_secs(3600) => {
                         note(token, delay);
+                        // Another token is a fresh start, not a retry of this one.
+                        if fetch_page && switch_token(&ui, token) {
+                            continue;
+                        }
                         delay
                     }
                     Failure::Transient => Duration::from_secs(1 << attempt),
@@ -153,9 +207,9 @@ where
                 if attempt == 3 {
                     return Err(error);
                 }
+                attempt += 1;
                 crate::platform::logging::warn(format!(
-                    "Retrying fetch after a temporary error (attempt {}).",
-                    attempt + 1
+                    "Retrying fetch after a temporary error (attempt {attempt})."
                 ));
                 if failure == Failure::Transient {
                     wait(&ui, &cancel, Instant::now() + delay, "Fetch interrupted").await?;
@@ -163,7 +217,6 @@ where
             }
         }
     }
-    unreachable!()
 }
 #[cfg(test)]
 mod tests {
@@ -194,8 +247,9 @@ mod tests {
         let result = page(
             crate::ui::runtime::Weak::default(),
             cancel.clone(),
-            "retry-fixture",
-            || async {
+            &mut "retry-fixture".to_string(),
+            false,
+            |_| async {
                 if calls.fetch_add(1, Ordering::Relaxed) == 0 {
                     Err("network: fixture reset".into())
                 } else {
@@ -209,8 +263,9 @@ mod tests {
         let result = page(
             crate::ui::runtime::Weak::default(),
             cancel.clone(),
-            "auth-fixture",
-            || async { Err("auth_invalid: expired".into()) },
+            &mut "auth-fixture".to_string(),
+            false,
+            |_| async { Err("auth_invalid: expired".into()) },
         )
         .await;
         assert!(result.is_err());
@@ -225,13 +280,149 @@ mod tests {
             page(
                 crate::ui::runtime::Weak::default(),
                 cancel,
-                "shared-fixture",
-                || async { panic!("must wait before request") }
+                &mut "shared-fixture".to_string(),
+                false,
+                |_| async { panic!("must wait before request") }
             )
             .await
             .unwrap_err(),
             "Extraction cancelled."
         );
         assert!(began.elapsed() < Duration::from_secs(1));
+    }
+
+    // Paces through the shared gate and restores it to off.
+    #[tokio::test]
+    async fn fetch_pages_wait_for_the_pacing_delay_and_account_search_does_not() {
+        let _shared = crate::fetch::pacing::TEST_LOCK.lock().await;
+        crate::fetch::pacing::configure(200, 0);
+        let cancel = Arc::new(AtomicBool::new(false));
+        let fetch = |_: String| async { Ok(serde_json::json!({"tweets":[]})) };
+        let ui = crate::ui::runtime::Weak::default;
+        page(
+            ui(),
+            cancel.clone(),
+            &mut "pacing-fixture".to_string(),
+            true,
+            fetch,
+        )
+        .await
+        .unwrap();
+        let began = Instant::now();
+        page(
+            ui(),
+            cancel.clone(),
+            &mut "pacing-fixture".to_string(),
+            true,
+            fetch,
+        )
+        .await
+        .unwrap();
+        let paced = began.elapsed();
+        let began = Instant::now();
+        page(
+            ui(),
+            cancel.clone(),
+            &mut "pacing-fixture".to_string(),
+            false,
+            fetch,
+        )
+        .await
+        .unwrap();
+        let unpaced = began.elapsed();
+        crate::fetch::pacing::configure(0, 0);
+        assert!(
+            paced >= Duration::from_millis(190),
+            "paced page waited {paced:?}"
+        );
+        assert!(
+            unpaced < Duration::from_millis(100),
+            "account search waited {unpaced:?}"
+        );
+    }
+
+    /// Saved tokens A (active), B, C (checked invalid) and D; returns the tokens tried.
+    async fn rotate(
+        start: &str,
+        fetch_page: bool,
+        limited: &'static [&'static str],
+    ) -> (Result<Value, String>, Vec<String>, String, Duration) {
+        let tried = Mutex::new(Vec::new());
+        let mut token = start.to_string();
+        let began = Instant::now();
+        let result = page(
+            crate::ui::runtime::Weak::default(),
+            Arc::new(AtomicBool::new(false)),
+            &mut token,
+            fetch_page,
+            |token: String| {
+                tried.lock().unwrap().push(token.clone());
+                let first = tried.lock().unwrap().iter().filter(|t| **t == token).count() == 1;
+                async move {
+                    if limited.contains(&token.as_str()) && first {
+                        Err("XTRACTOR_ERROR_JSON:{\"kind\":\"rate_limited\",\"retry_after_seconds\":1}".into())
+                    } else {
+                        Ok(serde_json::json!({"tweets":[]}))
+                    }
+                }
+            },
+        )
+        .await;
+        (result, tried.into_inner().unwrap(), token, began.elapsed())
+    }
+
+    #[tokio::test]
+    async fn rate_limited_fetch_pages_continue_with_the_next_saved_token() {
+        use crate::accounts::tokens::{self, Record, Validation};
+        let _shared = crate::fetch::pacing::TEST_LOCK.lock().await;
+        let record = |token: &str, status: &str| Record {
+            token: token.into(),
+            validation: Validation {
+                status: status.into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        tokens::initialize(&crate::download::engine::AppSettings {
+            auth_token: "rotate-a".into(),
+            auth_token_history: vec![
+                record("rotate-b", "valid"),
+                record("rotate-c", "invalid"),
+                record("rotate-d", ""),
+            ],
+            ..Default::default()
+        });
+        tokens::set_rotation(true);
+
+        // A is rate limited: B continues at once, without waiting out A's cooldown.
+        let (result, tried, token, elapsed) = rotate("rotate-a", true, &["rotate-a"]).await;
+        assert!(result.is_ok());
+        assert_eq!(tried, ["rotate-a", "rotate-b"]);
+        assert_eq!(token, "rotate-b", "later pages keep the token that worked");
+        assert!(elapsed < Duration::from_millis(500), "waited {elapsed:?}");
+
+        // A is still cooling down and B is limited too: C was found invalid, so D.
+        let (result, tried, token, _) = rotate("rotate-a", true, &["rotate-b"]).await;
+        assert!(result.is_ok());
+        assert_eq!(
+            tried,
+            ["rotate-b", "rotate-d"],
+            "A is skipped while it cools down"
+        );
+        assert_eq!(token, "rotate-d");
+
+        // Account search keeps its token and waits out the cooldown instead.
+        let (result, tried, token, elapsed) = rotate("rotate-e", false, &["rotate-e"]).await;
+        assert!(result.is_ok());
+        assert_eq!(tried, ["rotate-e", "rotate-e"]);
+        assert_eq!(token, "rotate-e");
+        assert!(elapsed >= Duration::from_millis(900), "waited {elapsed:?}");
+
+        // With switching off, a fetch page waits too.
+        tokens::set_rotation(false);
+        let (result, tried, _, elapsed) = rotate("rotate-f", true, &["rotate-f"]).await;
+        assert!(result.is_ok());
+        assert_eq!(tried, ["rotate-f", "rotate-f"]);
+        assert!(elapsed >= Duration::from_millis(900), "waited {elapsed:?}");
     }
 }

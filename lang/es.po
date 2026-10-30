@@ -1,17 +1,8 @@
 msgid ""
-msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.0\nLanguage: es\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=2; plural=(n != 1);\n"
+msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.1\nLanguage: es\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=2; plural=(n != 1);\n"
 
 msgid "Ready for an X/Twitter URL."
 msgstr "Listo para una URL de X/Twitter."
-
-msgid "On"
-msgstr "Activado"
-
-msgid "Off"
-msgstr "Desactivado"
-
-msgid "Select"
-msgstr "Seleccionar"
 
 msgid "Home"
 msgstr "Inicio"
@@ -21,9 +12,6 @@ msgstr "Ajustes"
 
 msgid "Theme"
 msgstr "Tema"
-
-msgid "Color scheme"
-msgstr "Tema de color"
 
 msgid "System"
 msgstr "Sistema"
@@ -36,9 +24,6 @@ msgstr "Claro"
 
 msgid "Palette"
 msgstr "Paleta"
-
-msgid "Default"
-msgstr "Predeterminado"
 
 msgid "Teal"
 msgstr "Verde azulado"
@@ -88,15 +73,6 @@ msgstr "Rosa"
 msgid "Saved"
 msgstr "Guardado"
 
-msgid "Primary"
-msgstr "Principal"
-
-msgid "Canvas"
-msgstr "Lienzo"
-
-msgid "Surface"
-msgstr "Superficie"
-
 msgid "Text"
 msgstr "Texto"
 
@@ -119,7 +95,7 @@ msgid "Downloads original-quality images and videos from Twitter/X accounts."
 msgstr "Descarga imágenes y videos en calidad original de cuentas de Twitter/X."
 
 msgid "Export JSON"
-msgstr "Exportar a Json"
+msgstr "Exportar JSON"
 
 msgid "Search X/Twitter media URL"
 msgstr "Buscar X/Twitter media URL"
@@ -151,9 +127,6 @@ msgstr "Descargas"
 msgid "Storage"
 msgstr "Almacenamiento"
 
-msgid "Interface"
-msgstr "Interfaz"
-
 msgid "Display language"
 msgstr "Idioma de la interfaz"
 
@@ -176,7 +149,7 @@ msgid "German"
 msgstr "Alemán"
 
 msgid "Portuguese"
-msgstr "Portuguese"
+msgstr "Portugués"
 
 msgid "Turkish"
 msgstr "Turco"
@@ -226,9 +199,6 @@ msgstr "Borrar"
 msgid "Extraction defaults"
 msgstr "Valores predeterminados de extracción"
 
-msgid "Media type"
-msgstr "Tipo de elemento multimedia"
-
 msgid "All media"
 msgstr "Todos los elementos multimedia"
 
@@ -252,9 +222,6 @@ msgstr "Original"
 
 msgid "Exclude videos"
 msgstr "Excluir vídeos"
-
-msgid "Include text-only posts"
-msgstr "Incluir publicaciones de solo texto"
 
 msgid "Download folder"
 msgstr "Carpeta de descargas"
@@ -367,9 +334,6 @@ msgstr "GIF"
 
 msgid "Failed"
 msgstr "Error"
-
-msgid "Load more"
-msgstr "Cargar más"
 
 msgid "Nothing in this filter."
 msgstr "No hay medios en este filtro."
@@ -534,88 +498,88 @@ msgid "Clear fetch history?"
 msgstr "¿Borrar el historial de consultas?"
 
 msgid "Buy Me a Coffee"
-msgstr ""
+msgstr "Invítame a un café"
 
 msgid "Support"
 msgstr "Apoyar"
 
 msgid "Scan the QR code or copy the address to support the project."
-msgstr ""
+msgstr "Escanea el código QR o copia la dirección para apoyar el proyecto."
 
 msgid "Network"
-msgstr ""
+msgstr "Red"
 
 msgid "Copy wallet address"
-msgstr ""
+msgstr "Copiar dirección de la billetera"
 
 msgid "Wallet address copied."
-msgstr ""
+msgstr "Dirección de la billetera copiada."
 
 msgid "Could not copy wallet address."
-msgstr ""
+msgstr "No se pudo copiar la dirección de la billetera."
 
 msgid "Free space"
-msgstr ""
+msgstr "Espacio libre"
 
 msgid "Download folder usage"
-msgstr ""
+msgstr "Uso de la carpeta de descargas"
 
 msgid "Calculating…"
-msgstr ""
+msgstr "Calculando…"
 
 msgid "{} total on drive"
-msgstr ""
+msgstr "{} en total en la unidad"
 
 msgid "{} files"
-msgstr ""
+msgstr "{} archivos"
 
 msgid "Some files could not be read."
-msgstr ""
+msgstr "No se pudieron leer algunos archivos."
 
 msgid "Counts final files in the selected folder, including subfolders."
-msgstr ""
+msgstr "Cuenta los archivos finales de la carpeta seleccionada, incluidas las subcarpetas."
 
 msgid "Refresh"
-msgstr ""
+msgstr "Actualizar"
 
 msgid "Retry FFmpeg download"
-msgstr ""
+msgstr "Reintentar la descarga de FFmpeg"
 
 msgid "Checking FFmpeg…"
-msgstr ""
+msgstr "Comprobando FFmpeg…"
 
 msgid "Downloading FFmpeg…"
-msgstr ""
+msgstr "Descargando FFmpeg…"
 
 msgid "Installing FFmpeg…"
-msgstr ""
+msgstr "Instalando FFmpeg…"
 
 msgid "Fetch sessions"
-msgstr ""
+msgstr "Sesiones de extracción"
 
 msgid "View fetch sessions"
-msgstr ""
+msgstr "Ver sesiones de extracción"
 
 msgid "{} fetch sessions"
-msgstr ""
+msgstr "{} sesiones de extracción"
 
 msgid "1 fetch session"
-msgstr ""
+msgstr "1 sesión de extracción"
 
 msgid "All fetch sessions in this group will be removed. Downloaded files will remain in your folder."
-msgstr ""
+msgstr "Se eliminarán todas las sesiones de extracción de este grupo. Los archivos descargados permanecerán en tu carpeta."
 
 msgid "Zinc"
-msgstr ""
+msgstr "Zinc"
 
 msgid "Stone"
-msgstr ""
+msgstr "Piedra"
 
 msgid "Mauve"
-msgstr ""
+msgstr "Malva"
 
 msgid "Mist"
-msgstr ""
+msgstr "Niebla"
 
 msgid "Drive storage"
 msgstr "Almacenamiento de la unidad"
@@ -985,3 +949,642 @@ msgstr "No se pudieron cargar los archivos guardados."
 
 msgid "Preparing downloads…"
 msgstr "Preparando descargas…"
+
+msgid "Fetch pacing"
+msgstr "Pausas de extracción"
+
+msgid "Waits after each fetch page before requesting the next one, also between batch accounts and on retries. 0 disables it."
+msgstr "Espera después de cada página extraída antes de pedir la siguiente, también entre las cuentas del lote y en los reintentos. 0 lo desactiva."
+
+msgid "Delay between fetch pages (ms)"
+msgstr "Pausa entre páginas (ms)"
+
+msgid "Random extra fetch delay (ms)"
+msgstr "Pausa aleatoria adicional de extracción (ms)"
+
+msgid "If fetches get rate limited, start around 2000 ms with 1000 ms extra."
+msgstr "Si las extracciones alcanzan el límite de solicitudes, empieza con unos 2000 ms y 1000 ms adicionales."
+
+msgid "Enter whole numbers from 0 to 3600000 ms."
+msgstr "Introduce números enteros de 0 a 3600000 ms."
+
+msgid "Switch tokens when rate limited"
+msgstr "Cambiar de token al alcanzar el límite"
+
+msgid "When X rate limits a fetch, continue with the next saved token that is not invalid or cooling down. That token becomes the active one."
+msgstr "Cuando X limita una extracción, continúa con el siguiente token guardado que no sea inválido ni esté en espera. Ese token pasa a ser el activo."
+
+msgid "New"
+msgstr "Nuevo"
+
+msgid "Convert downloaded GIFs"
+msgstr "Convertir GIF descargados"
+
+msgid "Convert {} GIF MP4 files from this download batch."
+msgstr "Convierte {} archivos MP4 de GIF de este lote de descargas."
+
+msgid "Conversion mode"
+msgstr "Modo de conversión"
+
+msgid "Resolution"
+msgstr "Resolución"
+
+msgid "Keep original MP4 files"
+msgstr "Conservar los archivos MP4 originales"
+
+msgid "Downloads will list both the GIF and its original MP4."
+msgstr "En Descargas aparecerán tanto el GIF como su MP4 original."
+
+msgid "Original MP4 files are removed only after conversion and history saving succeed."
+msgstr "Los archivos MP4 originales solo se eliminan cuando la conversión y el guardado del historial se completan correctamente."
+
+msgid "Convert"
+msgstr "Convertir"
+
+msgid "Convert GIFs"
+msgstr "Convertir GIF"
+
+msgid "{} GIF MP4 files"
+msgstr "{} archivos MP4 de GIF"
+
+msgid "Stop"
+msgstr "Detener"
+
+msgid "Post date/time use UTC. Date uses the download date. Unknown post dates use unknown. The extension is added automatically."
+msgstr "La fecha y hora de la publicación usan UTC. «Date» usa la fecha de descarga. Si se desconoce la fecha de publicación, se usa «unknown». La extensión se añade automáticamente."
+
+msgid "Fetch order"
+msgstr "Orden de extracción"
+
+msgid "Newest first"
+msgstr "Más recientes primero"
+
+msgid "Oldest first"
+msgstr "Más antiguos primero"
+
+msgid "Grid view"
+msgstr "Vista de cuadrícula"
+
+msgid "List view"
+msgstr "Vista de lista"
+
+msgid "Diagnostics"
+msgstr "Diagnóstico"
+
+msgid "Session logs are stored in the portable data folder."
+msgstr "Los registros de sesión se guardan en la carpeta de datos portátil."
+
+msgid "Open logs"
+msgstr "Abrir registros"
+
+msgid "Copy error details"
+msgstr "Copiar detalles del error"
+
+msgid "Error details copied."
+msgstr "Detalles del error copiados."
+
+msgid "Could not copy error details."
+msgstr "No se pudieron copiar los detalles del error."
+
+msgid "Could not open the logs folder."
+msgstr "No se pudo abrir la carpeta de registros."
+
+msgid "The saved batch queue could not be restored. Its file has been preserved."
+msgstr "No se pudo restaurar la cola del lote guardada. Su archivo se ha conservado."
+
+msgid "Download organization and limits"
+msgstr "Organización y límites de descarga"
+
+msgid "Separate media folders"
+msgstr "Carpetas de medios separadas"
+
+msgid "Store media in Image, Video and GIF subfolders inside each account folder."
+msgstr "Guarda los medios en las subcarpetas Image, Video y GIF dentro de la carpeta de cada cuenta."
+
+msgid "Total speed limit (KiB/s)"
+msgstr "Límite de velocidad total (KiB/s)"
+
+msgid "Delay between requests (ms)"
+msgstr "Pausa entre solicitudes (ms)"
+
+msgid "0 disables the limit. The speed budget is shared by parallel downloads."
+msgstr "0 desactiva el límite. La velocidad disponible se reparte entre las descargas simultáneas."
+
+msgid "Cancel selection"
+msgstr "Cancelar selección"
+
+msgid "Select accounts"
+msgstr "Seleccionar cuentas"
+
+msgid "Select visible"
+msgstr "Seleccionar visibles"
+
+msgid "Update selected ({})"
+msgstr "Actualizar selección ({})"
+
+msgid "Each account keeps its saved fetch filters."
+msgstr "Cada cuenta conserva sus filtros de extracción guardados."
+
+msgid "Embed post metadata"
+msgstr "Incrustar metadatos de la publicación"
+
+msgid "Write the post URL, original media name and post text into JPG/MP4 comments."
+msgstr "Escribe la URL de la publicación, el nombre original del medio y el texto de la publicación en los comentarios de JPG/MP4."
+
+msgid "ExifTool is downloaded into the portable data folder when missing. Applies to new JPG/MP4 downloads; converted GIFs are excluded."
+msgstr "ExifTool se descarga en la carpeta de datos portátil si no está disponible. Se aplica a las nuevas descargas JPG/MP4; los GIF convertidos quedan excluidos."
+
+msgid "All groups"
+msgstr "Todos los grupos"
+
+msgid "Group"
+msgstr "Grupo"
+
+msgid "Tags, separated by commas"
+msgstr "Etiquetas, separadas por comas"
+
+msgid "Assign group and tags"
+msgstr "Asignar grupo y etiquetas"
+
+msgid "Replace labels for selected accounts. Empty fields clear existing labels."
+msgstr "Reemplaza el grupo y las etiquetas de las cuentas seleccionadas. Los campos vacíos borran los valores existentes."
+
+msgid "Filter group"
+msgstr "Filtrar grupo"
+
+msgid "Export accounts TXT"
+msgstr "Exportar cuentas a TXT"
+
+msgid "Account groups and tags saved."
+msgstr "Grupos y etiquetas de las cuentas guardados."
+
+msgid "Account list exported."
+msgstr "Lista de cuentas exportada."
+
+msgid "No accounts to export."
+msgstr "No hay cuentas para exportar."
+
+msgid "Group names must be at most 64 characters."
+msgstr "Los nombres de grupo deben tener como máximo 64 caracteres."
+
+msgid "Tags must be at most 40 characters."
+msgstr "Las etiquetas deben tener como máximo 40 caracteres."
+
+msgid "Use at most 16 tags per account."
+msgstr "Usa como máximo 16 etiquetas por cuenta."
+
+msgid "Select accounts first."
+msgstr "Selecciona primero las cuentas."
+
+msgid "Network timeouts"
+msgstr "Tiempos de espera de red"
+
+msgid "Fetch page timeout (seconds)"
+msgstr "Tiempo de espera por página extraída (segundos)"
+
+msgid "HTTP read timeout (seconds)"
+msgstr "Tiempo de espera de lectura HTTP (segundos)"
+
+msgid "5–3600 seconds. HTTP applies to downloads, previews and thumbnails."
+msgstr "5–3600 segundos. HTTP se aplica a descargas, vistas previas y miniaturas."
+
+msgid "Enter timeout values from 5 to 3600 seconds."
+msgstr "Introduce tiempos de espera de 5 a 3600 segundos."
+
+msgid "Application and tool updates"
+msgstr "Actualizaciones de la aplicación y las herramientas"
+
+msgid "Checking…"
+msgstr "Comprobando…"
+
+msgid "Application"
+msgstr "Aplicación"
+
+msgid "Update available"
+msgstr "Actualización disponible"
+
+msgid "Up to date"
+msgstr "Actualizado"
+
+msgid "Installed version is newer than the published release"
+msgstr "La versión instalada es más reciente que la publicada"
+
+msgid "Version could not be compared"
+msgstr "No se pudo comparar la versión"
+
+msgid "Open release"
+msgstr "Abrir versión"
+
+msgid "View logs"
+msgstr "Ver registros"
+
+msgid "Session logs"
+msgstr "Registros de sesión"
+
+msgid "Session"
+msgstr "Sesión"
+
+msgid "Session log contents"
+msgstr "Contenido del registro de sesión"
+
+msgid "Export log"
+msgstr "Exportar registro"
+
+msgid "Random extra delay (ms)"
+msgstr "Pausa aleatoria adicional (ms)"
+
+msgid "Adds a random 0 to this many milliseconds between download requests, including retries. 0 disables jitter."
+msgstr "Añade entre 0 y esta cantidad de milisegundos al azar entre solicitudes de descarga, incluidos los reintentos. 0 desactiva la variación aleatoria."
+
+msgid "Showing the latest 256 KiB. Export saves the full session log."
+msgstr "Se muestran los últimos 256 KiB. Exportar guarda el registro de sesión completo."
+
+msgid "No session logs yet."
+msgstr "Todavía no hay registros de sesión."
+
+msgid "This session log is empty."
+msgstr "Este registro de sesión está vacío."
+
+msgid "Displayed log copied."
+msgstr "Registro mostrado copiado."
+
+msgid "Session log exported."
+msgstr "Registro de sesión exportado."
+
+msgid "Enter whole numbers: speed 0–1048576 KiB/s, delay/jitter 0–3600000 ms."
+msgstr "Introduce números enteros: velocidad 0–1048576 KiB/s, pausa/variación 0–3600000 ms."
+
+msgid "Merged archive"
+msgstr "Archivo combinado"
+
+msgid "Media types"
+msgstr "Tipos de medios"
+
+msgid "Choose one or more media types. Result filters can also be combined."
+msgstr "Elige uno o más tipos de medios. Los filtros de resultados también se pueden combinar."
+
+msgid "Show text-only posts as cards and save them as UTF-8 TXT files."
+msgstr "Muestra las publicaciones de solo texto como tarjetas y las guarda como archivos TXT en UTF-8."
+
+msgid "Download text"
+msgstr "Descargar texto"
+
+msgid "Select at least one media type or enable text posts."
+msgstr "Selecciona al menos un tipo de medio o activa las publicaciones de texto."
+
+msgid "Manual proxy"
+msgstr "Proxy manual"
+
+msgid "Proxy URL"
+msgstr "URL del proxy"
+
+msgid "Proxy settings saved."
+msgstr "Ajustes del proxy guardados."
+
+msgid "Update / Reinstall FFmpeg"
+msgstr "Actualizar / Reinstalar FFmpeg"
+
+msgid "Update / Reinstall ExifTool"
+msgstr "Actualizar / Reinstalar ExifTool"
+
+msgid "Install the latest tools in the portable data folder. Existing system installations are preserved."
+msgstr "Instala las herramientas más recientes en la carpeta de datos portátil. Las instalaciones existentes del sistema se conservan."
+
+msgid "HTTP, HTTPS, SOCKS5 and SOCKS5H. Empty uses the system/environment proxy. Local preview traffic stays local."
+msgstr "HTTP, HTTPS, SOCKS5 y SOCKS5H. Si se deja vacío, se usa el proxy del sistema o del entorno. El tráfico de vista previa local se mantiene local."
+
+msgid "Enter a full HTTP, HTTPS, SOCKS5 or SOCKS5H proxy URL."
+msgstr "Introduce una URL de proxy HTTP, HTTPS, SOCKS5 o SOCKS5H completa."
+
+msgid "Use an HTTP, HTTPS, SOCKS5 or SOCKS5H proxy URL without a path, query or fragment."
+msgstr "Usa una URL de proxy HTTP, HTTPS, SOCKS5 o SOCKS5H sin ruta, consulta ni fragmento."
+
+msgid "A SOCKS proxy requires a port."
+msgstr "Un proxy SOCKS requiere un puerto."
+
+msgid "Alt text"
+msgstr "Texto alternativo"
+
+msgid "Quotes"
+msgstr "Citas"
+
+msgid "Bookmarks"
+msgstr "Guardados"
+
+msgid "Group color"
+msgstr "Color del grupo"
+
+msgid "Default color"
+msgstr "Color predeterminado"
+
+msgid "Choose a valid group color."
+msgstr "Elige un color de grupo válido."
+
+msgid "Live: On"
+msgstr "En vivo: Activado"
+
+msgid "Live: Off"
+msgstr "En vivo: Desactivado"
+
+msgid "Auto-scroll: On"
+msgstr "Desplazamiento automático: Activado"
+
+msgid "Auto-scroll: Off"
+msgstr "Desplazamiento automático: Desactivado"
+
+msgid "Export errors"
+msgstr "Exportar errores"
+
+msgid "Live refreshes every second. Copy uses the displayed text."
+msgstr "En vivo se actualiza cada segundo. Copiar usa el texto mostrado."
+
+msgid "Notify about updates on startup"
+msgstr "Avisar de actualizaciones al iniciar"
+
+msgid "Check for a new stable application release when the app opens."
+msgstr "Busca una nueva versión estable de la aplicación al abrirla."
+
+msgid "Later"
+msgstr "Más tarde"
+
+msgid "Version {} is available. Open the release page to download it."
+msgstr "La versión {} está disponible. Abre la página de la versión para descargarla."
+
+msgid "Quick refresh"
+msgstr "Actualización rápida"
+
+msgid "Stop after reaching saved data. Turn off for a full fetch. Reposts and private lists always use a full fetch."
+msgstr "Se detiene al llegar a los datos guardados. Desactívalo para una extracción completa. Las republicaciones y las listas privadas siempre usan una extracción completa."
+
+msgid "Choose 1–50 downloads, or Auto: images 8, video/GIF 3, mixed 10."
+msgstr "Elige de 1 a 50 descargas, o Automático: imágenes 8, vídeo/GIF 3, mixto 10."
+
+msgid "Auto"
+msgstr "Automático"
+
+msgid "Check downloaded files"
+msgstr "Comprobar archivos descargados"
+
+msgid "Quick checks presence and recorded size. Deep also compares SHA-256. Older files without a checksum remain unverified."
+msgstr "La comprobación rápida verifica que el archivo exista y su tamaño registrado. La profunda también compara el SHA-256. Los archivos antiguos sin suma de comprobación quedan sin verificar."
+
+msgid "Quick check"
+msgstr "Comprobación rápida"
+
+msgid "Deep check"
+msgstr "Comprobación profunda"
+
+msgid "Check files"
+msgstr "Comprobar archivos"
+
+msgid "Empty file"
+msgstr "Archivo vacío"
+
+msgid "Size mismatch"
+msgstr "El tamaño no coincide"
+
+msgid "Restore database backup?"
+msgstr "¿Restaurar la copia de seguridad de la base de datos?"
+
+msgid "Restore"
+msgstr "Restaurar"
+
+msgid "This replaces current history, account labels and download records. Media files and authentication settings stay as they are. A recovery backup is created first."
+msgstr "Esto reemplaza el historial actual, los grupos y etiquetas de las cuentas y los registros de descarga. Los archivos multimedia y los ajustes de autenticación no cambian. Antes se crea una copia de seguridad de recuperación."
+
+msgid "Data and file checks"
+msgstr "Comprobación de datos y archivos"
+
+msgid "Back up history, account labels and download records. Downloaded media and auth tokens are not included."
+msgstr "Crea una copia de seguridad del historial, los grupos y etiquetas de las cuentas y los registros de descarga. No incluye los medios descargados ni los auth_token."
+
+msgid "Check downloads"
+msgstr "Comprobar descargas"
+
+msgid "Backup database"
+msgstr "Crear copia de seguridad"
+
+msgid "Restore backup"
+msgstr "Restaurar copia de seguridad"
+
+msgid "Working on database backup…"
+msgstr "Procesando la copia de seguridad de la base de datos…"
+
+msgid "Search accounts"
+msgstr "Buscar cuentas"
+
+msgid "Name or username"
+msgstr "Nombre o usuario"
+
+msgid "Searching…"
+msgstr "Buscando…"
+
+msgid "Search"
+msgstr "Buscar"
+
+msgid "{} followers"
+msgstr "{} seguidores"
+
+msgid "Protected"
+msgstr "Protegida"
+
+msgid "Search for an account by name or username."
+msgstr "Busca una cuenta por nombre o usuario."
+
+msgid "Cut"
+msgstr "Cortar"
+
+msgid "Paste"
+msgstr "Pegar"
+
+msgid "Select all"
+msgstr "Seleccionar todo"
+
+msgid "Database backup created."
+msgstr "Copia de seguridad de la base de datos creada."
+
+msgid "Database restored. A recovery backup was saved in the portable backups folder."
+msgstr "Base de datos restaurada. Se guardó una copia de seguridad de recuperación en la carpeta portátil de copias de seguridad."
+
+msgid "Click an account to fill its username in Home."
+msgstr "Haz clic en una cuenta para usar su nombre de usuario en Inicio."
+
+msgid "Close account search"
+msgstr "Cerrar búsqueda de cuentas"
+
+msgid "Close fetch options"
+msgstr "Cerrar opciones de extracción"
+
+msgid "Yellow"
+msgstr "Amarillo"
+
+msgid "Lime"
+msgstr "Lima"
+
+msgid "Fuchsia"
+msgstr "Fucsia"
+
+msgid "Gray"
+msgstr "Gris"
+
+msgid "Neutral"
+msgstr "Neutro"
+
+msgid "Olive"
+msgstr "Oliva"
+
+msgid "Taupe"
+msgstr "Topo"
+
+msgid "Shade"
+msgstr "Tono"
+
+msgid "Fetch source"
+msgstr "Origen de la extracción"
+
+msgid "Public · Profile / URL"
+msgstr "Público · Perfil / URL"
+
+msgid "Private · My Likes"
+msgstr "Privado · Mis Me gusta"
+
+msgid "Private · My Bookmarks"
+msgstr "Privado · Mis guardados"
+
+msgid "Fetch Likes from the account signed in with your auth_token. Its username is detected automatically."
+msgstr "Extrae los Me gusta de la cuenta asociada a tu auth_token. Su nombre de usuario se detecta automáticamente."
+
+msgid "Bookmarks are private to the account signed in with your auth_token. No username is needed."
+msgstr "Los guardados son privados de la cuenta asociada a tu auth_token. No se necesita nombre de usuario."
+
+msgid "Enter a profile, media, or search URL in Home. Protected posts require access from the account signed in with your auth_token."
+msgstr "Introduce una URL de perfil, medios o búsqueda en Inicio. Las publicaciones protegidas requieren que la cuenta asociada a tu auth_token tenga acceso."
+
+msgid "Set auth_token in Settings before fetching. Private lists cannot use batch accounts or date filters."
+msgstr "Configura el auth_token en Ajustes antes de extraer. Las listas privadas no admiten lotes de cuentas ni filtros de fecha."
+
+msgid "Private lists use a full fetch, so Quick refresh is unavailable."
+msgstr "Las listas privadas usan una extracción completa, por lo que la actualización rápida no está disponible."
+
+msgid "Fetch your Likes using the account signed in with auth_token."
+msgstr "Extrae tus Me gusta con la cuenta asociada al auth_token."
+
+msgid "Fetch your private Bookmarks using the account signed in with auth_token."
+msgstr "Extrae tus guardados privados con la cuenta asociada al auth_token."
+
+msgid "Fetch my Likes"
+msgstr "Extraer mis Me gusta"
+
+msgid "Fetch my Bookmarks"
+msgstr "Extraer mis guardados"
+
+msgid "Reset defaults"
+msgstr "Restablecer valores predeterminados"
+
+msgid "Restore preferences"
+msgstr "Restaurar preferencias"
+
+msgid "Reset all preferences"
+msgstr "Restablecer todas las preferencias"
+
+msgid "Reset all preferences to defaults. Keeps auth_token, history, account labels, tools and downloaded files."
+msgstr "Restablece todas las preferencias a sus valores predeterminados. Conserva el auth_token, el historial, los grupos y etiquetas de las cuentas, las herramientas y los archivos descargados."
+
+msgid "Use portable Downloads folder"
+msgstr "Usar la carpeta portátil Downloads"
+
+msgid "Reset fetch options"
+msgstr "Restablecer opciones de extracción"
+
+msgid "Default settings restored."
+msgstr "Ajustes predeterminados restaurados."
+
+msgid "Could not save default settings. Please try again."
+msgstr "No se pudieron guardar los ajustes predeterminados. Inténtalo de nuevo."
+
+msgid "Could not prepare the portable Downloads folder."
+msgstr "No se pudo preparar la carpeta portátil Downloads."
+
+msgid "Save your X auth_token locally. Up to 10 previous tokens are kept in the portable config.json."
+msgstr "Guarda tu auth_token de X localmente. Se conservan hasta 10 tokens anteriores en el config.json portátil."
+
+msgid "Active token"
+msgstr "Token activo"
+
+msgid "Check active token"
+msgstr "Comprobar token activo"
+
+msgid "Previous auth_tokens"
+msgstr "auth_tokens anteriores"
+
+msgid "Check a previous token, use it as the active token, or remove it from local history."
+msgstr "Comprueba un token anterior, úsalo como token activo o elimínalo del historial local."
+
+msgid "Valid"
+msgstr "Válido"
+
+msgid "Invalid / expired"
+msgstr "Inválido / caducado"
+
+msgid "Temporary error — check again"
+msgstr "Error temporal — vuelve a comprobarlo"
+
+msgid "Could not determine validity"
+msgstr "No se pudo determinar la validez"
+
+msgid "Last checked"
+msgstr "Última comprobación"
+
+msgid "Check"
+msgstr "Comprobar"
+
+msgid "Use"
+msgstr "Usar"
+
+msgid "Remove from token history"
+msgstr "Eliminar del historial de tokens"
+
+msgid "Could not save authentication settings."
+msgstr "No se pudieron guardar los ajustes de autenticación."
+
+msgid "Account profile"
+msgstr "Perfil de la cuenta"
+
+msgid "Cancel"
+msgstr "Cancelar"
+
+msgid "Close"
+msgstr "Cerrar"
+
+msgid "Close session logs"
+msgstr "Cerrar registros de sesión"
+
+msgid "Copy"
+msgstr "Copiar"
+
+msgid "GitHub repository"
+msgstr "Repositorio de GitHub"
+
+msgid "Joined"
+msgstr "Se unió"
+
+msgid "Next"
+msgstr "Siguiente"
+
+msgid "OpenGL (compatibility)"
+msgstr "OpenGL (compatibilidad)"
+
+msgid "Ready"
+msgstr "Listo"
+
+msgid "Result order"
+msgstr "Orden de resultados"
+
+msgid "X/Twitter URL or username"
+msgstr "URL de X/Twitter o nombre de usuario"
+
+msgid "media found"
+msgstr "medios encontrados"
+
+msgid "new"
+msgstr "nuevos"

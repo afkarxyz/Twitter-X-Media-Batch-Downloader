@@ -21,7 +21,6 @@ use crate::fetch::request as fetch_request;
 use crate::fetch::sources as fetch_sources;
 use crate::history::backup as database_backup;
 use crate::history::db as history_db;
-use crate::history::refresh as history_refresh;
 use crate::history::view_model as history_ui;
 use crate::i18n;
 use crate::media::images as remote_images;
@@ -83,6 +82,8 @@ pub async fn run() -> Result<(), crate::ui::runtime::PlatformError> {
     auth_tokens::initialize(&settings);
     let proxy_error = network_proxy::configure(&settings.proxy_url).err();
     network_timeouts::configure(settings.fetch_timeout_secs, settings.http_timeout_secs);
+    crate::fetch::pacing::configure(settings.fetch_delay_ms, settings.fetch_jitter_ms);
+    auth_tokens::set_rotation(settings.rotate_auth_tokens);
     let (active_renderer, renderer_error) =
         renderer_preferences::select_backend(&settings.renderer_mode).map_err(|error| {
             session_log::error(format!("Could not initialize renderer: {error}"));
@@ -182,6 +183,13 @@ pub async fn run() -> Result<(), crate::ui::runtime::PlatformError> {
     }
     {
         let ui = app.as_weak();
+        app.on_apply_fetch_pacing(move |delay, jitter| {
+            ui.upgrade()
+                .is_some_and(|app| crate::fetch::pacing::apply(&app, &delay, &jitter))
+        });
+    }
+    {
+        let ui = app.as_weak();
         app.on_apply_timeouts(move |fetch, http| {
             let Some(app) = ui.upgrade() else {
                 return false;
@@ -207,7 +215,6 @@ pub async fn run() -> Result<(), crate::ui::runtime::PlatformError> {
     }
     app.set_account_profile(downloader::empty_account_profile());
     let ui = app.as_weak();
-    i18n::register(&app);
     app.global::<I18n>().set_language("initializing".into());
     let backend = Arc::new(Mutex::new(downloader::BackendState::default()));
     let preview_player = preview_player::register(&app);
@@ -277,33 +284,6 @@ pub async fn run() -> Result<(), crate::ui::runtime::PlatformError> {
                     }
                 });
             });
-        });
-    }
-    {
-        let ui = ui.clone();
-        let backend = backend.clone();
-        app.on_clear_results(move || {
-            let Some(app) = ui.upgrade() else { return };
-            if app.get_is_busy() {
-                return;
-            }
-            app.set_selected_media_index(-1);
-            *backend.lock().unwrap_or_else(|error| error.into_inner()) =
-                downloader::BackendState::default();
-            app.set_media_items(empty_media_model());
-            app.global::<MediaSelection>().invoke_clear();
-            app.set_media_count(0);
-            app.set_media_count_text("0".into());
-            app.set_account_profile(downloader::empty_account_profile());
-            app.set_has_output(false);
-            app.set_has_more(false);
-            app.set_progress(0.0);
-            app.set_progress_detail("".into());
-            app.set_source_url("".into());
-            app.set_status(i18n::translate(
-                &app.global::<I18n>().get_language(),
-                "Ready for an X/Twitter URL.",
-            ));
         });
     }
 
@@ -413,6 +393,9 @@ pub async fn run() -> Result<(), crate::ui::runtime::PlatformError> {
     app.set_download_speed_kib(settings.download_speed_kib.min(1_048_576) as i32);
     app.set_download_delay_ms(settings.download_delay_ms.min(3_600_000) as i32);
     app.set_download_jitter_ms(settings.download_jitter_ms.min(3_600_000) as i32);
+    app.set_fetch_delay_ms(settings.fetch_delay_ms.min(crate::fetch::pacing::MAX_MS) as i32);
+    app.set_fetch_jitter_ms(settings.fetch_jitter_ms.min(crate::fetch::pacing::MAX_MS) as i32);
+    app.set_rotate_auth_tokens(settings.rotate_auth_tokens);
     let filename_format = if settings.filename_format.trim().is_empty() {
         "{date}_{handle}_{tweet_id}_{index}".to_owned()
     } else {
@@ -451,7 +434,6 @@ pub async fn run() -> Result<(), crate::ui::runtime::PlatformError> {
         history_filter.clone(),
     );
     history_ui::register(&app, history.clone(), history_filter.clone());
-    history_refresh::register(&app, history.clone());
     account_labels::register(&app, history.clone(), history_filter.clone());
     downloads::register(&app, history.clone());
     crate::library::register(
@@ -680,7 +662,6 @@ pub async fn run() -> Result<(), crate::ui::runtime::PlatformError> {
             app.set_media_items(empty_media_model());
             app.global::<MediaSelection>().invoke_clear();
             app.set_media_count(0);
-            app.set_media_count_text("0".into());
             app.set_has_output(false);
             app.set_has_more(false);
             app.set_account_profile(downloader::empty_account_profile());
@@ -708,24 +689,6 @@ pub async fn run() -> Result<(), crate::ui::runtime::PlatformError> {
                 history_filter.clone(),
                 cancel.clone(),
             );
-        });
-    }
-
-    {
-        let ui = ui.clone();
-        app.on_dismiss_status(move || {
-            if let Some(app) = ui.upgrade() {
-                if app.get_is_busy() {
-                    return;
-                }
-                let ready_status = i18n::translate(
-                    &app.global::<I18n>().get_language(),
-                    "Ready for an X/Twitter URL.",
-                );
-                app.set_status(ready_status);
-                app.set_progress(0.0);
-                app.set_progress_detail("".into());
-            }
         });
     }
 
@@ -1350,6 +1313,7 @@ pub async fn run() -> Result<(), crate::ui::runtime::PlatformError> {
                 app.set_filename_preview(downloader::filename_preview(&filename_format));
                 let folder_name_format = app.get_folder_name_format().to_string();
                 app.set_folder_name_preview(downloader::folder_name_preview(&folder_name_format));
+                auth_tokens::set_rotation(app.get_rotate_auth_tokens());
                 downloader::save_settings(settings_from_app(&app));
             }
         });

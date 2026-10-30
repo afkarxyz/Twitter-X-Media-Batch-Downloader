@@ -13,15 +13,15 @@
 
 ## Screenshots
 
-| Home, dark | Home, light |
+| Dark | Light |
 | --- | --- |
 | ![Account profile and fetched media in dark mode](assets/screenshot/dark.png) | ![Account profile with the image filter in light mode](assets/screenshot/light.png) |
 
-| Account search | Batch queue |
+| Account Search | Batch Queue |
 | --- | --- |
 | ![Search accounts dialog listing matching X accounts](assets/screenshot/search.png) | ![Batch queue of three completed accounts](assets/screenshot/batch.png) |
 
-| History | Media preview |
+| History | Media Preview |
 | --- | --- |
 | ![History of fetched accounts with media counts](assets/screenshot/history.png) | ![Media viewer with post details and download actions](assets/screenshot/preview.png) |
 
@@ -32,6 +32,8 @@
 - To install the Chrome extension version, click [**here**](https://chromewebstore.google.com/detail/cboceolmgkoobpfjiojkigmihijfgmdo)
 
 - Also available on the web at [**TwitterDL.app**](https://twitterdl.app)
+
+## Troubleshooting
 
 ### Linux
 

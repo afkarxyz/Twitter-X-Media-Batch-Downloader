@@ -53,7 +53,9 @@ fn planned(current: AppSettings, scope: i32, gpu_supported: bool) -> Option<AppS
             embed_metadata,
             download_speed_kib,
             download_delay_ms,
-            download_jitter_ms
+            download_jitter_ms,
+            fetch_delay_ms,
+            fetch_jitter_ms
         );
     }
     if scope == -1 || scope == 3 {
@@ -177,6 +179,10 @@ pub(crate) fn register_with_writer(app: &AppWindow, write: impl Fn(AppSettings) 
             app.set_download_delay_ms(settings.download_delay_ms as i32);
             app.set_download_jitter_ms(settings.download_jitter_ms as i32);
             app.set_download_limits_error("".into());
+            app.set_fetch_delay_ms(settings.fetch_delay_ms as i32);
+            app.set_fetch_jitter_ms(settings.fetch_jitter_ms as i32);
+            app.set_fetch_pacing_error("".into());
+            crate::fetch::pacing::configure(settings.fetch_delay_ms, settings.fetch_jitter_ms);
         }
         if let Some(output) = output {
             app.set_output_dir(output.to_string_lossy().into_owned());
@@ -238,5 +244,25 @@ mod tests {
         assert!(all.output_dir.is_none());
         assert_eq!(all.renderer_mode, "cpu");
         assert!(planned(current, 1, true).is_none()); // Cookies are deliberately not reset.
+    }
+
+    #[test]
+    fn fetch_pacing_resets_with_the_downloads_category_only() {
+        let current = AppSettings {
+            fetch_delay_ms: 2000,
+            fetch_jitter_ms: 1000,
+            ..Default::default()
+        };
+        let downloads = planned(current.clone(), 2, true).unwrap();
+        assert_eq!(
+            (downloads.fetch_delay_ms, downloads.fetch_jitter_ms),
+            (0, 0)
+        );
+        let all = planned(current.clone(), -1, true).unwrap();
+        assert_eq!((all.fetch_delay_ms, all.fetch_jitter_ms), (0, 0));
+        for scope in [0, 3, 5] {
+            let other = planned(current.clone(), scope, true).unwrap();
+            assert_eq!((other.fetch_delay_ms, other.fetch_jitter_ms), (2000, 1000));
+        }
     }
 }

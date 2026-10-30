@@ -62,6 +62,9 @@ pub(crate) fn settings_from_app(app: &AppWindow) -> downloader::AppSettings {
         download_speed_kib: app.get_download_speed_kib().max(0) as u32,
         download_delay_ms: app.get_download_delay_ms().max(0) as u32,
         download_jitter_ms: app.get_download_jitter_ms().max(0) as u32,
+        fetch_delay_ms: app.get_fetch_delay_ms().max(0) as u32,
+        fetch_jitter_ms: app.get_fetch_jitter_ms().max(0) as u32,
+        rotate_auth_tokens: app.get_rotate_auth_tokens(),
         proxy_url: app.get_proxy_url().to_string(),
     }
 }

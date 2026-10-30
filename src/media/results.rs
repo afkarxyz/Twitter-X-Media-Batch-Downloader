@@ -146,12 +146,7 @@ pub fn find(items: &ModelRc<MediaItem>, index: i32) -> Option<MediaItem> {
 }
 
 pub fn register(app: &AppWindow) {
-    app.global::<MediaResults>()
-        .on_matches_kind(|item, kind| matches_kind(&item, &kind));
-    app.global::<MediaResults>()
-        .on_toggle_kind(|current, kind| toggle_kind(&current, &kind));
     let selection = app.global::<MediaSelection>();
-    selection.on_is_selected(|indices, index| indices.iter().any(|value| value == index));
     selection.on_all_selected(|indices, items, kind| {
         if indices.row_count() == 0 {
             return false;
@@ -227,8 +222,6 @@ pub fn register(app: &AppWindow) {
         set_selection(&selection, values);
     });
     let results = app.global::<MediaResults>();
-    results.on_filter(|items, kind, limit| filter(&items, kind.as_str(), limit));
-    results.on_ordered(|items, kind, limit, order| ordered(&items, kind.as_str(), limit, order));
     let counts = Rc::new(RefCell::new(Counts::default()));
     results.on_count({
         let counts = counts.clone();
@@ -263,13 +256,6 @@ pub fn register(app: &AppWindow) {
             }
         });
         position
-    });
-    results.on_at(|items, position| {
-        if position < 0 {
-            MediaItem::default()
-        } else {
-            items.row_data(position as usize).unwrap_or_default()
-        }
     });
 }
 

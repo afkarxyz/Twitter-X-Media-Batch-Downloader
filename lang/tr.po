@@ -1,17 +1,8 @@
 msgid ""
-msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.0\nLanguage: tr\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=2; plural=(n != 1);\n"
+msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.1\nLanguage: tr\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=2; plural=(n != 1);\n"
 
 msgid "Ready for an X/Twitter URL."
 msgstr "X/Twitter URL’si için hazır."
-
-msgid "On"
-msgstr "Açık"
-
-msgid "Off"
-msgstr "Kapalı"
-
-msgid "Select"
-msgstr "Seç"
 
 msgid "Home"
 msgstr "Ana Sayfa"
@@ -21,9 +12,6 @@ msgstr "Ayarlar"
 
 msgid "Theme"
 msgstr "Tema"
-
-msgid "Color scheme"
-msgstr "Renk şeması"
 
 msgid "System"
 msgstr "Sistem"
@@ -36,9 +24,6 @@ msgstr "Açık"
 
 msgid "Palette"
 msgstr "Palet"
-
-msgid "Default"
-msgstr "Varsayılan"
 
 msgid "Teal"
 msgstr "Turkuaz"
@@ -87,15 +72,6 @@ msgstr "Pembe"
 
 msgid "Saved"
 msgstr "Kaydedildi"
-
-msgid "Primary"
-msgstr "Birincil"
-
-msgid "Canvas"
-msgstr "Tuval"
-
-msgid "Surface"
-msgstr "Yüzey"
 
 msgid "Text"
 msgstr "Metin"
@@ -150,9 +126,6 @@ msgstr "İndirilenler"
 
 msgid "Storage"
 msgstr "Depolama"
-
-msgid "Interface"
-msgstr "Arayüz"
 
 msgid "Display language"
 msgstr "Görüntüleme dili"
@@ -226,9 +199,6 @@ msgstr "Temizle"
 msgid "Extraction defaults"
 msgstr "Çıkarma varsayılanları"
 
-msgid "Media type"
-msgstr "Medya türü"
-
 msgid "All media"
 msgstr "Tüm medya"
 
@@ -252,9 +222,6 @@ msgstr "Orijinal"
 
 msgid "Exclude videos"
 msgstr "Videoları hariç tut"
-
-msgid "Include text-only posts"
-msgstr "Yalnızca metin içeren gönderileri dahil et"
 
 msgid "Download folder"
 msgstr "İndirme klasörü"
@@ -367,9 +334,6 @@ msgstr "GIF"
 
 msgid "Failed"
 msgstr "Başarısız"
-
-msgid "Load more"
-msgstr "Daha fazla yükle"
 
 msgid "Nothing in this filter."
 msgstr "Bu filtrede medya yok."
@@ -534,88 +498,88 @@ msgid "Clear fetch history?"
 msgstr "Getirme geçmişi temizlensin mi?"
 
 msgid "Buy Me a Coffee"
-msgstr ""
+msgstr "Bana bir kahve ısmarla"
 
 msgid "Support"
 msgstr "Destek"
 
 msgid "Scan the QR code or copy the address to support the project."
-msgstr ""
+msgstr "Projeyi desteklemek için QR kodunu tarayın veya adresi kopyalayın."
 
 msgid "Network"
-msgstr ""
+msgstr "Ağ"
 
 msgid "Copy wallet address"
-msgstr ""
+msgstr "Cüzdan adresini kopyala"
 
 msgid "Wallet address copied."
-msgstr ""
+msgstr "Cüzdan adresi kopyalandı."
 
 msgid "Could not copy wallet address."
-msgstr ""
+msgstr "Cüzdan adresi kopyalanamadı."
 
 msgid "Free space"
-msgstr ""
+msgstr "Boş alan"
 
 msgid "Download folder usage"
-msgstr ""
+msgstr "İndirme klasörü kullanımı"
 
 msgid "Calculating…"
-msgstr ""
+msgstr "Hesaplanıyor…"
 
 msgid "{} total on drive"
-msgstr ""
+msgstr "Sürücüde toplam {}"
 
 msgid "{} files"
-msgstr ""
+msgstr "{} dosya"
 
 msgid "Some files could not be read."
-msgstr ""
+msgstr "Bazı dosyalar okunamadı."
 
 msgid "Counts final files in the selected folder, including subfolders."
-msgstr ""
+msgstr "Seçili klasördeki tamamlanmış dosyaları alt klasörler dahil sayar."
 
 msgid "Refresh"
-msgstr ""
+msgstr "Yenile"
 
 msgid "Retry FFmpeg download"
-msgstr ""
+msgstr "FFmpeg indirmesini yeniden dene"
 
 msgid "Checking FFmpeg…"
-msgstr ""
+msgstr "FFmpeg kontrol ediliyor…"
 
 msgid "Downloading FFmpeg…"
-msgstr ""
+msgstr "FFmpeg indiriliyor…"
 
 msgid "Installing FFmpeg…"
-msgstr ""
+msgstr "FFmpeg yükleniyor…"
 
 msgid "Fetch sessions"
-msgstr ""
+msgstr "Getirme oturumları"
 
 msgid "View fetch sessions"
-msgstr ""
+msgstr "Getirme oturumlarını görüntüle"
 
 msgid "{} fetch sessions"
-msgstr ""
+msgstr "{} getirme oturumu"
 
 msgid "1 fetch session"
-msgstr ""
+msgstr "1 getirme oturumu"
 
 msgid "All fetch sessions in this group will be removed. Downloaded files will remain in your folder."
-msgstr ""
+msgstr "Bu gruptaki tüm getirme oturumları kaldırılacak. İndirilen dosyalar klasörünüzde kalacak."
 
 msgid "Zinc"
-msgstr ""
+msgstr "Çinko"
 
 msgid "Stone"
-msgstr ""
+msgstr "Taş"
 
 msgid "Mauve"
-msgstr ""
+msgstr "Leylak"
 
 msgid "Mist"
-msgstr ""
+msgstr "Sis"
 
 msgid "Drive storage"
 msgstr "Sürücü depolama alanı"
@@ -985,3 +949,642 @@ msgstr "Kaydedilen medya yüklenemedi."
 
 msgid "Preparing downloads…"
 msgstr "İndirmeler hazırlanıyor…"
+
+msgid "Fetch pacing"
+msgstr "Getirme aralığı"
+
+msgid "Waits after each fetch page before requesting the next one, also between batch accounts and on retries. 0 disables it."
+msgstr "Her getirme sayfasından sonra bir sonrakini istemeden önce bekler; toplu hesaplar arasında ve yeniden denemelerde de geçerlidir. 0 devre dışı bırakır."
+
+msgid "Delay between fetch pages (ms)"
+msgstr "Getirme sayfaları arası bekleme (ms)"
+
+msgid "Random extra fetch delay (ms)"
+msgstr "Rastgele ek getirme beklemesi (ms)"
+
+msgid "If fetches get rate limited, start around 2000 ms with 1000 ms extra."
+msgstr "Getirmeler hız sınırına takılırsa yaklaşık 2000 ms ve 1000 ms ek bekleme ile başlayın."
+
+msgid "Enter whole numbers from 0 to 3600000 ms."
+msgstr "0 ile 3600000 ms arasında tam sayı girin."
+
+msgid "Switch tokens when rate limited"
+msgstr "Hız sınırına takılınca token değiştir"
+
+msgid "When X rate limits a fetch, continue with the next saved token that is not invalid or cooling down. That token becomes the active one."
+msgstr "X bir getirmeyi sınırladığında, geçersiz olmayan ve beklemede olmayan bir sonraki kayıtlı token ile devam eder. Bu token etkin token olur."
+
+msgid "New"
+msgstr "Yeni"
+
+msgid "Convert downloaded GIFs"
+msgstr "İndirilen GIF’leri dönüştür"
+
+msgid "Convert {} GIF MP4 files from this download batch."
+msgstr "Bu toplu indirmedeki {} GIF MP4 dosyasını dönüştür."
+
+msgid "Conversion mode"
+msgstr "Dönüştürme modu"
+
+msgid "Resolution"
+msgstr "Çözünürlük"
+
+msgid "Keep original MP4 files"
+msgstr "Orijinal MP4 dosyalarını sakla"
+
+msgid "Downloads will list both the GIF and its original MP4."
+msgstr "İndirilenler listesinde hem GIF hem de orijinal MP4 gösterilecek."
+
+msgid "Original MP4 files are removed only after conversion and history saving succeed."
+msgstr "Orijinal MP4 dosyaları yalnızca dönüştürme ve geçmiş kaydı başarılı olduktan sonra kaldırılır."
+
+msgid "Convert"
+msgstr "Dönüştür"
+
+msgid "Convert GIFs"
+msgstr "GIF’leri dönüştür"
+
+msgid "{} GIF MP4 files"
+msgstr "{} GIF MP4 dosyası"
+
+msgid "Stop"
+msgstr "Durdur"
+
+msgid "Post date/time use UTC. Date uses the download date. Unknown post dates use unknown. The extension is added automatically."
+msgstr "Gönderi tarihi/saati UTC kullanır. Tarih, indirme tarihini kullanır. Tarihi bilinmeyen gönderilerde unknown kullanılır. Uzantı otomatik olarak eklenir."
+
+msgid "Fetch order"
+msgstr "Getirme sırası"
+
+msgid "Newest first"
+msgstr "Önce en yeni"
+
+msgid "Oldest first"
+msgstr "Önce en eski"
+
+msgid "Grid view"
+msgstr "Izgara görünümü"
+
+msgid "List view"
+msgstr "Liste görünümü"
+
+msgid "Diagnostics"
+msgstr "Tanılama"
+
+msgid "Session logs are stored in the portable data folder."
+msgstr "Oturum günlükleri taşınabilir veri klasöründe saklanır."
+
+msgid "Open logs"
+msgstr "Günlükleri aç"
+
+msgid "Copy error details"
+msgstr "Hata ayrıntılarını kopyala"
+
+msgid "Error details copied."
+msgstr "Hata ayrıntıları kopyalandı."
+
+msgid "Could not copy error details."
+msgstr "Hata ayrıntıları kopyalanamadı."
+
+msgid "Could not open the logs folder."
+msgstr "Günlük klasörü açılamadı."
+
+msgid "The saved batch queue could not be restored. Its file has been preserved."
+msgstr "Kaydedilen toplu işlem kuyruğu geri yüklenemedi. Dosyası korundu."
+
+msgid "Download organization and limits"
+msgstr "İndirme düzeni ve sınırları"
+
+msgid "Separate media folders"
+msgstr "Ayrı medya klasörleri"
+
+msgid "Store media in Image, Video and GIF subfolders inside each account folder."
+msgstr "Medyayı her hesap klasöründeki Image, Video ve GIF alt klasörlerinde sakla."
+
+msgid "Total speed limit (KiB/s)"
+msgstr "Toplam hız sınırı (KiB/s)"
+
+msgid "Delay between requests (ms)"
+msgstr "İstekler arası bekleme (ms)"
+
+msgid "0 disables the limit. The speed budget is shared by parallel downloads."
+msgstr "0 sınırı devre dışı bırakır. Hız bütçesi paralel indirmeler arasında paylaşılır."
+
+msgid "Cancel selection"
+msgstr "Seçimi iptal et"
+
+msgid "Select accounts"
+msgstr "Hesapları seç"
+
+msgid "Select visible"
+msgstr "Görünenleri seç"
+
+msgid "Update selected ({})"
+msgstr "Seçilenleri güncelle ({})"
+
+msgid "Each account keeps its saved fetch filters."
+msgstr "Her hesap kayıtlı getirme filtrelerini korur."
+
+msgid "Embed post metadata"
+msgstr "Gönderi meta verilerini göm"
+
+msgid "Write the post URL, original media name and post text into JPG/MP4 comments."
+msgstr "Gönderi URL’sini, orijinal medya adını ve gönderi metnini JPG/MP4 yorumlarına yaz."
+
+msgid "ExifTool is downloaded into the portable data folder when missing. Applies to new JPG/MP4 downloads; converted GIFs are excluded."
+msgstr "ExifTool eksikse taşınabilir veri klasörüne indirilir. Yeni JPG/MP4 indirmeleri için geçerlidir; dönüştürülen GIF’ler hariçtir."
+
+msgid "All groups"
+msgstr "Tüm gruplar"
+
+msgid "Group"
+msgstr "Grup"
+
+msgid "Tags, separated by commas"
+msgstr "Virgülle ayrılmış etiketler"
+
+msgid "Assign group and tags"
+msgstr "Grup ve etiket ata"
+
+msgid "Replace labels for selected accounts. Empty fields clear existing labels."
+msgstr "Seçili hesapların etiketlerini değiştirin. Boş alanlar mevcut etiketleri temizler."
+
+msgid "Filter group"
+msgstr "Grup filtresi"
+
+msgid "Export accounts TXT"
+msgstr "Hesapları TXT olarak dışa aktar"
+
+msgid "Account groups and tags saved."
+msgstr "Hesap grupları ve etiketleri kaydedildi."
+
+msgid "Account list exported."
+msgstr "Hesap listesi dışa aktarıldı."
+
+msgid "No accounts to export."
+msgstr "Dışa aktarılacak hesap yok."
+
+msgid "Group names must be at most 64 characters."
+msgstr "Grup adları en fazla 64 karakter olabilir."
+
+msgid "Tags must be at most 40 characters."
+msgstr "Etiketler en fazla 40 karakter olabilir."
+
+msgid "Use at most 16 tags per account."
+msgstr "Hesap başına en fazla 16 etiket kullanın."
+
+msgid "Select accounts first."
+msgstr "Önce hesapları seçin."
+
+msgid "Network timeouts"
+msgstr "Ağ zaman aşımları"
+
+msgid "Fetch page timeout (seconds)"
+msgstr "Getirme sayfası zaman aşımı (saniye)"
+
+msgid "HTTP read timeout (seconds)"
+msgstr "HTTP okuma zaman aşımı (saniye)"
+
+msgid "5–3600 seconds. HTTP applies to downloads, previews and thumbnails."
+msgstr "5–3600 saniye. HTTP; indirmeler, önizlemeler ve küçük resimler için geçerlidir."
+
+msgid "Enter timeout values from 5 to 3600 seconds."
+msgstr "5 ile 3600 saniye arasında zaman aşımı değerleri girin."
+
+msgid "Application and tool updates"
+msgstr "Uygulama ve araç güncellemeleri"
+
+msgid "Checking…"
+msgstr "Kontrol ediliyor…"
+
+msgid "Application"
+msgstr "Uygulama"
+
+msgid "Update available"
+msgstr "Güncelleme mevcut"
+
+msgid "Up to date"
+msgstr "Güncel"
+
+msgid "Installed version is newer than the published release"
+msgstr "Yüklü sürüm yayımlanan sürümden daha yeni"
+
+msgid "Version could not be compared"
+msgstr "Sürüm karşılaştırılamadı"
+
+msgid "Open release"
+msgstr "Sürümü aç"
+
+msgid "View logs"
+msgstr "Günlükleri görüntüle"
+
+msgid "Session logs"
+msgstr "Oturum günlükleri"
+
+msgid "Session"
+msgstr "Oturum"
+
+msgid "Session log contents"
+msgstr "Oturum günlüğü içeriği"
+
+msgid "Export log"
+msgstr "Günlüğü dışa aktar"
+
+msgid "Random extra delay (ms)"
+msgstr "Rastgele ek bekleme (ms)"
+
+msgid "Adds a random 0 to this many milliseconds between download requests, including retries. 0 disables jitter."
+msgstr "Yeniden denemeler dahil, indirme istekleri arasına 0 ile bu değer arasında rastgele milisaniye ekler. 0 rastgele beklemeyi devre dışı bırakır."
+
+msgid "Showing the latest 256 KiB. Export saves the full session log."
+msgstr "Son 256 KiB gösteriliyor. Dışa aktarma, oturum günlüğünün tamamını kaydeder."
+
+msgid "No session logs yet."
+msgstr "Henüz oturum günlüğü yok."
+
+msgid "This session log is empty."
+msgstr "Bu oturum günlüğü boş."
+
+msgid "Displayed log copied."
+msgstr "Görüntülenen günlük kopyalandı."
+
+msgid "Session log exported."
+msgstr "Oturum günlüğü dışa aktarıldı."
+
+msgid "Enter whole numbers: speed 0–1048576 KiB/s, delay/jitter 0–3600000 ms."
+msgstr "Tam sayı girin: hız 0–1048576 KiB/s, bekleme/rastgele bekleme 0–3600000 ms."
+
+msgid "Merged archive"
+msgstr "Birleştirilmiş arşiv"
+
+msgid "Media types"
+msgstr "Medya türleri"
+
+msgid "Choose one or more media types. Result filters can also be combined."
+msgstr "Bir veya daha fazla medya türü seçin. Sonuç filtreleri de birleştirilebilir."
+
+msgid "Show text-only posts as cards and save them as UTF-8 TXT files."
+msgstr "Yalnızca metin içeren gönderileri kart olarak göster ve UTF-8 TXT dosyaları olarak kaydet."
+
+msgid "Download text"
+msgstr "Metni indir"
+
+msgid "Select at least one media type or enable text posts."
+msgstr "En az bir medya türü seçin veya metin gönderilerini etkinleştirin."
+
+msgid "Manual proxy"
+msgstr "Manuel proxy"
+
+msgid "Proxy URL"
+msgstr "Proxy URL’si"
+
+msgid "Proxy settings saved."
+msgstr "Proxy ayarları kaydedildi."
+
+msgid "Update / Reinstall FFmpeg"
+msgstr "FFmpeg’i güncelle / yeniden yükle"
+
+msgid "Update / Reinstall ExifTool"
+msgstr "ExifTool’u güncelle / yeniden yükle"
+
+msgid "Install the latest tools in the portable data folder. Existing system installations are preserved."
+msgstr "En yeni araçları taşınabilir veri klasörüne yükleyin. Mevcut sistem kurulumları korunur."
+
+msgid "HTTP, HTTPS, SOCKS5 and SOCKS5H. Empty uses the system/environment proxy. Local preview traffic stays local."
+msgstr "HTTP, HTTPS, SOCKS5 ve SOCKS5H. Boş bırakılırsa sistem/ortam proxy’si kullanılır. Yerel önizleme trafiği yerel kalır."
+
+msgid "Enter a full HTTP, HTTPS, SOCKS5 or SOCKS5H proxy URL."
+msgstr "Tam bir HTTP, HTTPS, SOCKS5 veya SOCKS5H proxy URL’si girin."
+
+msgid "Use an HTTP, HTTPS, SOCKS5 or SOCKS5H proxy URL without a path, query or fragment."
+msgstr "Yol, sorgu veya parça içermeyen bir HTTP, HTTPS, SOCKS5 ya da SOCKS5H proxy URL’si kullanın."
+
+msgid "A SOCKS proxy requires a port."
+msgstr "SOCKS proxy’si bir bağlantı noktası gerektirir."
+
+msgid "Alt text"
+msgstr "Alternatif metin"
+
+msgid "Quotes"
+msgstr "Alıntılar"
+
+msgid "Bookmarks"
+msgstr "Yer işaretleri"
+
+msgid "Group color"
+msgstr "Grup rengi"
+
+msgid "Default color"
+msgstr "Varsayılan renk"
+
+msgid "Choose a valid group color."
+msgstr "Geçerli bir grup rengi seçin."
+
+msgid "Live: On"
+msgstr "Canlı: Açık"
+
+msgid "Live: Off"
+msgstr "Canlı: Kapalı"
+
+msgid "Auto-scroll: On"
+msgstr "Otomatik kaydırma: Açık"
+
+msgid "Auto-scroll: Off"
+msgstr "Otomatik kaydırma: Kapalı"
+
+msgid "Export errors"
+msgstr "Hataları dışa aktar"
+
+msgid "Live refreshes every second. Copy uses the displayed text."
+msgstr "Canlı mod her saniye yenilenir. Kopyalama, görüntülenen metni kullanır."
+
+msgid "Notify about updates on startup"
+msgstr "Başlangıçta güncellemeleri bildir"
+
+msgid "Check for a new stable application release when the app opens."
+msgstr "Uygulama açıldığında yeni bir kararlı sürüm olup olmadığını kontrol et."
+
+msgid "Later"
+msgstr "Daha sonra"
+
+msgid "Version {} is available. Open the release page to download it."
+msgstr "Sürüm {} mevcut. İndirmek için sürüm sayfasını açın."
+
+msgid "Quick refresh"
+msgstr "Hızlı yenileme"
+
+msgid "Stop after reaching saved data. Turn off for a full fetch. Reposts and private lists always use a full fetch."
+msgstr "Kayıtlı verilere ulaşıldığında dur. Tam getirme için kapatın. Yeniden paylaşımlar ve özel listeler her zaman tam olarak getirilir."
+
+msgid "Choose 1–50 downloads, or Auto: images 8, video/GIF 3, mixed 10."
+msgstr "1–50 indirme seçin veya Otomatik: görseller 8, video/GIF 3, karışık 10."
+
+msgid "Auto"
+msgstr "Otomatik"
+
+msgid "Check downloaded files"
+msgstr "İndirilen dosyaları kontrol et"
+
+msgid "Quick checks presence and recorded size. Deep also compares SHA-256. Older files without a checksum remain unverified."
+msgstr "Hızlı kontrol, dosyanın varlığını ve kayıtlı boyutunu denetler. Derin kontrol ayrıca SHA-256 karşılaştırır. Sağlama toplamı olmayan eski dosyalar doğrulanmamış kalır."
+
+msgid "Quick check"
+msgstr "Hızlı kontrol"
+
+msgid "Deep check"
+msgstr "Derin kontrol"
+
+msgid "Check files"
+msgstr "Dosyaları kontrol et"
+
+msgid "Empty file"
+msgstr "Boş dosya"
+
+msgid "Size mismatch"
+msgstr "Boyut uyuşmazlığı"
+
+msgid "Restore database backup?"
+msgstr "Veritabanı yedeği geri yüklensin mi?"
+
+msgid "Restore"
+msgstr "Geri yükle"
+
+msgid "This replaces current history, account labels and download records. Media files and authentication settings stay as they are. A recovery backup is created first."
+msgstr "Bu işlem mevcut geçmişi, hesap etiketlerini ve indirme kayıtlarını değiştirir. Medya dosyaları ve kimlik doğrulama ayarları olduğu gibi kalır. Önce bir kurtarma yedeği oluşturulur."
+
+msgid "Data and file checks"
+msgstr "Veri ve dosya kontrolleri"
+
+msgid "Back up history, account labels and download records. Downloaded media and auth tokens are not included."
+msgstr "Geçmişi, hesap etiketlerini ve indirme kayıtlarını yedekleyin. İndirilen medya ve kimlik doğrulama token’ları dahil değildir."
+
+msgid "Check downloads"
+msgstr "İndirmeleri kontrol et"
+
+msgid "Backup database"
+msgstr "Veritabanını yedekle"
+
+msgid "Restore backup"
+msgstr "Yedeği geri yükle"
+
+msgid "Working on database backup…"
+msgstr "Veritabanı yedeği üzerinde çalışılıyor…"
+
+msgid "Search accounts"
+msgstr "Hesap ara"
+
+msgid "Name or username"
+msgstr "Ad veya kullanıcı adı"
+
+msgid "Searching…"
+msgstr "Aranıyor…"
+
+msgid "Search"
+msgstr "Ara"
+
+msgid "{} followers"
+msgstr "{} takipçi"
+
+msgid "Protected"
+msgstr "Korumalı"
+
+msgid "Search for an account by name or username."
+msgstr "Ad veya kullanıcı adına göre bir hesap arayın."
+
+msgid "Cut"
+msgstr "Kes"
+
+msgid "Paste"
+msgstr "Yapıştır"
+
+msgid "Select all"
+msgstr "Tümünü seç"
+
+msgid "Database backup created."
+msgstr "Veritabanı yedeği oluşturuldu."
+
+msgid "Database restored. A recovery backup was saved in the portable backups folder."
+msgstr "Veritabanı geri yüklendi. Taşınabilir yedekler klasörüne bir kurtarma yedeği kaydedildi."
+
+msgid "Click an account to fill its username in Home."
+msgstr "Kullanıcı adını Ana Sayfa'ya doldurmak için bir hesaba tıklayın."
+
+msgid "Close account search"
+msgstr "Hesap aramasını kapat"
+
+msgid "Close fetch options"
+msgstr "Getirme seçeneklerini kapat"
+
+msgid "Yellow"
+msgstr "Sarı"
+
+msgid "Lime"
+msgstr "Limon yeşili"
+
+msgid "Fuchsia"
+msgstr "Fuşya"
+
+msgid "Gray"
+msgstr "Gri"
+
+msgid "Neutral"
+msgstr "Nötr"
+
+msgid "Olive"
+msgstr "Zeytin"
+
+msgid "Taupe"
+msgstr "Vizon"
+
+msgid "Shade"
+msgstr "Gölge"
+
+msgid "Fetch source"
+msgstr "Getirme kaynağı"
+
+msgid "Public · Profile / URL"
+msgstr "Herkese açık · Profil / URL"
+
+msgid "Private · My Likes"
+msgstr "Özel · Beğenilerim"
+
+msgid "Private · My Bookmarks"
+msgstr "Özel · Yer işaretlerim"
+
+msgid "Fetch Likes from the account signed in with your auth_token. Its username is detected automatically."
+msgstr "auth_token’ınızla oturum açılmış hesabın Beğenilerini getirin. Kullanıcı adı otomatik olarak algılanır."
+
+msgid "Bookmarks are private to the account signed in with your auth_token. No username is needed."
+msgstr "Yer işaretleri, auth_token’ınızla oturum açılmış hesaba özeldir. Kullanıcı adı gerekmez."
+
+msgid "Enter a profile, media, or search URL in Home. Protected posts require access from the account signed in with your auth_token."
+msgstr "Ana Sayfa'ya bir profil, medya veya arama URL’si girin. Korumalı gönderiler, auth_token’ınızla oturum açılmış hesabın erişimini gerektirir."
+
+msgid "Set auth_token in Settings before fetching. Private lists cannot use batch accounts or date filters."
+msgstr "Getirmeden önce Ayarlar'da auth_token ayarlayın. Özel listeler toplu hesapları veya tarih filtrelerini kullanamaz."
+
+msgid "Private lists use a full fetch, so Quick refresh is unavailable."
+msgstr "Özel listeler tam getirme kullandığından Hızlı yenileme kullanılamaz."
+
+msgid "Fetch your Likes using the account signed in with auth_token."
+msgstr "auth_token ile oturum açılmış hesabı kullanarak Beğenilerinizi getirin."
+
+msgid "Fetch your private Bookmarks using the account signed in with auth_token."
+msgstr "auth_token ile oturum açılmış hesabı kullanarak özel Yer işaretlerinizi getirin."
+
+msgid "Fetch my Likes"
+msgstr "Beğenilerimi getir"
+
+msgid "Fetch my Bookmarks"
+msgstr "Yer işaretlerimi getir"
+
+msgid "Reset defaults"
+msgstr "Varsayılanlara sıfırla"
+
+msgid "Restore preferences"
+msgstr "Tercihleri geri yükle"
+
+msgid "Reset all preferences"
+msgstr "Tüm tercihleri sıfırla"
+
+msgid "Reset all preferences to defaults. Keeps auth_token, history, account labels, tools and downloaded files."
+msgstr "Tüm tercihleri varsayılanlara sıfırlayın. auth_token, geçmiş, hesap etiketleri, araçlar ve indirilen dosyalar korunur."
+
+msgid "Use portable Downloads folder"
+msgstr "Taşınabilir Downloads klasörünü kullan"
+
+msgid "Reset fetch options"
+msgstr "Getirme seçeneklerini sıfırla"
+
+msgid "Default settings restored."
+msgstr "Varsayılan ayarlar geri yüklendi."
+
+msgid "Could not save default settings. Please try again."
+msgstr "Varsayılan ayarlar kaydedilemedi. Lütfen tekrar deneyin."
+
+msgid "Could not prepare the portable Downloads folder."
+msgstr "Taşınabilir Downloads klasörü hazırlanamadı."
+
+msgid "Save your X auth_token locally. Up to 10 previous tokens are kept in the portable config.json."
+msgstr "X auth_token’ınızı yerel olarak kaydedin. Önceki en fazla 10 token taşınabilir config.json dosyasında tutulur."
+
+msgid "Active token"
+msgstr "Etkin token"
+
+msgid "Check active token"
+msgstr "Etkin token’ı kontrol et"
+
+msgid "Previous auth_tokens"
+msgstr "Önceki auth_token’lar"
+
+msgid "Check a previous token, use it as the active token, or remove it from local history."
+msgstr "Önceki bir token’ı kontrol edin, etkin token olarak kullanın veya yerel geçmişten kaldırın."
+
+msgid "Valid"
+msgstr "Geçerli"
+
+msgid "Invalid / expired"
+msgstr "Geçersiz / süresi dolmuş"
+
+msgid "Temporary error — check again"
+msgstr "Geçici hata — tekrar kontrol edin"
+
+msgid "Could not determine validity"
+msgstr "Geçerlilik belirlenemedi"
+
+msgid "Last checked"
+msgstr "Son kontrol"
+
+msgid "Check"
+msgstr "Kontrol et"
+
+msgid "Use"
+msgstr "Kullan"
+
+msgid "Remove from token history"
+msgstr "Token geçmişinden kaldır"
+
+msgid "Could not save authentication settings."
+msgstr "Kimlik doğrulama ayarları kaydedilemedi."
+
+msgid "Account profile"
+msgstr "Hesap profili"
+
+msgid "Cancel"
+msgstr "İptal"
+
+msgid "Close"
+msgstr "Kapat"
+
+msgid "Close session logs"
+msgstr "Oturum günlüklerini kapat"
+
+msgid "Copy"
+msgstr "Kopyala"
+
+msgid "GitHub repository"
+msgstr "GitHub deposu"
+
+msgid "Joined"
+msgstr "Katıldı"
+
+msgid "Next"
+msgstr "Sonraki"
+
+msgid "OpenGL (compatibility)"
+msgstr "OpenGL (uyumluluk)"
+
+msgid "Ready"
+msgstr "Hazır"
+
+msgid "Result order"
+msgstr "Sonuç sırası"
+
+msgid "X/Twitter URL or username"
+msgstr "X/Twitter URL’si veya kullanıcı adı"
+
+msgid "media found"
+msgstr "medya bulundu"
+
+msgid "new"
+msgstr "yeni"

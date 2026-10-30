@@ -264,7 +264,6 @@ pub(crate) fn spawn_extraction_job(
                                 downloader::to_ui_model(&ui_candidates)
                             });
                             app.set_media_count(media_count as i32);
-                            app.set_media_count_text(media_count.to_string());
                             app.set_has_output(true);
                             app.set_has_more(has_more);
                         }

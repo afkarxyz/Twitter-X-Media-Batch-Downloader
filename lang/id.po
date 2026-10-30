@@ -1,17 +1,8 @@
 msgid ""
-msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.0\nLanguage: id\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=1; plural=0;\n"
+msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.1\nLanguage: id\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=1; plural=0;\n"
 
 msgid "Ready for an X/Twitter URL."
 msgstr "Siap menerima URL X/Twitter."
-
-msgid "On"
-msgstr "Aktif"
-
-msgid "Off"
-msgstr "Nonaktif"
-
-msgid "Select"
-msgstr "Pilih"
 
 msgid "Home"
 msgstr "Beranda"
@@ -21,9 +12,6 @@ msgstr "Pengaturan"
 
 msgid "Theme"
 msgstr "Tema"
-
-msgid "Color scheme"
-msgstr "Skema warna"
 
 msgid "System"
 msgstr "Sistem"
@@ -36,9 +24,6 @@ msgstr "Terang"
 
 msgid "Palette"
 msgstr "Palet"
-
-msgid "Default"
-msgstr "Bawaan"
 
 msgid "Teal"
 msgstr "Toska"
@@ -87,15 +72,6 @@ msgstr "Merah muda"
 
 msgid "Saved"
 msgstr "Tersimpan"
-
-msgid "Primary"
-msgstr "Warna utama"
-
-msgid "Canvas"
-msgstr "Latar"
-
-msgid "Surface"
-msgstr "Permukaan"
 
 msgid "Text"
 msgstr "Teks"
@@ -150,9 +126,6 @@ msgstr "Unduhan"
 
 msgid "Storage"
 msgstr "Penyimpanan"
-
-msgid "Interface"
-msgstr "Antarmuka"
 
 msgid "Display language"
 msgstr "Bahasa tampilan"
@@ -226,9 +199,6 @@ msgstr "Hapus"
 msgid "Extraction defaults"
 msgstr "Pengaturan ekstraksi"
 
-msgid "Media type"
-msgstr "Jenis media"
-
 msgid "All media"
 msgstr "Semua media"
 
@@ -252,9 +222,6 @@ msgstr "Asli"
 
 msgid "Exclude videos"
 msgstr "Kecualikan video"
-
-msgid "Include text-only posts"
-msgstr "Sertakan post tanpa media"
 
 msgid "Download folder"
 msgstr "Folder unduhan"
@@ -367,9 +334,6 @@ msgstr "GIF"
 
 msgid "Failed"
 msgstr "Gagal"
-
-msgid "Load more"
-msgstr "Muat lagi"
 
 msgid "Nothing in this filter."
 msgstr "Tidak ada media dalam filter ini."
@@ -792,7 +756,7 @@ msgid "View results"
 msgstr "Lihat hasil"
 
 msgid "Queued"
-msgstr "Antre"
+msgstr "Dalam antrean"
 
 msgid "Fetching"
 msgstr "Sedang fetch"
@@ -949,9 +913,6 @@ msgstr "Perbarui pilihan ({})"
 
 msgid "Each account keeps its saved fetch filters."
 msgstr "Tiap akun memakai filter fetch yang tersimpan."
-
-msgid "Select 1–100 account fetches to update."
-msgstr "Pilih 1–100 fetch akun untuk diperbarui."
 
 msgid "Embed post metadata"
 msgstr "Sematkan metadata posting"
@@ -1130,9 +1091,6 @@ msgstr "Gunakan URL proxy HTTP, HTTPS, SOCKS5 atau SOCKS5H tanpa path, query ata
 msgid "A SOCKS proxy requires a port."
 msgstr "Proxy SOCKS memerlukan port."
 
-msgid "Repost"
-msgstr "Repost"
-
 msgid "Alt text"
 msgstr "Teks alternatif"
 
@@ -1233,7 +1191,7 @@ msgid "Check downloads"
 msgstr "Periksa download"
 
 msgid "Backup database"
-msgstr "Backup database"
+msgstr "Cadangkan database"
 
 msgid "Restore backup"
 msgstr "Pulihkan backup"
@@ -1287,22 +1245,22 @@ msgid "Close fetch options"
 msgstr "Tutup opsi fetch"
 
 msgid "Yellow"
-msgstr "Yellow"
+msgstr "Kuning"
 
 msgid "Lime"
-msgstr "Lime"
+msgstr "Limau"
 
 msgid "Fuchsia"
-msgstr "Fuchsia"
+msgstr "Fuksia"
 
 msgid "Gray"
-msgstr "Gray"
+msgstr "Abu-abu"
 
 msgid "Neutral"
-msgstr "Neutral"
+msgstr "Netral"
 
 msgid "Olive"
-msgstr "Olive"
+msgstr "Zaitun"
 
 msgid "Taupe"
 msgstr "Taupe"
@@ -1376,8 +1334,8 @@ msgstr "Pengaturan default gagal disimpan. Silakan coba lagi."
 msgid "Could not prepare the portable Downloads folder."
 msgstr "Folder Downloads portable gagal disiapkan."
 
-msgid "Save your X auth_token locally. Up to 5 previous tokens are kept in the portable config.json."
-msgstr "Simpan auth_token X secara lokal. Maksimal 5 token sebelumnya disimpan di config.json portable."
+msgid "Save your X auth_token locally. Up to 10 previous tokens are kept in the portable config.json."
+msgstr "Simpan auth_token X secara lokal. Maksimal 10 token sebelumnya disimpan di config.json portable."
 
 msgid "Active token"
 msgstr "Token aktif"
@@ -1564,3 +1522,69 @@ msgstr "Tidak dapat memuat media tersimpan."
 
 msgid "Preparing downloads…"
 msgstr "Menyiapkan unduhan…"
+
+msgid "Fetch pacing"
+msgstr "Jeda fetch"
+
+msgid "Waits after each fetch page before requesting the next one, also between batch accounts and on retries. 0 disables it."
+msgstr "Menunggu setelah setiap halaman fetch sebelum meminta halaman berikutnya, termasuk di antara akun batch dan saat percobaan ulang. 0 menonaktifkannya."
+
+msgid "Delay between fetch pages (ms)"
+msgstr "Jeda antar-halaman fetch (ms)"
+
+msgid "Random extra fetch delay (ms)"
+msgstr "Jeda acak tambahan fetch (ms)"
+
+msgid "If fetches get rate limited, start around 2000 ms with 1000 ms extra."
+msgstr "Jika fetch terkena rate limit, mulai dengan sekitar 2000 ms ditambah 1000 ms acak."
+
+msgid "Enter whole numbers from 0 to 3600000 ms."
+msgstr "Masukkan bilangan bulat dari 0 hingga 3600000 ms."
+
+msgid "Switch tokens when rate limited"
+msgstr "Ganti token saat terkena rate limit"
+
+msgid "When X rate limits a fetch, continue with the next saved token that is not invalid or cooling down. That token becomes the active one."
+msgstr "Saat X membatasi fetch, lanjutkan dengan token tersimpan berikutnya yang tidak invalid dan tidak sedang cooldown. Token itu menjadi token aktif."
+
+msgid "Account profile"
+msgstr "Profil akun"
+
+msgid "Cancel"
+msgstr "Batal"
+
+msgid "Close"
+msgstr "Tutup"
+
+msgid "Close session logs"
+msgstr "Tutup log sesi"
+
+msgid "Copy"
+msgstr "Salin"
+
+msgid "GitHub repository"
+msgstr "Repositori GitHub"
+
+msgid "Joined"
+msgstr "Bergabung"
+
+msgid "Next"
+msgstr "Berikutnya"
+
+msgid "OpenGL (compatibility)"
+msgstr "OpenGL (kompatibilitas)"
+
+msgid "Ready"
+msgstr "Siap"
+
+msgid "Result order"
+msgstr "Urutan hasil"
+
+msgid "X/Twitter URL or username"
+msgstr "URL X/Twitter atau username"
+
+msgid "media found"
+msgstr "media ditemukan"
+
+msgid "new"
+msgstr "baru"

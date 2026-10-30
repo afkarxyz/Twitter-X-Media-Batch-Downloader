@@ -1,5 +1,6 @@
 pub(crate) mod archives;
 pub(crate) mod batch;
+pub(crate) mod pacing;
 pub(crate) mod policy;
 pub(crate) mod queue;
 pub(crate) mod request;

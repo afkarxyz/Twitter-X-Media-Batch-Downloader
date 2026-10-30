@@ -355,7 +355,6 @@ mod tests {
         let rows = decorate_library(&app, app.get_library().items.iter().collect());
         assert_eq!(rows[0].account_labels, "New group · #art");
         assert_eq!(app.get_library().groups, ["New group"]);
-        app.set_history_group_filter("unrelated".into());
         assert_eq!(
             decorate(&app, rows).len(),
             1,

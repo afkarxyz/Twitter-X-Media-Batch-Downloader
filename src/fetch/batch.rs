@@ -36,7 +36,6 @@ struct State {
     profiles: Vec<downloader::ExtractionProfile>,
     pending: VecDeque<usize>,
     active: bool,
-    auth_token: String,
     enabled: bool,
     from_history: bool,
 }
@@ -116,7 +115,6 @@ impl SingleWorkspace {
         app.set_fetch_start_date(self.start);
         app.set_fetch_end_date(self.end);
         app.set_media_count(self.media.row_count().min(i32::MAX as usize) as i32);
-        app.set_media_count_text(self.media.row_count().to_string());
         app.set_media_items(self.media);
         app.set_account_profile(self.profile);
         app.set_has_output(self.has_output);
@@ -365,7 +363,8 @@ fn step(context: Context) {
                 index,
                 state.entries[index].clone(),
                 state.profiles[index].clone(),
-                state.auth_token.clone(),
+                // The active token now: a rate-limited account may have switched it.
+                app.get_saved_auth_token().trim().to_owned(),
             )
         })
     };
@@ -688,84 +687,6 @@ fn register_context(
         checkpoint(&owner, &state);
     });
     let owner = context.clone();
-    app.on_update_history_accounts(move |ids| {
-        let Some(app) = owner.ui.upgrade() else {
-            return;
-        };
-        if app.get_is_busy()
-            || app.get_history_busy()
-            || (app.get_xtractor_busy() || app.get_tool_update_busy())
-        {
-            return;
-        }
-        // Check before replacing the current results and batch queue.
-        if app.get_saved_auth_token().trim().is_empty() {
-            crate::app::notifications::show_toast(
-                &app,
-                "An X auth_token is required before extraction.",
-                "error",
-            );
-            return;
-        }
-        let history = owner.history.lock().unwrap();
-        let mut profiles = Vec::new();
-        let mut entries = Vec::new();
-        let mut seen = std::collections::HashSet::new();
-        for id in ids.iter() {
-            if let Some(entry) = history.iter().find(|entry| entry.id == id.as_str())
-                && let Some((source, profile)) = crate::history::refresh::profile(entry)
-                && seen.insert(crate::fetch::sessions::key(entry))
-            {
-                let (avatar_url, avatar_square) = avatar(entry);
-                profiles.push(profile);
-                entries.push(Entry {
-                    source,
-                    status: "Queued",
-                    history_id: String::new(),
-                    media_count: 0,
-                    error: String::new(),
-                    avatar_url,
-                    avatar_square,
-                });
-            }
-        }
-        drop(history);
-        if entries.is_empty() || entries.len() > 100 {
-            crate::app::notifications::show_toast(
-                &app,
-                "Select 1–100 account fetches to update.",
-                "error",
-            );
-            return;
-        }
-        app.invoke_switch_home_mode(true);
-        app.set_batch_sources_text(
-            entries
-                .iter()
-                .map(|entry| entry.source.as_str())
-                .collect::<Vec<_>>()
-                .join("\n"),
-        );
-        let mut state = owner.state.lock().unwrap();
-        *state = State {
-            entries,
-            profiles,
-            enabled: true,
-            from_history: true,
-            ..Default::default()
-        };
-        app.set_batch_mode(true);
-        app.set_batch_history_profiles(true);
-        app.set_date_filter_enabled(false);
-        app.set_selected_tab(0);
-        app.set_history_selection(crate::ui::runtime::ModelRc::default());
-        app.set_history_select_mode(false);
-        refresh(&app, &state);
-        checkpoint(&owner, &state);
-        drop(state);
-        app.invoke_start_batch();
-    });
-    let owner = context.clone();
     app.on_apply_fetch_options(move |batch, dates, start, end, text| {
         let Some(app) = owner.ui.upgrade() else {
             return false;
@@ -882,7 +803,6 @@ fn register_context(
         if state.pending.is_empty() {
             return;
         }
-        state.auth_token = app.get_saved_auth_token().trim().into();
         state.active = true;
         owner.cancel.store(false, Ordering::Relaxed);
         refresh(&app, &state);

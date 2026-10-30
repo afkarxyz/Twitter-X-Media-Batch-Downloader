@@ -215,6 +215,45 @@ fn settings_media_and_long_concurrency_menu_preserve_filter_semantics() {
 }
 
 #[test]
+fn token_switching_is_offered_with_saved_tokens_and_can_change_during_a_fetch() {
+    let app = preferences();
+    app.set_settings_category(1);
+    let saved = Rc::new(std::cell::Cell::new(0));
+    app.on_settings_changed({
+        let saved = saved.clone();
+        move || saved.set(saved.get() + 1)
+    });
+    let label = "Switch tokens when rate limited";
+    let mut h = harness(app.clone());
+    h.run();
+    assert!(
+        h.query_by_label(label).is_none(),
+        "nothing to switch to without saved tokens"
+    );
+    app.set_auth_token_history(ui_runtime::ModelRc::new(ui_runtime::VecModel::from(vec![
+        crate::AuthTokenItem {
+            index: 0,
+            token: "masked-fixture-token".into(),
+            ..Default::default()
+        },
+    ])));
+    // A fetch is running and has just been rate limited.
+    app.set_is_busy(true);
+    app.set_is_extracting(true);
+    h.run();
+    assert!(!app.get_rotate_auth_tokens(), "off until chosen");
+    assert!(!h.get_by_label(label).accesskit_node().is_disabled());
+    h.get_by_label(label).click();
+    h.run();
+    assert!(app.get_rotate_auth_tokens());
+    assert_eq!(saved.get(), 1);
+    h.get_by_label(label).click();
+    h.run();
+    assert!(!app.get_rotate_auth_tokens());
+    assert_eq!(saved.get(), 2);
+}
+
+#[test]
 fn settings_cookies_save_clear_and_token_history_actions_use_backend_indices() {
     let app = preferences();
     app.set_settings_category(1);
@@ -421,6 +460,78 @@ fn settings_quality_groups_and_limit_fields_act_independently() {
             .iter()
             .any(|shape| matches!(&shape.shape,egui::Shape::Text(t) if t.galley.text().contains("use of widget ID")))
     );
+}
+
+#[test]
+fn fetch_pacing_applies_during_a_fetch_and_rejects_bad_values() {
+    let _shared = crate::fetch::pacing::TEST_LOCK.blocking_lock();
+    let app = preferences();
+    app.set_settings_category(2);
+    // A fetch is running: the delay can still be raised once X starts rate limiting.
+    app.set_is_busy(true);
+    app.set_is_extracting(true);
+    app.on_apply_fetch_pacing({
+        let app = app.as_weak();
+        move |delay, jitter| crate::fetch::pacing::apply(&app.upgrade().unwrap(), &delay, &jitter)
+    });
+    let saved = Rc::new(std::cell::Cell::new(0));
+    app.on_settings_changed({
+        let saved = saved.clone();
+        move || saved.set(saved.get() + 1)
+    });
+    let mut h = harness(app.clone());
+    h.set_size(Vec2::new(1024.0, 3200.0));
+    h.run();
+    assert!(h.query_by_label("Fetch pacing settings card").is_some());
+    let delay = "Delay between fetch pages (ms)";
+    let jitter = "Random extra fetch delay (ms)";
+    for (label, typed) in [(delay, "2000"), (jitter, "1000")] {
+        let input = h.get_by_role_and_label(egui::accesskit::Role::TextInput, label);
+        assert!(
+            !input.accesskit_node().is_disabled(),
+            "{label} is editable during a fetch"
+        );
+        input.click();
+        h.run();
+        h.key_press(egui::Key::End);
+        h.get_by_role_and_label(egui::accesskit::Role::TextInput, label)
+            .type_text(typed);
+        h.run();
+    }
+    h.key_press(egui::Key::Enter);
+    h.run();
+    // Typed after the shown 0: "02000" and "01000" are the same numbers.
+    assert_eq!(
+        (app.get_fetch_delay_ms(), app.get_fetch_jitter_ms()),
+        (2000, 1000)
+    );
+    assert!(app.get_fetch_pacing_error().is_empty());
+    assert_eq!(saved.get(), 1);
+
+    h.get_by_role_and_label(egui::accesskit::Role::TextInput, delay)
+        .click();
+    h.run();
+    h.key_press(egui::Key::End);
+    h.get_by_role_and_label(egui::accesskit::Role::TextInput, delay)
+        .type_text("x");
+    h.run();
+    h.key_press(egui::Key::Enter);
+    h.run();
+    assert_eq!(
+        app.get_fetch_pacing_error(),
+        "Enter whole numbers from 0 to 3600000 ms."
+    );
+    assert!(
+        h.query_by_label("Enter whole numbers from 0 to 3600000 ms.")
+            .is_some()
+    );
+    assert_eq!(
+        (app.get_fetch_delay_ms(), app.get_fetch_jitter_ms()),
+        (2000, 1000),
+        "a rejected value keeps the saved delay"
+    );
+    assert_eq!(saved.get(), 1);
+    crate::fetch::pacing::configure(0, 0);
 }
 
 #[test]

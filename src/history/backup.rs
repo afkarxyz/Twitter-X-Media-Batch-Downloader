@@ -346,8 +346,8 @@ pub fn register(
                 app.set_backup_busy(false);app.set_history_busy(false);
                 match result {Ok((entries,labels))=>{
                     crate::accounts::labels::replace_catalog(labels);*history.lock().unwrap()=entries.clone();*backend.lock().unwrap()=BackendState::default();
-                    app.set_has_output(false);app.set_has_more(false);app.set_selected_media_index(-1);app.set_media_items(crate::download::engine::model_from_rows(Vec::new()));app.set_media_count(0);app.set_media_count_text("0".into());app.set_account_profile(crate::download::engine::empty_account_profile());app.set_last_error(String::new());app.invoke_history_loaded();
-                    app.set_download_batch_id("".into());app.set_fetch_sessions_key("".into());app.set_history_selection(crate::ui::runtime::ModelRc::default());app.set_history_group_filter("".into());
+                    app.set_has_output(false);app.set_has_more(false);app.set_selected_media_index(-1);app.set_media_items(crate::download::engine::model_from_rows(Vec::new()));app.set_media_count(0);app.set_account_profile(crate::download::engine::empty_account_profile());app.set_last_error(String::new());app.invoke_history_loaded();
+                    app.set_download_batch_id("".into());app.set_fetch_sessions_key("".into());app.set_history_selection(crate::ui::runtime::ModelRc::default());
                     let filter=filter.lock().unwrap();crate::history::view_model::refresh(&app,&entries,&filter.0,filter.1);crate::app::notifications::show_toast(&app,"Database restored. A recovery backup was saved in the portable backups folder.","info");
                 },Err(error)=>app.set_backup_error(error)}
             });

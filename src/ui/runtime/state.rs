@@ -1,5 +1,4 @@
 //! Shared application state and commands used by the egui views and workers.
-#![allow(dead_code)]
 use super::*;
 type Handler<F> = Option<Rc<F>>;
 #[derive(Clone, Default)]
@@ -183,7 +182,6 @@ pub struct State {
     pub mediaresults: MediaResultsData,
     pub mediaselection: MediaSelectionData,
     pub previewplayback: PreviewPlaybackData,
-    pub historyselection: HistorySelectionData,
     pub renderersettings: RendererSettingsData,
     pub i18n: I18nData,
     pub apptheme: AppThemeData,
@@ -304,10 +302,6 @@ pub struct AppWindowData {
     pub selected_media_index: i32,
     pub history_items: ModelRc<HistoryItem>,
     pub history_selection: ModelRc<String>,
-    pub history_select_mode: bool,
-    pub history_groups: ModelRc<String>,
-    pub history_group_filter: String,
-    pub history_group_index: i32,
     pub account_labels_open: bool,
     pub account_labels_error: String,
     pub batch_history_profiles: bool,
@@ -337,10 +331,13 @@ pub struct AppWindowData {
     pub download_delay_ms: i32,
     pub download_jitter_ms: i32,
     pub download_limits_error: String,
+    pub fetch_delay_ms: i32,
+    pub fetch_jitter_ms: i32,
+    pub fetch_pacing_error: String,
+    pub rotate_auth_tokens: bool,
     pub results_view: String,
     pub results_sort: i32,
     pub media_count: i32,
-    pub media_count_text: String,
     pub has_output: bool,
     pub has_more: bool,
     pub app_version: String,
@@ -392,14 +389,11 @@ pub struct AppWindowData {
     pub export_log: Handler<dyn Fn()>,
     pub export_log_errors: Handler<dyn Fn()>,
     pub copy_error: Handler<dyn Fn()>,
-    pub filter_history_group: Handler<dyn Fn(i32)>,
     pub apply_account_labels: Handler<dyn Fn(String, String, String) -> bool>,
     pub export_accounts_txt: Handler<dyn Fn()>,
-    pub toggle_history_selection: Handler<dyn Fn(String)>,
-    pub select_visible_history: Handler<dyn Fn()>,
-    pub update_history_accounts: Handler<dyn Fn(ModelRc<String>)>,
     pub apply_timeouts: Handler<dyn Fn(String, String) -> bool>,
     pub apply_download_limits: Handler<dyn Fn(String, String, String) -> bool>,
+    pub apply_fetch_pacing: Handler<dyn Fn(String, String) -> bool>,
     pub start_extraction: Handler<dyn Fn()>,
     pub convert_archived_gifs: Handler<dyn Fn(bool, i32, i32)>,
     pub start_batch: Handler<dyn Fn()>,
@@ -408,9 +402,7 @@ pub struct AppWindowData {
     pub reset_batch: Handler<dyn Fn()>,
     pub open_batch_result: Handler<dyn Fn(i32)>,
     pub apply_fetch_options: Handler<dyn Fn(bool, bool, String, String, String) -> bool>,
-    pub clear_results: Handler<dyn Fn()>,
     pub download_profile_image: Handler<dyn Fn(String)>,
-    pub dismiss_status: Handler<dyn Fn()>,
     pub paste_from_clipboard: Handler<dyn Fn()>,
     pub continue_extraction: Handler<dyn Fn()>,
     pub start_downloads: Handler<dyn Fn(String)>,
@@ -566,10 +558,6 @@ impl Default for AppWindowData {
             selected_media_index: -1,
             history_items: Default::default(),
             history_selection: Default::default(),
-            history_select_mode: false,
-            history_groups: ModelRc::new(VecModel::from(vec!["All groups".into()])),
-            history_group_filter: "".into(),
-            history_group_index: 0,
             account_labels_open: false,
             account_labels_error: "".into(),
             batch_history_profiles: false,
@@ -599,10 +587,13 @@ impl Default for AppWindowData {
             download_delay_ms: 0,
             download_jitter_ms: 0,
             download_limits_error: "".into(),
+            fetch_delay_ms: 0,
+            fetch_jitter_ms: 0,
+            fetch_pacing_error: "".into(),
+            rotate_auth_tokens: false,
             results_view: "grid".into(),
             results_sort: 0,
             media_count: 0,
-            media_count_text: "0".into(),
             has_output: false,
             has_more: false,
             app_version: "".into(),
@@ -654,14 +645,11 @@ impl Default for AppWindowData {
             export_log: None,
             export_log_errors: None,
             copy_error: None,
-            filter_history_group: None,
             apply_account_labels: None,
             export_accounts_txt: None,
-            toggle_history_selection: None,
-            select_visible_history: None,
-            update_history_accounts: None,
             apply_timeouts: None,
             apply_download_limits: None,
+            apply_fetch_pacing: None,
             start_extraction: None,
             convert_archived_gifs: None,
             start_batch: None,
@@ -670,9 +658,7 @@ impl Default for AppWindowData {
             reset_batch: None,
             open_batch_result: None,
             apply_fetch_options: None,
-            clear_results: None,
             download_profile_image: None,
-            dismiss_status: None,
             paste_from_clipboard: None,
             continue_extraction: None,
             start_downloads: None,
@@ -1512,30 +1498,6 @@ impl AppWindow {
     pub fn set_history_selection(&self, value: ModelRc<String>) {
         self.state.borrow_mut().appwindow.history_selection = value.clone();
     }
-    pub fn get_history_select_mode(&self) -> bool {
-        self.state.borrow().appwindow.history_select_mode
-    }
-    pub fn set_history_select_mode(&self, value: bool) {
-        self.state.borrow_mut().appwindow.history_select_mode = value;
-    }
-    pub fn get_history_groups(&self) -> ModelRc<String> {
-        self.state.borrow().appwindow.history_groups.clone()
-    }
-    pub fn set_history_groups(&self, value: ModelRc<String>) {
-        self.state.borrow_mut().appwindow.history_groups = value.clone();
-    }
-    pub fn get_history_group_filter(&self) -> String {
-        self.state.borrow().appwindow.history_group_filter.clone()
-    }
-    pub fn set_history_group_filter(&self, value: String) {
-        self.state.borrow_mut().appwindow.history_group_filter = value.clone();
-    }
-    pub fn get_history_group_index(&self) -> i32 {
-        self.state.borrow().appwindow.history_group_index
-    }
-    pub fn set_history_group_index(&self, value: i32) {
-        self.state.borrow_mut().appwindow.history_group_index = value;
-    }
     pub fn get_account_labels_open(&self) -> bool {
         self.state.borrow().appwindow.account_labels_open
     }
@@ -1710,6 +1672,30 @@ impl AppWindow {
     pub fn set_download_limits_error(&self, value: String) {
         self.state.borrow_mut().appwindow.download_limits_error = value.clone();
     }
+    pub fn get_fetch_delay_ms(&self) -> i32 {
+        self.state.borrow().appwindow.fetch_delay_ms
+    }
+    pub fn set_fetch_delay_ms(&self, value: i32) {
+        self.state.borrow_mut().appwindow.fetch_delay_ms = value;
+    }
+    pub fn get_fetch_jitter_ms(&self) -> i32 {
+        self.state.borrow().appwindow.fetch_jitter_ms
+    }
+    pub fn set_fetch_jitter_ms(&self, value: i32) {
+        self.state.borrow_mut().appwindow.fetch_jitter_ms = value;
+    }
+    pub fn get_fetch_pacing_error(&self) -> String {
+        self.state.borrow().appwindow.fetch_pacing_error.clone()
+    }
+    pub fn set_fetch_pacing_error(&self, value: String) {
+        self.state.borrow_mut().appwindow.fetch_pacing_error = value;
+    }
+    pub fn get_rotate_auth_tokens(&self) -> bool {
+        self.state.borrow().appwindow.rotate_auth_tokens
+    }
+    pub fn set_rotate_auth_tokens(&self, value: bool) {
+        self.state.borrow_mut().appwindow.rotate_auth_tokens = value;
+    }
     pub fn get_results_view(&self) -> String {
         self.state.borrow().appwindow.results_view.clone()
     }
@@ -1722,17 +1708,12 @@ impl AppWindow {
     pub fn set_results_sort(&self, value: i32) {
         self.state.borrow_mut().appwindow.results_sort = value;
     }
+    #[cfg(test)]
     pub fn get_media_count(&self) -> i32 {
         self.state.borrow().appwindow.media_count
     }
     pub fn set_media_count(&self, value: i32) {
         self.state.borrow_mut().appwindow.media_count = value;
-    }
-    pub fn get_media_count_text(&self) -> String {
-        self.state.borrow().appwindow.media_count_text.clone()
-    }
-    pub fn set_media_count_text(&self, value: String) {
-        self.state.borrow_mut().appwindow.media_count_text = value.clone();
     }
     pub fn get_has_output(&self) -> bool {
         self.state.borrow().appwindow.has_output
@@ -2071,13 +2052,6 @@ impl AppWindow {
         let callback = self.state.borrow().appwindow.copy_error.clone();
         callback.map(|callback| callback()).unwrap_or_default()
     }
-    pub fn on_filter_history_group(&self, callback: impl Fn(i32) + 'static) {
-        self.state.borrow_mut().appwindow.filter_history_group = Some(Rc::new(callback));
-    }
-    pub fn invoke_filter_history_group(&self, arg0: i32) {
-        let callback = self.state.borrow().appwindow.filter_history_group.clone();
-        callback.map(|callback| callback(arg0)).unwrap_or_default()
-    }
     pub fn on_apply_account_labels(
         &self,
         callback: impl Fn(String, String, String) -> bool + 'static,
@@ -2096,37 +2070,6 @@ impl AppWindow {
     pub fn invoke_export_accounts_txt(&self) {
         let callback = self.state.borrow().appwindow.export_accounts_txt.clone();
         callback.map(|callback| callback()).unwrap_or_default()
-    }
-    pub fn on_toggle_history_selection(&self, callback: impl Fn(String) + 'static) {
-        self.state.borrow_mut().appwindow.toggle_history_selection = Some(Rc::new(callback));
-    }
-    pub fn invoke_toggle_history_selection(&self, arg0: String) {
-        let callback = self
-            .state
-            .borrow()
-            .appwindow
-            .toggle_history_selection
-            .clone();
-        callback.map(|callback| callback(arg0)).unwrap_or_default()
-    }
-    pub fn on_select_visible_history(&self, callback: impl Fn() + 'static) {
-        self.state.borrow_mut().appwindow.select_visible_history = Some(Rc::new(callback));
-    }
-    pub fn invoke_select_visible_history(&self) {
-        let callback = self.state.borrow().appwindow.select_visible_history.clone();
-        callback.map(|callback| callback()).unwrap_or_default()
-    }
-    pub fn on_update_history_accounts(&self, callback: impl Fn(ModelRc<String>) + 'static) {
-        self.state.borrow_mut().appwindow.update_history_accounts = Some(Rc::new(callback));
-    }
-    pub fn invoke_update_history_accounts(&self, arg0: ModelRc<String>) {
-        let callback = self
-            .state
-            .borrow()
-            .appwindow
-            .update_history_accounts
-            .clone();
-        callback.map(|callback| callback(arg0)).unwrap_or_default()
     }
     pub fn on_apply_timeouts(&self, callback: impl Fn(String, String) -> bool + 'static) {
         self.state.borrow_mut().appwindow.apply_timeouts = Some(Rc::new(callback));
@@ -2147,6 +2090,15 @@ impl AppWindow {
         let callback = self.state.borrow().appwindow.apply_download_limits.clone();
         callback
             .map(|callback| callback(arg0, arg1, arg2))
+            .unwrap_or_default()
+    }
+    pub fn on_apply_fetch_pacing(&self, callback: impl Fn(String, String) -> bool + 'static) {
+        self.state.borrow_mut().appwindow.apply_fetch_pacing = Some(Rc::new(callback));
+    }
+    pub fn invoke_apply_fetch_pacing(&self, arg0: String, arg1: String) -> bool {
+        let callback = self.state.borrow().appwindow.apply_fetch_pacing.clone();
+        callback
+            .map(|callback| callback(arg0, arg1))
             .unwrap_or_default()
     }
     pub fn on_start_extraction(&self, callback: impl Fn() + 'static) {
@@ -2215,26 +2167,12 @@ impl AppWindow {
             .map(|callback| callback(arg0, arg1, arg2, arg3, arg4))
             .unwrap_or_default()
     }
-    pub fn on_clear_results(&self, callback: impl Fn() + 'static) {
-        self.state.borrow_mut().appwindow.clear_results = Some(Rc::new(callback));
-    }
-    pub fn invoke_clear_results(&self) {
-        let callback = self.state.borrow().appwindow.clear_results.clone();
-        callback.map(|callback| callback()).unwrap_or_default()
-    }
     pub fn on_download_profile_image(&self, callback: impl Fn(String) + 'static) {
         self.state.borrow_mut().appwindow.download_profile_image = Some(Rc::new(callback));
     }
     pub fn invoke_download_profile_image(&self, arg0: String) {
         let callback = self.state.borrow().appwindow.download_profile_image.clone();
         callback.map(|callback| callback(arg0)).unwrap_or_default()
-    }
-    pub fn on_dismiss_status(&self, callback: impl Fn() + 'static) {
-        self.state.borrow_mut().appwindow.dismiss_status = Some(Rc::new(callback));
-    }
-    pub fn invoke_dismiss_status(&self) {
-        let callback = self.state.borrow().appwindow.dismiss_status.clone();
-        callback.map(|callback| callback()).unwrap_or_default()
     }
     pub fn on_paste_from_clipboard(&self, callback: impl Fn() + 'static) {
         self.state.borrow_mut().appwindow.paste_from_clipboard = Some(Rc::new(callback));
@@ -2510,14 +2448,9 @@ impl AppWindow {
 }
 #[derive(Default)]
 pub struct MediaResultsData {
-    pub matches_kind: Handler<dyn Fn(String, String) -> bool>,
-    pub toggle_kind: Handler<dyn Fn(String, String) -> String>,
-    pub filter: Handler<dyn Fn(ModelRc<MediaItem>, String, i32) -> ModelRc<MediaItem>>,
     pub count: Handler<dyn Fn(ModelRc<MediaItem>, String) -> i32>,
-    pub ordered: Handler<dyn Fn(ModelRc<MediaItem>, String, i32, i32) -> ModelRc<MediaItem>>,
     pub new_count: Handler<dyn Fn(ModelRc<MediaItem>) -> i32>,
     pub position: Handler<dyn Fn(ModelRc<MediaItem>, i32) -> i32>,
-    pub at: Handler<dyn Fn(ModelRc<MediaItem>, i32) -> MediaItem>,
 }
 #[derive(Clone)]
 pub struct MediaResults {
@@ -2529,41 +2462,6 @@ impl Global for MediaResults {
     }
 }
 impl MediaResults {
-    pub fn on_matches_kind(&self, callback: impl Fn(String, String) -> bool + 'static) {
-        self.app.state.borrow_mut().mediaresults.matches_kind = Some(Rc::new(callback));
-    }
-    pub fn invoke_matches_kind(&self, arg0: String, arg1: String) -> bool {
-        let callback = self.app.state.borrow().mediaresults.matches_kind.clone();
-        callback
-            .map(|callback| callback(arg0, arg1))
-            .unwrap_or_default()
-    }
-    pub fn on_toggle_kind(&self, callback: impl Fn(String, String) -> String + 'static) {
-        self.app.state.borrow_mut().mediaresults.toggle_kind = Some(Rc::new(callback));
-    }
-    pub fn invoke_toggle_kind(&self, arg0: String, arg1: String) -> String {
-        let callback = self.app.state.borrow().mediaresults.toggle_kind.clone();
-        callback
-            .map(|callback| callback(arg0, arg1))
-            .unwrap_or_default()
-    }
-    pub fn on_filter(
-        &self,
-        callback: impl Fn(ModelRc<MediaItem>, String, i32) -> ModelRc<MediaItem> + 'static,
-    ) {
-        self.app.state.borrow_mut().mediaresults.filter = Some(Rc::new(callback));
-    }
-    pub fn invoke_filter(
-        &self,
-        arg0: ModelRc<MediaItem>,
-        arg1: String,
-        arg2: i32,
-    ) -> ModelRc<MediaItem> {
-        let callback = self.app.state.borrow().mediaresults.filter.clone();
-        callback
-            .map(|callback| callback(arg0, arg1, arg2))
-            .unwrap_or_default()
-    }
     pub fn on_count(&self, callback: impl Fn(ModelRc<MediaItem>, String) -> i32 + 'static) {
         self.app.state.borrow_mut().mediaresults.count = Some(Rc::new(callback));
     }
@@ -2571,24 +2469,6 @@ impl MediaResults {
         let callback = self.app.state.borrow().mediaresults.count.clone();
         callback
             .map(|callback| callback(arg0, arg1))
-            .unwrap_or_default()
-    }
-    pub fn on_ordered(
-        &self,
-        callback: impl Fn(ModelRc<MediaItem>, String, i32, i32) -> ModelRc<MediaItem> + 'static,
-    ) {
-        self.app.state.borrow_mut().mediaresults.ordered = Some(Rc::new(callback));
-    }
-    pub fn invoke_ordered(
-        &self,
-        arg0: ModelRc<MediaItem>,
-        arg1: String,
-        arg2: i32,
-        arg3: i32,
-    ) -> ModelRc<MediaItem> {
-        let callback = self.app.state.borrow().mediaresults.ordered.clone();
-        callback
-            .map(|callback| callback(arg0, arg1, arg2, arg3))
             .unwrap_or_default()
     }
     pub fn on_new_count(&self, callback: impl Fn(ModelRc<MediaItem>) -> i32 + 'static) {
@@ -2607,21 +2487,10 @@ impl MediaResults {
             .map(|callback| callback(arg0, arg1))
             .unwrap_or_default()
     }
-    pub fn on_at(&self, callback: impl Fn(ModelRc<MediaItem>, i32) -> MediaItem + 'static) {
-        self.app.state.borrow_mut().mediaresults.at = Some(Rc::new(callback));
-    }
-    pub fn invoke_at(&self, arg0: ModelRc<MediaItem>, arg1: i32) -> MediaItem {
-        let callback = self.app.state.borrow().mediaresults.at.clone();
-        callback
-            .map(|callback| callback(arg0, arg1))
-            .unwrap_or_default()
-    }
 }
 #[derive(Default)]
 pub struct MediaSelectionData {
     pub indices: ModelRc<i32>,
-    pub count: i32,
-    pub is_selected: Handler<dyn Fn(ModelRc<i32>, i32) -> bool>,
     pub all_selected: Handler<dyn Fn(ModelRc<i32>, ModelRc<MediaItem>, String) -> bool>,
     pub toggle: Handler<dyn Fn(i32)>,
     pub toggle_filter: Handler<dyn Fn(String)>,
@@ -2645,18 +2514,6 @@ impl MediaSelection {
     }
     pub fn get_count(&self) -> i32 {
         self.get_indices().row_count() as i32
-    }
-    pub fn set_count(&self, value: i32) {
-        self.app.state.borrow_mut().mediaselection.count = value;
-    }
-    pub fn on_is_selected(&self, callback: impl Fn(ModelRc<i32>, i32) -> bool + 'static) {
-        self.app.state.borrow_mut().mediaselection.is_selected = Some(Rc::new(callback));
-    }
-    pub fn invoke_is_selected(&self, arg0: ModelRc<i32>, arg1: i32) -> bool {
-        let callback = self.app.state.borrow().mediaselection.is_selected.clone();
-        callback
-            .map(|callback| callback(arg0, arg1))
-            .unwrap_or_default()
     }
     pub fn on_all_selected(
         &self,
@@ -2698,7 +2555,6 @@ impl MediaSelection {
     }
 }
 pub struct PreviewPlaybackData {
-    pub current_index: i32,
     pub frame: Option<Arc<egui::ColorImage>>,
     pub frame_count: i32,
     pub loading: bool,
@@ -2721,7 +2577,6 @@ pub struct PreviewPlaybackData {
 impl Default for PreviewPlaybackData {
     fn default() -> Self {
         Self {
-            current_index: -1,
             frame: Default::default(),
             frame_count: 0,
             loading: false,
@@ -2753,12 +2608,6 @@ impl Global for PreviewPlayback {
     }
 }
 impl PreviewPlayback {
-    pub fn get_current_index(&self) -> i32 {
-        self.app.state.borrow().previewplayback.current_index
-    }
-    pub fn set_current_index(&self, value: i32) {
-        self.app.state.borrow_mut().previewplayback.current_index = value;
-    }
     pub fn get_frame(&self) -> Option<Arc<egui::ColorImage>> {
         self.app.state.borrow().previewplayback.frame.clone()
     }
@@ -2889,30 +2738,6 @@ impl PreviewPlayback {
         callback.map(|callback| callback()).unwrap_or_default()
     }
 }
-#[derive(Default)]
-pub struct HistorySelectionData {
-    pub is_selected: Handler<dyn Fn(ModelRc<String>, String) -> bool>,
-}
-#[derive(Clone)]
-pub struct HistorySelection {
-    app: AppWindow,
-}
-impl Global for HistorySelection {
-    fn from_app(app: &AppWindow) -> Self {
-        Self { app: app.clone() }
-    }
-}
-impl HistorySelection {
-    pub fn on_is_selected(&self, callback: impl Fn(ModelRc<String>, String) -> bool + 'static) {
-        self.app.state.borrow_mut().historyselection.is_selected = Some(Rc::new(callback));
-    }
-    pub fn invoke_is_selected(&self, arg0: ModelRc<String>, arg1: String) -> bool {
-        let callback = self.app.state.borrow().historyselection.is_selected.clone();
-        callback
-            .map(|callback| callback(arg0, arg1))
-            .unwrap_or_default()
-    }
-}
 pub struct RendererSettingsData {
     pub preferred: String,
     pub active: String,
@@ -2920,7 +2745,6 @@ pub struct RendererSettingsData {
     pub error: String,
     pub prompt_open: bool,
     pub restarting: bool,
-    pub restart_required: bool,
     pub choose: Handler<dyn Fn(String)>,
     pub restart_now: Handler<dyn Fn()>,
 }
@@ -2933,7 +2757,6 @@ impl Default for RendererSettingsData {
             error: "".into(),
             prompt_open: false,
             restarting: false,
-            restart_required: Default::default(),
             choose: None,
             restart_now: None,
         }
@@ -2988,13 +2811,6 @@ impl RendererSettings {
     pub fn get_restart_required(&self) -> bool {
         self.get_preferred() != self.get_active()
     }
-    pub fn set_restart_required(&self, value: bool) {
-        self.app
-            .state
-            .borrow_mut()
-            .renderersettings
-            .restart_required = value;
-    }
     pub fn on_choose(&self, callback: impl Fn(String) + 'static) {
         self.app.state.borrow_mut().renderersettings.choose = Some(Rc::new(callback));
     }
@@ -3012,19 +2828,11 @@ impl RendererSettings {
 }
 pub struct I18nData {
     pub language: String,
-    pub lookup: Handler<dyn Fn(String, String) -> String>,
-    pub lookup_string: Handler<dyn Fn(String, String, String) -> String>,
-    pub lookup_int: Handler<dyn Fn(String, String, i32) -> String>,
-    pub lookup_two_ints: Handler<dyn Fn(String, String, i32, i32) -> String>,
 }
 impl Default for I18nData {
     fn default() -> Self {
         Self {
             language: "en".into(),
-            lookup: None,
-            lookup_string: None,
-            lookup_int: None,
-            lookup_two_ints: None,
         }
     }
 }
@@ -3043,51 +2851,6 @@ impl I18n {
     }
     pub fn set_language(&self, value: String) {
         self.app.state.borrow_mut().i18n.language = value.clone();
-    }
-    pub fn on_lookup(&self, callback: impl Fn(String, String) -> String + 'static) {
-        self.app.state.borrow_mut().i18n.lookup = Some(Rc::new(callback));
-    }
-    pub fn invoke_lookup(&self, arg0: String, arg1: String) -> String {
-        let callback = self.app.state.borrow().i18n.lookup.clone();
-        callback
-            .map(|callback| callback(arg0, arg1))
-            .unwrap_or_default()
-    }
-    pub fn on_lookup_string(&self, callback: impl Fn(String, String, String) -> String + 'static) {
-        self.app.state.borrow_mut().i18n.lookup_string = Some(Rc::new(callback));
-    }
-    pub fn invoke_lookup_string(&self, arg0: String, arg1: String, arg2: String) -> String {
-        let callback = self.app.state.borrow().i18n.lookup_string.clone();
-        callback
-            .map(|callback| callback(arg0, arg1, arg2))
-            .unwrap_or_default()
-    }
-    pub fn on_lookup_int(&self, callback: impl Fn(String, String, i32) -> String + 'static) {
-        self.app.state.borrow_mut().i18n.lookup_int = Some(Rc::new(callback));
-    }
-    pub fn invoke_lookup_int(&self, arg0: String, arg1: String, arg2: i32) -> String {
-        let callback = self.app.state.borrow().i18n.lookup_int.clone();
-        callback
-            .map(|callback| callback(arg0, arg1, arg2))
-            .unwrap_or_default()
-    }
-    pub fn on_lookup_two_ints(
-        &self,
-        callback: impl Fn(String, String, i32, i32) -> String + 'static,
-    ) {
-        self.app.state.borrow_mut().i18n.lookup_two_ints = Some(Rc::new(callback));
-    }
-    pub fn invoke_lookup_two_ints(
-        &self,
-        arg0: String,
-        arg1: String,
-        arg2: i32,
-        arg3: i32,
-    ) -> String {
-        let callback = self.app.state.borrow().i18n.lookup_two_ints.clone();
-        callback
-            .map(|callback| callback(arg0, arg1, arg2, arg3))
-            .unwrap_or_default()
     }
 }
 pub struct AppThemeData {

@@ -15,15 +15,6 @@ msgstr ""
 msgid "Ready for an X/Twitter URL."
 msgstr ""
 
-msgid "On"
-msgstr ""
-
-msgid "Off"
-msgstr ""
-
-msgid "Select"
-msgstr ""
-
 msgid "Home"
 msgstr ""
 
@@ -31,9 +22,6 @@ msgid "Settings"
 msgstr ""
 
 msgid "Theme"
-msgstr ""
-
-msgid "Color scheme"
 msgstr ""
 
 msgid "System"
@@ -48,9 +36,6 @@ msgstr ""
 msgid "Palette"
 msgstr ""
 
-msgid "Default"
-msgstr ""
-
 msgid "Teal"
 msgstr ""
 
@@ -61,15 +46,6 @@ msgid "Purple"
 msgstr ""
 
 msgid "Saved"
-msgstr ""
-
-msgid "Primary"
-msgstr ""
-
-msgid "Canvas"
-msgstr ""
-
-msgid "Surface"
 msgstr ""
 
 msgid "Text"
@@ -124,9 +100,6 @@ msgid "Downloads"
 msgstr ""
 
 msgid "Storage"
-msgstr ""
-
-msgid "Interface"
 msgstr ""
 
 msgid "Display language"
@@ -202,9 +175,6 @@ msgstr ""
 msgid "Extraction defaults"
 msgstr ""
 
-msgid "Media type"
-msgstr ""
-
 msgid "All media"
 msgstr ""
 
@@ -227,9 +197,6 @@ msgid "Original"
 msgstr ""
 
 msgid "Exclude videos"
-msgstr ""
-
-msgid "Include text-only posts"
 msgstr ""
 
 msgid "Download folder"
@@ -378,9 +345,6 @@ msgid "GIF"
 msgstr ""
 
 msgid "Failed"
-msgstr ""
-
-msgid "Load more"
 msgstr ""
 
 msgid "Nothing in this filter."
@@ -962,9 +926,6 @@ msgstr ""
 msgid "Each account keeps its saved fetch filters."
 msgstr ""
 
-msgid "Select 1–100 account fetches to update."
-msgstr ""
-
 msgid "Embed post metadata"
 msgstr ""
 
@@ -1140,9 +1101,6 @@ msgid "Use an HTTP, HTTPS, SOCKS5 or SOCKS5H proxy URL without a path, query or 
 msgstr ""
 
 msgid "A SOCKS proxy requires a port."
-msgstr ""
-
-msgid "Repost"
 msgstr ""
 
 msgid "Alt text"
@@ -1388,7 +1346,7 @@ msgstr ""
 msgid "Could not prepare the portable Downloads folder."
 msgstr ""
 
-msgid "Save your X auth_token locally. Up to 5 previous tokens are kept in the portable config.json."
+msgid "Save your X auth_token locally. Up to 10 previous tokens are kept in the portable config.json."
 msgstr ""
 
 msgid "Active token"
@@ -1575,4 +1533,70 @@ msgid "Could not load saved media."
 msgstr ""
 
 msgid "Preparing downloads…"
+msgstr ""
+
+msgid "Fetch pacing"
+msgstr ""
+
+msgid "Waits after each fetch page before requesting the next one, also between batch accounts and on retries. 0 disables it."
+msgstr ""
+
+msgid "Delay between fetch pages (ms)"
+msgstr ""
+
+msgid "Random extra fetch delay (ms)"
+msgstr ""
+
+msgid "If fetches get rate limited, start around 2000 ms with 1000 ms extra."
+msgstr ""
+
+msgid "Enter whole numbers from 0 to 3600000 ms."
+msgstr ""
+
+msgid "Switch tokens when rate limited"
+msgstr ""
+
+msgid "When X rate limits a fetch, continue with the next saved token that is not invalid or cooling down. That token becomes the active one."
+msgstr ""
+
+msgid "Account profile"
+msgstr ""
+
+msgid "Cancel"
+msgstr ""
+
+msgid "Close"
+msgstr ""
+
+msgid "Close session logs"
+msgstr ""
+
+msgid "Copy"
+msgstr ""
+
+msgid "GitHub repository"
+msgstr ""
+
+msgid "Joined"
+msgstr ""
+
+msgid "Next"
+msgstr ""
+
+msgid "OpenGL (compatibility)"
+msgstr ""
+
+msgid "Ready"
+msgstr ""
+
+msgid "Result order"
+msgstr ""
+
+msgid "X/Twitter URL or username"
+msgstr ""
+
+msgid "media found"
+msgstr ""
+
+msgid "new"
 msgstr ""

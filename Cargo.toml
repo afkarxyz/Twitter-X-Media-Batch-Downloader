@@ -1,6 +1,6 @@
 [package]
 name = "twitterxmediabatchdownloader"
-version = "6.0.0"
+version = "6.0.1"
 edition = "2024"
 rust-version = "1.98"
 description = "Downloads original-quality images and videos from Twitter/X accounts."

@@ -116,7 +116,6 @@ pub fn register(
                             downloader::model_from_rows(rows)
                         });
                         app.set_media_count(count.min(i32::MAX as usize) as i32);
-                        app.set_media_count_text(count.to_string());
                         app.set_has_output(!entry.json.is_empty());
                         app.set_has_more(entry.has_more);
                         app.set_account_profile(downloader::account_profile_from_json(

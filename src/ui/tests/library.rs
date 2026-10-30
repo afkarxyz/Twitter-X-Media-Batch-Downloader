@@ -96,11 +96,9 @@ fn library_actions_filter_preview_and_retry_without_card_clickthrough() {
         h.run();
         assert_eq!(h.get_by_label("Search accounts…").rect(), library_search);
         let token = app.get_saved_auth_token();
-        app.set_history_select_mode(true);
         app.set_saved_auth_token(String::new());
         h.run();
         assert_eq!(h.get_by_label("Search accounts…").rect(), library_search);
-        app.set_history_select_mode(false);
         app.set_saved_auth_token(token);
         app.set_selected_tab(crate::library::TAB);
         h.run();
