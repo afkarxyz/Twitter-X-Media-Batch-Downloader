@@ -1,0 +1,83 @@
+[package]
+name = "twitterxmediabatchdownloader"
+version = "6.0.0"
+edition = "2024"
+rust-version = "1.98"
+description = "Downloads original-quality images and videos from Twitter/X accounts."
+license = "GPL-3.0-only"
+
+[package.metadata.cargo-shear]
+# winit is listed for its Adwaita window frame feature on Linux and never imported.
+ignored = ["winit"]
+
+[[bin]]
+name = "TwitterXMediaBatchDownloader"
+path = "src/main.rs"
+
+[dependencies]
+eframe = { version = "0.36.1", default-features = false, features = ["default_fonts", "glow", "wgpu", "x11", "wayland", "accesskit"] }
+egui = { version = "0.36.1", features = ["bytemuck"] }
+egui_extras = { version = "0.36.1", features = ["svg", "image"] }
+fastframe-fonts = { git = "https://github.com/crmne/fastframe", tag = "v0.15.3" }
+fastframe-text = { git = "https://github.com/crmne/fastframe", tag = "v0.15.3" }
+fastframe-icons = { git = "https://github.com/crmne/fastframe", tag = "v0.15.3" }
+fastframe-scroll = { git = "https://github.com/crmne/fastframe", tag = "v0.15.3" }
+fastframe-shell = { git = "https://github.com/crmne/fastframe", tag = "v0.15.3" }
+tokio = { version = "1.52.3", features = ["rt-multi-thread", "macros", "process", "io-util", "fs", "time", "sync", "net"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.150"
+reqwest = { version = "0.13", features = ["stream", "socks"] }
+futures-util = "0.3.32"
+flate2 = "1.1.9"
+dirs = "6.0"
+rfd = "0.17"
+open = "5.3.6"
+copypasta = "0.10.2"
+sys-locale = "0.3"
+chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
+fs4 = { version = "0.9.1", default-features = false }
+zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2"] }
+sha2 = "0.10.9"
+rusqlite = { version = "0.40.2", features = ["bundled", "backup"] }
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp"] }
+linkify = "0.11"
+
+[target.'cfg(windows)'.dependencies]
+bytemuck = "1.25"
+windows = { version = "0.62.2", features = ["Foundation", "Media_Core", "Media_Playback", "Graphics_DirectX_Direct3D11", "Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Graphics_Direct3D", "Win32_Graphics_Direct3D10", "Win32_Graphics_Direct3D11", "Win32_Graphics_Dxgi", "Win32_Graphics_Dxgi_Common", "Win32_Storage_FileSystem", "Win32_System_WinRT", "Win32_System_WinRT_Direct3D11", "Win32_UI_HiDpi", "Win32_UI_WindowsAndMessaging"] }
+
+# GNOME has no server-side window frames on Wayland, so winit draws one. Without the
+# Adwaita frame it falls back to a plain grey bar with square buttons and no title.
+# The frame finds its title font and button layout at runtime (fc-match, gsettings).
+[target.'cfg(target_os = "linux")'.dependencies]
+winit = { version = "0.30.13", default-features = false, features = ["wayland", "wayland-dlopen", "wayland-csd-adwaita"] }
+# winit reports no system theme on Linux; the desktop portal's color-scheme does.
+zbus = { version = "5.19", default-features = false, features = ["blocking-api", "async-io"] }
+
+[dev-dependencies]
+egui_kittest = { version = "0.36.2", features = ["wgpu"] }
+image = { version = "0.25.10", default-features = false, features = ["gif"] }
+
+[build-dependencies]
+image = { version = "0.25.10", default-features = false, features = ["png"] }
+ico = "0.5.0"
+embed-resource = "3.0.11"
+
+[features]
+default = ["gpu-renderer"]
+gpu-renderer = []
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+panic = "unwind"
+strip = "symbols"
+
+# Line tables keep file/line backtraces while keeping development builds
+# smaller and quicker to link than full debug info.
+[profile.dev]
+debug = 1
+
+[profile.test]
+debug = 1

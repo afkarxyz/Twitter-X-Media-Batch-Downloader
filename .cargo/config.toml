@@ -1,0 +1,6 @@
+# Keep enough stack for image decoding and deeply nested debug UI layouts.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "link-arg=/STACK:8000000"]
+
+[target.aarch64-pc-windows-msvc]
+rustflags = ["-C", "link-arg=/STACK:8000000"]

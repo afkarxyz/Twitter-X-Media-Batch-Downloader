@@ -1,0 +1,987 @@
+msgid ""
+msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.0\nLanguage: es\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Ready for an X/Twitter URL."
+msgstr "Listo para una URL de X/Twitter."
+
+msgid "On"
+msgstr "Activado"
+
+msgid "Off"
+msgstr "Desactivado"
+
+msgid "Select"
+msgstr "Seleccionar"
+
+msgid "Home"
+msgstr "Inicio"
+
+msgid "Settings"
+msgstr "Ajustes"
+
+msgid "Theme"
+msgstr "Tema"
+
+msgid "Color scheme"
+msgstr "Tema de color"
+
+msgid "System"
+msgstr "Sistema"
+
+msgid "Dark"
+msgstr "Oscuro"
+
+msgid "Light"
+msgstr "Claro"
+
+msgid "Palette"
+msgstr "Paleta"
+
+msgid "Default"
+msgstr "Predeterminado"
+
+msgid "Teal"
+msgstr "Verde azulado"
+
+msgid "Green"
+msgstr "Verde"
+
+msgid "Purple"
+msgstr "Morado"
+
+msgid "Slate"
+msgstr "Pizarra"
+
+msgid "Red"
+msgstr "Rojo"
+
+msgid "Orange"
+msgstr "Naranja"
+
+msgid "Amber"
+msgstr "Ámbar"
+
+msgid "Emerald"
+msgstr "Esmeralda"
+
+msgid "Cyan"
+msgstr "Cian"
+
+msgid "Sky"
+msgstr "Cielo"
+
+msgid "Blue"
+msgstr "Azul"
+
+msgid "Indigo"
+msgstr "Índigo"
+
+msgid "Violet"
+msgstr "Violeta"
+
+msgid "Rose"
+msgstr "Rosa"
+
+msgid "Pink"
+msgstr "Rosa"
+
+msgid "Saved"
+msgstr "Guardado"
+
+msgid "Primary"
+msgstr "Principal"
+
+msgid "Canvas"
+msgstr "Lienzo"
+
+msgid "Surface"
+msgstr "Superficie"
+
+msgid "Text"
+msgstr "Texto"
+
+msgid "Reset"
+msgstr "Restablecer"
+
+msgid "Save"
+msgstr "Guardar"
+
+msgid "About"
+msgstr "Acerca de"
+
+msgid "Twitter/X Media Batch Downloader"
+msgstr "Twitter/X Media Batch Downloader"
+
+msgid "Version {}"
+msgstr "Versión {}"
+
+msgid "Downloads original-quality images and videos from Twitter/X accounts."
+msgstr "Descarga imágenes y videos en calidad original de cuentas de Twitter/X."
+
+msgid "Export JSON"
+msgstr "Exportar a Json"
+
+msgid "Search X/Twitter media URL"
+msgstr "Buscar X/Twitter media URL"
+
+msgid "Search and extract"
+msgstr "Buscar y extraer"
+
+msgid "Continue"
+msgstr "Continuar"
+
+msgid "Download all"
+msgstr "Descargar todo"
+
+msgid "Open folder"
+msgstr "Abrir carpeta"
+
+msgid "SETTINGS"
+msgstr "AJUSTES"
+
+msgid "General"
+msgstr "General"
+
+msgid "Cookies"
+msgstr "Cookies"
+
+msgid "Downloads"
+msgstr "Descargas"
+
+msgid "Storage"
+msgstr "Almacenamiento"
+
+msgid "Interface"
+msgstr "Interfaz"
+
+msgid "Display language"
+msgstr "Idioma de la interfaz"
+
+msgid "System language"
+msgstr "Idioma del sistema"
+
+msgid "English"
+msgstr "Inglés"
+
+msgid "Indonesian"
+msgstr "Indonesio"
+
+msgid "Spanish"
+msgstr "Español"
+
+msgid "French"
+msgstr "Francés"
+
+msgid "German"
+msgstr "Alemán"
+
+msgid "Portuguese"
+msgstr "Portuguese"
+
+msgid "Turkish"
+msgstr "Turco"
+
+msgid "Simplified Chinese"
+msgstr "Chino simplificado"
+
+msgid "Renderer"
+msgstr "Motor de renderizado"
+
+msgid "Restart required. Your current renderer is still active."
+msgstr "Es necesario reiniciar. El motor actual sigue activo."
+
+msgid "GPU — WGPU"
+msgstr "GPU — WGPU"
+
+msgid "GPU mode is unavailable in this build."
+msgstr "El modo GPU no está disponible en esta compilación."
+
+msgid "X/Twitter authentication"
+msgstr "Autenticación X/Twitter"
+
+msgid "auth_token (required)"
+msgstr "auth_token (obligatorio)"
+
+msgid "Add auth_token in Settings to search"
+msgstr "Añade un auth_token en Ajustes para buscar"
+
+msgid "Add auth_token in Settings to fetch"
+msgstr "Añade un auth_token en Ajustes para extraer"
+
+msgid "Add auth_token in Settings to update accounts"
+msgstr "Añade un auth_token en Ajustes para actualizar cuentas"
+
+msgid "click here"
+msgstr "haz clic aquí"
+
+msgid "An X auth_token is required before extraction."
+msgstr "Se requiere un auth_token de X antes de la extracción."
+
+msgid "X auth_token"
+msgstr "X auth_token"
+
+msgid "Clear"
+msgstr "Borrar"
+
+msgid "Extraction defaults"
+msgstr "Valores predeterminados de extracción"
+
+msgid "Media type"
+msgstr "Tipo de elemento multimedia"
+
+msgid "All media"
+msgstr "Todos los elementos multimedia"
+
+msgid "Videos"
+msgstr "Videos"
+
+msgid "Retweets"
+msgstr "Retweets"
+
+msgid "Choose whether xtractor skips or includes reposts."
+msgstr "Elija si xtractor omite o incluye reposiciones."
+
+msgid "Skip"
+msgstr "Omitir"
+
+msgid "Include"
+msgstr "Incluir"
+
+msgid "Original"
+msgstr "Original"
+
+msgid "Exclude videos"
+msgstr "Excluir vídeos"
+
+msgid "Include text-only posts"
+msgstr "Incluir publicaciones de solo texto"
+
+msgid "Download folder"
+msgstr "Carpeta de descargas"
+
+msgid "Browse"
+msgstr "Examinar"
+
+msgid "Open"
+msgstr "Abrir"
+
+msgid "History"
+msgstr "Historial"
+
+msgid "Clear history"
+msgstr "Borrar historial"
+
+msgid "Fetches"
+msgstr "Extracciones"
+
+msgid "{} media"
+msgstr "{} medios"
+
+msgid "Video"
+msgstr "Vídeo"
+
+msgid "Preview unavailable"
+msgstr "Vista previa no disponible"
+
+msgid "Close preview"
+msgstr "Cerrar vista previa"
+
+msgid "Download file"
+msgstr "Descargar archivo"
+
+msgid "View"
+msgstr "Ver"
+
+msgid "Open post"
+msgstr "Abrir publicación"
+
+msgid "Cancel operation"
+msgstr "Cancelar operación"
+
+msgid "Media quality"
+msgstr "Calidad del medio"
+
+msgid "Video quality"
+msgstr "Calidad de vídeo"
+
+msgid "Highest"
+msgstr "Máxima"
+
+msgid "Lowest"
+msgstr "Mínima"
+
+msgid "Image size"
+msgstr "Tamaño de imagen"
+
+msgid "Large"
+msgstr "Grande"
+
+msgid "Medium"
+msgstr "Mediana"
+
+msgid "Small"
+msgstr "Pequeña"
+
+msgid "Filename format"
+msgstr "Formato del nombre de archivo"
+
+msgid "Folder name format"
+msgstr "Formato del nombre de carpeta"
+
+msgid "Folder name tokens: {handle} (author handle), {name} (display name), and {date} (download date in YYYYMMDD format)."
+msgstr "Variables del nombre de carpeta: {handle} (usuario), {name} (nombre visible) y {date} (fecha de descarga en formato YYYYMMDD)."
+
+msgid "Downloaded media filename format"
+msgstr "Formato del nombre de archivo de medios descargados"
+
+msgid "Preview"
+msgstr "Vista previa"
+
+
+msgid "Drop any X (Twitter) username or link — grab all the media."
+msgstr "Pega cualquier nombre de usuario o enlace de X (Twitter) — descarga todos los medios."
+
+msgid "Paste from clipboard"
+msgstr "Pegar del portapapeles"
+
+msgid "posts"
+msgstr "publicaciones"
+
+msgid "following"
+msgstr "siguiendo"
+
+msgid "followers"
+msgstr "seguidores"
+
+msgid "media"
+msgstr "medios"
+
+msgid "All"
+msgstr "Todos"
+
+msgid "Image"
+msgstr "Imagen"
+
+msgid "GIF"
+msgstr "GIF"
+
+msgid "Failed"
+msgstr "Error"
+
+msgid "Load more"
+msgstr "Cargar más"
+
+msgid "Nothing in this filter."
+msgstr "No hay medios en este filtro."
+
+msgid "Media preview"
+msgstr "Vista previa"
+
+msgid "Replies"
+msgstr "Respuestas"
+
+msgid "Reposts"
+msgstr "Republicaciones"
+
+msgid "Likes"
+msgstr "Me gusta"
+
+msgid "Views"
+msgstr "Visualizaciones"
+
+msgid "via {}"
+msgstr "vía {}"
+
+msgid "Download {}"
+msgstr "Descargar {}"
+
+msgid "Play"
+msgstr "Reproducir"
+
+msgid "Pause"
+msgstr "Pausar"
+
+msgid "Playback position"
+msgstr "Posición de reproducción"
+
+msgid "Looping GIF"
+msgstr "GIF en bucle"
+
+msgid "Mute"
+msgstr "Silenciar"
+
+msgid "Unmute"
+msgstr "Activar sonido"
+
+msgid "Volume"
+msgstr "Volumen"
+
+msgid "Video playback failed."
+msgstr "Error al reproducir el vídeo."
+
+msgid "Try again"
+msgstr "Intentar de nuevo"
+
+msgid "Import history JSON"
+msgstr "Importar JSON del historial"
+
+msgid "Remove from history"
+msgstr "Eliminar del historial"
+
+msgid "Search accounts…"
+msgstr "Buscar cuentas…"
+
+msgid "Clear search"
+msgstr "Borrar búsqueda"
+
+msgid "No accounts fetched yet."
+msgstr "Todavía no se han consultado cuentas."
+
+msgid "No accounts match “{}”."
+msgstr "Ninguna cuenta coincide con «{}»."
+
+msgid "Remove {} from history?"
+msgstr "¿Eliminar {} del historial?"
+
+msgid "The history records will be removed. Downloaded files will remain in your folder."
+msgstr "Se eliminarán los registros del historial. Los archivos descargados permanecerán en tu carpeta."
+
+msgid "Remove"
+msgstr "Eliminar"
+
+msgid "Just now"
+msgstr "Ahora mismo"
+
+msgid "{} minutes ago"
+msgstr "Hace {} minutos"
+
+msgid "{} hours ago"
+msgstr "Hace {} horas"
+
+msgid "{} days ago"
+msgstr "Hace {} días"
+
+msgid "History JSON exported."
+msgstr "JSON del historial exportado."
+
+msgid "Could not export history JSON."
+msgstr "No se pudo exportar el JSON del historial."
+
+msgid "No valid history entries found in this JSON."
+msgstr "No se encontraron registros válidos en este JSON."
+
+msgid "Back"
+msgstr "Volver"
+
+msgid "Avatar size"
+msgstr "Tamaño del avatar"
+
+msgid "Banner size"
+msgstr "Tamaño del banner"
+
+msgid "Bigger"
+msgstr "Más grande"
+
+msgid "Normal"
+msgstr "Normal"
+
+msgid "Download avatar"
+msgstr "Descargar avatar"
+
+msgid "Download banner"
+msgstr "Descargar banner"
+
+msgid "Auto Convert GIF"
+msgstr "Convertir GIF automáticamente"
+
+msgid "Concurrent downloads"
+msgstr "Descargas simultáneas"
+
+msgid "Save X GIF videos as animated .gif files using FFmpeg."
+msgstr "Guardar los vídeos GIF de X como archivos GIF animados con FFmpeg."
+
+msgid "Download images"
+msgstr "Descargar imágenes"
+
+msgid "Download videos"
+msgstr "Descargar videos"
+
+msgid "Download GIFs"
+msgstr "Descargar GIF"
+
+msgid "{} downloaded"
+msgstr "{} descargados"
+
+msgid "{} available"
+msgstr "{} disponibles"
+
+msgid "Earlier downloads"
+msgstr "Descargas anteriores"
+
+msgid "Open file"
+msgstr "Abrir archivo"
+
+msgid "File missing"
+msgstr "Archivo no encontrado"
+
+msgid "No downloads yet."
+msgstr "Todavía no hay descargas."
+
+msgid "Clear download history?"
+msgstr "¿Borrar el historial de descargas?"
+
+msgid "Clear fetch history?"
+msgstr "¿Borrar el historial de consultas?"
+
+msgid "Buy Me a Coffee"
+msgstr ""
+
+msgid "Support"
+msgstr "Apoyar"
+
+msgid "Scan the QR code or copy the address to support the project."
+msgstr ""
+
+msgid "Network"
+msgstr ""
+
+msgid "Copy wallet address"
+msgstr ""
+
+msgid "Wallet address copied."
+msgstr ""
+
+msgid "Could not copy wallet address."
+msgstr ""
+
+msgid "Free space"
+msgstr ""
+
+msgid "Download folder usage"
+msgstr ""
+
+msgid "Calculating…"
+msgstr ""
+
+msgid "{} total on drive"
+msgstr ""
+
+msgid "{} files"
+msgstr ""
+
+msgid "Some files could not be read."
+msgstr ""
+
+msgid "Counts final files in the selected folder, including subfolders."
+msgstr ""
+
+msgid "Refresh"
+msgstr ""
+
+msgid "Retry FFmpeg download"
+msgstr ""
+
+msgid "Checking FFmpeg…"
+msgstr ""
+
+msgid "Downloading FFmpeg…"
+msgstr ""
+
+msgid "Installing FFmpeg…"
+msgstr ""
+
+msgid "Fetch sessions"
+msgstr ""
+
+msgid "View fetch sessions"
+msgstr ""
+
+msgid "{} fetch sessions"
+msgstr ""
+
+msgid "1 fetch session"
+msgstr ""
+
+msgid "All fetch sessions in this group will be removed. Downloaded files will remain in your folder."
+msgstr ""
+
+msgid "Zinc"
+msgstr ""
+
+msgid "Stone"
+msgstr ""
+
+msgid "Mauve"
+msgstr ""
+
+msgid "Mist"
+msgstr ""
+
+msgid "Drive storage"
+msgstr "Almacenamiento de la unidad"
+
+msgid "{}% used"
+msgstr "{}% utilizado"
+
+msgid "Storage capacity unavailable"
+msgstr "Capacidad de almacenamiento no disponible"
+
+msgid "Restart to apply renderer"
+msgstr "Reiniciar para aplicar el renderizador"
+
+msgid "Your renderer preference has been saved. Restart the app to apply it."
+msgstr "Se ha guardado tu preferencia de renderizador. Reinicia la aplicación para aplicarla."
+
+msgid "Restart will be available when the current operation finishes."
+msgstr "Podrás reiniciar cuando termine la operación actual."
+
+msgid "Restart later"
+msgstr "Reiniciar más tarde"
+
+msgid "Restart now"
+msgstr "Reiniciar ahora"
+
+msgid "Could not save the renderer preference. Please try again."
+msgstr "No se pudo guardar la preferencia de renderizador. Inténtalo de nuevo."
+
+msgid "Could not restart the app. Please try again."
+msgstr "No se pudo reiniciar la aplicación. Inténtalo de nuevo."
+
+msgid "GIF conversion mode"
+msgstr "Modo de conversión GIF"
+
+msgid "GIF resolution"
+msgstr "Resolución GIF"
+
+msgid "Fast"
+msgstr "Rápido"
+
+msgid "Better"
+msgstr "Mejor"
+
+msgid "High (800px)"
+msgstr "Alta (800px)"
+
+msgid "Medium (600px)"
+msgstr "Media (600px)"
+
+msgid "Low (400px)"
+msgstr "Baja (400px)"
+
+msgid "Fast keeps the source frame rate."
+msgstr "Rápido mantiene la frecuencia de fotogramas original."
+
+msgid "Better uses an optimized color palette."
+msgstr "Mejor utiliza una paleta de colores optimizada."
+
+msgid "{} FPS"
+msgstr "{} FPS"
+
+msgid "Select media"
+msgstr "Seleccionar medio"
+
+msgid "Deselect media"
+msgstr "Deseleccionar medio"
+
+msgid "Select filter"
+msgstr "Seleccionar filtro"
+
+msgid "Deselect filter"
+msgstr "Deseleccionar filtro"
+
+msgid "Download selected ({})"
+msgstr "Descargar selección ({})"
+
+msgid "Download retries"
+msgstr "Reintentos de descarga"
+
+msgid "Installed"
+msgstr "Instalado"
+
+msgid "Not installed"
+msgstr "No instalado"
+
+msgid "Version unknown"
+msgstr "Versión desconocida"
+
+msgid "Latest"
+msgstr "Última"
+
+msgid "Not checked"
+msgstr "Sin comprobar"
+
+msgid "Updates are installed in the portable data folder."
+msgstr "Las actualizaciones se instalan en la carpeta de datos portátil."
+
+msgid "Check for updates"
+msgstr "Buscar actualizaciones"
+
+msgid "Install latest xtractor"
+msgstr "Instalar el último xtractor"
+
+msgid "Download xtractor"
+msgstr "Descargar xtractor"
+
+msgid "Checking xtractor updates…"
+msgstr "Buscando actualizaciones de xtractor…"
+
+msgid "Xtractor release available."
+msgstr "Hay una versión de xtractor disponible."
+
+msgid "Xtractor is up to date."
+msgstr "Xtractor está actualizado."
+
+msgid "Preparing xtractor update…"
+msgstr "Preparando actualización de xtractor…"
+
+msgid "Downloading xtractor…"
+msgstr "Descargando xtractor…"
+
+msgid "Installing xtractor…"
+msgstr "Instalando xtractor…"
+
+msgid "Xtractor updated successfully."
+msgstr "Xtractor se actualizó correctamente."
+
+msgid "Could not check xtractor updates. Please try again."
+msgstr "No se pudieron buscar actualizaciones de xtractor. Inténtalo de nuevo."
+
+msgid "Could not update xtractor. Your previous binary is preserved. Please try again."
+msgstr "No se pudo actualizar xtractor. Se conserva el ejecutable anterior. Inténtalo de nuevo."
+
+msgid "Could not install xtractor. Please try again."
+msgstr "No se pudo instalar xtractor. Inténtalo de nuevo."
+
+msgid "Fetch options"
+msgstr "Opciones de extracción"
+
+msgid "Batch accounts"
+msgstr "Lote de cuentas"
+
+msgid "Account list"
+msgstr "Lista de cuentas"
+
+msgid "One handle or profile URL per line. Up to 100 accounts; duplicates are removed."
+msgstr "Un usuario o URL de perfil por línea. Hasta 100 cuentas; se eliminan los duplicados."
+
+msgid "Date range"
+msgstr "Rango de fechas"
+
+msgid "Search posts from an account within a date range."
+msgstr "Busca publicaciones de una cuenta dentro de un rango de fechas."
+
+msgid "Start date"
+msgstr "Fecha inicial"
+
+msgid "End date"
+msgstr "Fecha final"
+
+msgid "Fetch pending"
+msgstr "Extraer pendientes"
+
+msgid "Stop batch"
+msgstr "Detener lote"
+
+msgid "Reset queue"
+msgstr "Restablecer cola"
+
+msgid "Clear queue"
+msgstr "Borrar cola"
+
+msgid "View results"
+msgstr "Ver resultados"
+
+msgid "Queued"
+msgstr "En cola"
+
+msgid "Fetching"
+msgstr "Extrayendo"
+
+msgid "Completed"
+msgstr "Completado"
+
+msgid "Incomplete"
+msgstr "Incompleto"
+
+msgid "Cancelled"
+msgstr "Cancelado"
+
+msgid "Apply"
+msgstr "Aplicar"
+
+msgid "Enter a start date or an end date."
+msgstr "Introduce una fecha inicial o final."
+
+msgid "Use valid dates in YYYY-MM-DD format."
+msgstr "Usa fechas válidas en formato YYYY-MM-DD."
+
+msgid "The end date must not be before the start date."
+msgstr "La fecha final no puede ser anterior a la inicial."
+
+msgid "Date filters require a profile or media URL, not likes or replies."
+msgstr "Los filtros de fecha requieren URL de perfil o medios, no de Me gusta o respuestas."
+
+msgid "Use an @handle or an X/Twitter profile URL."
+msgstr "Usa un @usuario o URL de perfil de X/Twitter."
+
+msgid "Batch accounts require profile, media, likes, or replies URLs."
+msgstr "Los lotes requieren URL de perfil, medios, Me gusta o respuestas."
+
+msgid "Use a valid X/Twitter account handle."
+msgstr "Usa un nombre de usuario de X/Twitter válido."
+
+msgid "Use at most 100 accounts in one batch."
+msgstr "Usa como máximo 100 cuentas por lote."
+
+msgid "Enter at least one account for the batch."
+msgstr "Introduce al menos una cuenta para el lote."
+
+msgid "Other files"
+msgstr "Otros archivos"
+
+msgid "Enter full screen"
+msgstr "Entrar en pantalla completa"
+
+msgid "Exit full screen"
+msgstr "Salir de pantalla completa"
+
+msgid "Zoom in"
+msgstr "Acercar"
+
+msgid "Zoom out"
+msgstr "Alejar"
+
+msgid "Fit to screen"
+msgstr "Ajustar a la pantalla"
+
+msgid "Media zoom"
+msgstr "Zoom del contenido"
+
+msgid "Media canvas"
+msgstr "Área del contenido"
+
+msgid "Post details"
+msgstr "Detalles de la publicación"
+
+msgid "Hide details"
+msgstr "Ocultar detalles"
+
+msgid "Show details"
+msgstr "Mostrar detalles"
+
+msgid "Jump to top"
+msgstr "Volver arriba"
+
+msgid "Xtractor is required to use this app. Download it to continue."
+msgstr "Se necesita Xtractor para usar esta aplicación. Descárgalo para continuar."
+
+msgid "Downloading…"
+msgstr "Descargando…"
+
+msgid "Download"
+msgstr "Descargar"
+
+msgid "Back to Home"
+msgstr "Volver al inicio"
+
+msgid "Forward to results"
+msgstr "Avanzar a los resultados"
+
+msgid "Single"
+msgstr "Único"
+
+msgid "Batch"
+msgstr "Lote"
+
+msgid "Batch account list"
+msgstr "Lista de cuentas del lote"
+
+msgid "Update queue"
+msgstr "Actualizar cola"
+
+msgid "Edit accounts"
+msgstr "Editar cuentas"
+
+msgid "Open a result to inspect it. Back returns to this queue."
+msgstr "Abre un resultado para revisarlo. Atrás vuelve a esta cola."
+
+msgid "Back to batch"
+msgstr "Volver al lote"
+
+msgid "Batch results"
+msgstr "Resultados del lote"
+
+msgid "Saved batch result is no longer available. Reset the queue to fetch it again."
+msgstr "El resultado guardado del lote ya no está disponible. Restablece la cola para obtenerlo de nuevo."
+
+msgid "Fetch profiles from the batch queue. These options apply to every account in the queue."
+msgstr "Obtén perfiles de la cola por lotes. Estas opciones se aplican a todas las cuentas de la cola."
+
+msgid "Stop each account after reaching saved data. Turn off for a full fetch. Reposts always use a full fetch."
+msgstr "Detener cada cuenta al llegar a los datos guardados. Desactívalo para una obtención completa. Las republicaciones siempre se obtienen por completo."
+
+msgid "Library"
+msgstr "Biblioteca"
+
+msgid "Refresh library"
+msgstr "Actualizar biblioteca"
+
+msgid "Search library"
+msgstr "Buscar en biblioteca"
+
+msgid "Open library account"
+msgstr "Abrir cuenta de biblioteca"
+
+msgid "Refetch"
+msgstr "Volver a obtener"
+
+msgid "Back to library"
+msgstr "Volver a biblioteca"
+
+msgid "Download pending"
+msgstr "Descargar pendientes"
+
+msgid "File list"
+msgstr "Lista de archivos"
+
+msgid "Available"
+msgstr "Disponible"
+
+msgid "Not downloaded"
+msgstr "Sin descargar"
+
+msgid "Download again"
+msgstr "Volver a descargar"
+
+msgid "Downloaded accounts will appear here."
+msgstr "Las cuentas descargadas aparecerán aquí."
+
+msgid "No accounts match this search."
+msgstr "Ninguna cuenta coincide con esta búsqueda."
+
+msgid "Loading library…"
+msgstr "Cargando biblioteca…"
+
+msgid "Downloading library media…"
+msgstr "Descargando medios de biblioteca…"
+
+msgid "Updating library account…"
+msgstr "Actualizando cuenta de biblioteca…"
+
+msgid "{} library files downloaded."
+msgstr "{} archivos de biblioteca descargados."
+
+msgid "Accounts"
+msgstr "Cuentas"
+
+msgid "Loading history…"
+msgstr "Cargando historial…"
+
+msgid "Loading media…"
+msgstr "Cargando medios…"
+
+msgid "Could not load saved media."
+msgstr "No se pudieron cargar los archivos guardados."
+
+msgid "Preparing downloads…"
+msgstr "Preparando descargas…"

@@ -1,372 +1,231 @@
 name: Build Multi-Platform
 
+# Runs only when started from the Actions tab (Run workflow), never on a push.
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
+    inputs:
+      release:
+        description: "Release tag to publish, such as v6.0.0. Leave empty to only build."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
-  NODE_VERSION: '24'
-  PNPM_VERSION: '10'
-  APP_NAME: TwitterXMediaBatchDownloader
+  CARGO_TERM_COLOR: always
+  # rust-toolchain.toml pins the Windows MSVC host for local development;
+  # every runner builds with the stable toolchain for its own host instead.
+  RUSTUP_TOOLCHAIN: stable
+  BIN: TwitterXMediaBatchDownloader
+  # Matches the app ID used for the Wayland window and the desktop entry.
+  APP_ID: twitterxmediabatchdownloader
 
 jobs:
-  build-windows:
-    name: Build Windows
-    runs-on: windows-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - name: Setup pnpm cache
-        continue-on-error: true
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('frontend/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
-
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm run generate-icon
-
-      - name: Install UPX
-        run: choco install upx -y
-
-      - name: Build application
-        run: wails build -platform windows/amd64
-
-      - name: Compress with UPX
-        run: upx --best --lzma "build\bin\${{ env.APP_NAME }}.exe"
-
-      - name: Prepare artifacts
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Copy-Item -Path "build\bin\${{ env.APP_NAME }}.exe" -Destination "dist\${{ env.APP_NAME }}.exe"
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-portable
-          path: dist/${{ env.APP_NAME }}.exe
-          retention-days: 7
-
-  build-macos:
-    name: Build macOS
-    runs-on: macos-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - name: Get pnpm store directory
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - name: Setup pnpm cache
-        continue-on-error: true
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('frontend/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
-
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm run generate-icon
-
-      - name: Build application
-        run: wails build -platform darwin/universal
-
-      - name: Create DMG
-        run: |
-          mkdir -p dist
-          brew install create-dmg || true
-
-          create-dmg \
-            --volname "${{ env.APP_NAME }}" \
-            --window-pos 200 120 \
-            --window-size 600 400 \
-            --icon-size 100 \
-            --icon "${{ env.APP_NAME }}.app" 175 120 \
-            --hide-extension "${{ env.APP_NAME }}.app" \
-            --app-drop-link 425 120 \
-            "dist/${{ env.APP_NAME }}.dmg" \
-            "build/bin/${{ env.APP_NAME }}.app" || \
-          hdiutil create -volname "${{ env.APP_NAME }}" -srcfolder "build/bin/${{ env.APP_NAME }}.app" -ov -format UDZO "dist/${{ env.APP_NAME }}.dmg"
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-portable
-          path: dist/${{ env.APP_NAME }}.dmg
-          retention-days: 7
-
-  build-linux:
-    name: Build Linux (${{ matrix.display_name }})
-    runs-on: ${{ matrix.runner }}
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      # Signed build provenance: gh attestation verify <file> --repo <owner/repo>
+      id-token: write
+      attestations: write
     strategy:
       fail-fast: false
       matrix:
         include:
-          - display_name: amd64
-            runner: ubuntu-24.04
-            wails_platform: linux/amd64
-            artifact_name: linux-portable
-            output_name: TwitterXMediaBatchDownloader.AppImage
+          - name: windows-x64
+            os: windows-latest
+            targets: x86_64-pc-windows-msvc
+            asset: TwitterXMediaBatchDownloader.exe
+          # Ubuntu 22.04 keeps the glibc requirement at 2.35 for older distributions.
+          - name: linux-x64
+            os: ubuntu-22.04
+            targets: x86_64-unknown-linux-gnu
+            asset: TwitterXMediaBatchDownloader.AppImage
             appimage_arch: x86_64
-            appimagetool_arch: x86_64
-            pkgconfig_dir: /usr/lib/x86_64-linux-gnu/pkgconfig
-          - display_name: arm64
-            runner: ubuntu-24.04-arm
-            wails_platform: linux/arm64
-            artifact_name: linux-portable-arm
-            output_name: TwitterXMediaBatchDownloader-ARM.AppImage
+            appimagetool_sha256: ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
+          - name: linux-arm64
+            os: ubuntu-22.04-arm
+            targets: aarch64-unknown-linux-gnu
+            asset: TwitterXMediaBatchDownloader-ARM.AppImage
             appimage_arch: aarch64
-            appimagetool_arch: aarch64
-            pkgconfig_dir: /usr/lib/aarch64-linux-gnu/pkgconfig
+            appimagetool_sha256: f0837e7448a0c1e4e650a93bb3e85802546e60654ef287576f46c71c126a9158
+          - name: macos-universal
+            os: macos-14
+            targets: aarch64-apple-darwin,x86_64-apple-darwin
+            asset: TwitterXMediaBatchDownloader.dmg
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          go-version-file: go.mod
+          targets: ${{ matrix.targets }}
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: Swatinem/rust-cache@v2
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          key: ${{ matrix.name }}
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
+      - name: Read version
+        shell: bash
+        run: echo "VERSION=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)" >> "$GITHUB_ENV"
 
-      - name: Get pnpm store directory
+      - name: Build
+        if: runner.os != 'macOS'
+        shell: bash
+        run: cargo build --release --locked --target ${{ matrix.targets }}
+
+      - name: Build universal binary
+        if: runner.os == 'macOS'
+        env:
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
         run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+          cargo build --release --locked --target aarch64-apple-darwin
+          cargo build --release --locked --target x86_64-apple-darwin
+          mkdir -p target/universal
+          lipo -create -output "target/universal/$BIN" \
+            "target/aarch64-apple-darwin/release/$BIN" \
+            "target/x86_64-apple-darwin/release/$BIN"
+          lipo -info "target/universal/$BIN"
 
-      - name: Setup pnpm cache
-        continue-on-error: true
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('frontend/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install dependencies
+      # Release assets are single files. The app keeps its .twitterxmediabatchdownloader
+      # data and Downloads folder beside the .exe, the .AppImage file or the .app bundle.
+      - name: Package Windows executable
+        if: runner.os == 'Windows'
+        shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libfuse2 imagemagick upx-ucl
-          sudo ln -sf "${{ matrix.pkgconfig_dir }}/webkit2gtk-4.1.pc" "${{ matrix.pkgconfig_dir }}/webkit2gtk-4.0.pc"
+          mkdir -p out
+          cp "target/${{ matrix.targets }}/release/$BIN.exe" "out/${{ matrix.asset }}"
 
-      - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
-
-      - name: Install frontend dependencies
-        working-directory: frontend
+      - name: Package AppImage
+        if: runner.os == 'Linux'
+        env:
+          # Run appimagetool without FUSE on the runner.
+          APPIMAGE_EXTRACT_AND_RUN: "1"
         run: |
-          pnpm install --frozen-lockfile
-          pnpm run generate-icon
+          tool="$RUNNER_TEMP/appimagetool"
+          curl -fsSL -o "$tool" \
+            "https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-${{ matrix.appimage_arch }}.AppImage"
+          echo "${{ matrix.appimagetool_sha256 }}  $tool" | sha256sum -c -
+          chmod +x "$tool"
 
-      - name: Build application
-        run: wails build -platform ${{ matrix.wails_platform }}
-
-      - name: Compress with UPX
-        run: upx --best --lzma "build/bin/${{ env.APP_NAME }}"
-
-      - name: Cache appimagetool
-        id: cache-appimagetool
-        uses: actions/cache@v4
-        with:
-          path: appimagetool
-          key: appimagetool-${{ matrix.appimagetool_arch }}-v2
-
-      - name: Download appimagetool
-        if: steps.cache-appimagetool.outputs.cache-hit != 'true'
-        run: |
-          wget --timeout=30 --tries=5 --retry-connrefused --waitretry=5 -O appimagetool "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${{ matrix.appimagetool_arch }}.AppImage" || \
-          wget --timeout=30 --tries=5 --retry-connrefused --waitretry=5 -O appimagetool "https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-${{ matrix.appimagetool_arch }}.AppImage"
-
-      - name: Make appimagetool executable
-        run: chmod +x appimagetool
-
-      - name: Create AppImage
-        run: |
-          mkdir -p AppDir/usr/bin
-          mkdir -p AppDir/usr/share/applications
-          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
-
-          cp "build/bin/${{ env.APP_NAME }}" AppDir/usr/bin/
-
-          cat > AppDir/twitterxmediabatchdownloader.desktop << 'EOF'
+          # The binary links only against glibc; display and GPU libraries load at runtime.
+          appdir="$RUNNER_TEMP/AppDir"
+          mkdir -p "$appdir/usr/bin"
+          install -m 755 "target/${{ matrix.targets }}/release/$BIN" "$appdir/usr/bin/$BIN"
+          ln -s "usr/bin/$BIN" "$appdir/AppRun"
+          install -m 644 assets/logo/logo.png "$appdir/$APP_ID.png"
+          ln -s "$APP_ID.png" "$appdir/.DirIcon"
+          cat > "$appdir/$APP_ID.desktop" <<EOF
           [Desktop Entry]
-          Name=Twitter/X Media Batch Downloader
-          Exec=TwitterXMediaBatchDownloader
-          Icon=twitterxmediabatchdownloader
           Type=Application
-          Categories=Network;Utility;
-          Comment=Download Twitter/X media in batches
+          Name=Twitter/X Media Batch Downloader
+          Comment=Downloads original-quality images and videos from Twitter/X accounts.
+          Exec=$BIN
+          Icon=$APP_ID
+          StartupWMClass=$APP_ID
+          Categories=Network;
+          Terminal=false
           EOF
 
-          cp AppDir/twitterxmediabatchdownloader.desktop AppDir/usr/share/applications/
+          mkdir -p out
+          ARCH=${{ matrix.appimage_arch }} VERSION="$VERSION" "$tool" "$appdir" "out/${{ matrix.asset }}"
 
-          if [ -f "build/appicon.png" ]; then
-            convert build/appicon.png -resize 256x256 AppDir/twitterxmediabatchdownloader.png
-          elif [ -f "frontend/public/icon.svg" ]; then
-            convert -background none -size 256x256 frontend/public/icon.svg AppDir/twitterxmediabatchdownloader.png
-          else
-            echo "Warning: No icon found, building without icon"
-          fi
+      - name: Package macOS disk image
+        if: runner.os == 'macOS'
+        run: |
+          staging="$RUNNER_TEMP/dmg"
+          app="$staging/$BIN.app"
+          mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+          install -m 755 "target/universal/$BIN" "$app/Contents/MacOS/$BIN"
 
-          if [ -f "AppDir/twitterxmediabatchdownloader.png" ]; then
-            cp AppDir/twitterxmediabatchdownloader.png AppDir/usr/share/icons/hicolor/256x256/apps/
-            cp AppDir/twitterxmediabatchdownloader.png AppDir/.DirIcon
-          fi
+          iconset="$RUNNER_TEMP/AppIcon.iconset"
+          mkdir -p "$iconset"
+          for size in 16 32 128 256 512; do
+            sips -z $size $size assets/logo/logo.png --out "$iconset/icon_${size}x${size}.png" >/dev/null
+            sips -z $((size * 2)) $((size * 2)) assets/logo/logo.png --out "$iconset/icon_${size}x${size}@2x.png" >/dev/null
+          done
+          iconutil -c icns "$iconset" -o "$app/Contents/Resources/AppIcon.icns"
 
-          cat > AppDir/AppRun << 'EOF'
-          #!/bin/sh
-          SELF=$(readlink -f "$0")
-          HERE=${SELF%/*}
-          export PATH="${HERE}/usr/bin/:${PATH}"
-          export LD_LIBRARY_PATH="${HERE}/usr/lib/:${LD_LIBRARY_PATH}"
-          exec "${HERE}/usr/bin/TwitterXMediaBatchDownloader" "$@"
+          cat > "$app/Contents/Info.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleName</key><string>$BIN</string>
+            <key>CFBundleDisplayName</key><string>Twitter/X Media Batch Downloader</string>
+            <key>CFBundleIdentifier</key><string>app.twitterdl.$APP_ID</string>
+            <key>CFBundleExecutable</key><string>$BIN</string>
+            <key>CFBundleIconFile</key><string>AppIcon</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleShortVersionString</key><string>$VERSION</string>
+            <key>CFBundleVersion</key><string>$VERSION</string>
+            <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+            <key>LSMinimumSystemVersion</key><string>11.0</string>
+            <key>NSHighResolutionCapable</key><true/>
+          </dict>
+          </plist>
           EOF
-          chmod +x AppDir/AppRun
+          plutil -lint "$app/Contents/Info.plist"
 
-          mkdir -p dist
-          ARCH=${{ matrix.appimage_arch }} ./appimagetool --no-appstream AppDir "dist/${{ matrix.output_name }}"
+          # Ad-hoc signature: Apple Silicon refuses to run unsigned code.
+          codesign --force --deep --sign - "$app"
+          codesign --verify --deep --strict "$app"
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+          # In Applications the app uses Application Support and ~/Downloads;
+          # anywhere else it stays portable beside the .app.
+          ln -s /Applications "$staging/Applications"
+          mkdir -p out
+          hdiutil create -volname "$BIN" -srcfolder "$staging" -fs HFS+ -format UDZO -ov "out/${{ matrix.asset }}"
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
         with:
-          name: ${{ matrix.artifact_name }}
-          path: dist/${{ matrix.output_name }}
-          retention-days: 7
+          subject-path: out/${{ matrix.asset }}
 
-  create-release:
-    name: Create Release
-    needs: [build-windows, build-macos, build-linux]
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.name }}
+          path: out/${{ matrix.asset }}
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: build
+    if: inputs.release != ''
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
+    env:
+      TAG: ${{ inputs.release }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Check the tag
+        run: |
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Release tag must look like v6.0.0, got: $TAG" >&2
+            exit 1
+          fi
 
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
-          path: artifacts
+          path: release
+          merge-multiple: true
 
-      - name: Display structure of downloaded files
-        run: ls -R artifacts
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          draft: true
-          prerelease: false
-          generate_release_notes: false
-          body: |
-            ## Changelog
-
-            ## Downloads
-
-            - `TwitterXMediaBatchDownloader.exe` - Windows
-            - `TwitterXMediaBatchDownloader.dmg` - macOS
-            - `TwitterXMediaBatchDownloader.AppImage` - Linux AMD64
-            - `TwitterXMediaBatchDownloader-ARM.AppImage` - Linux ARM64
-
-            <details>
-            <summary><b>Linux Requirements</b></summary>
-
-            The AppImage requires `webkit2gtk-4.1` to be installed on your system:
-
-            **Ubuntu/Debian:**
-            ```bash
-            sudo apt install libwebkit2gtk-4.1-0
-            ```
-
-            **Arch Linux:**
-            ```bash
-            sudo pacman -S webkit2gtk-4.1
-            ```
-
-            **Fedora:**
-            ```bash
-            sudo dnf install webkit2gtk4.1
-            ```
-
-            After installing the dependency, make the AppImage executable:
-            ```bash
-            chmod +x TwitterXMediaBatchDownloader.AppImage
-            ./TwitterXMediaBatchDownloader.AppImage
-            ```
-
-            For ARM64:
-            ```bash
-            chmod +x TwitterXMediaBatchDownloader-ARM.AppImage
-            ./TwitterXMediaBatchDownloader-ARM.AppImage
-            ```
-
-            </details>
-          files: |
-            artifacts/windows-portable/${{ env.APP_NAME }}.exe
-            artifacts/macos-portable/${{ env.APP_NAME }}.dmg
-            artifacts/linux-portable/${{ env.APP_NAME }}.AppImage
-            artifacts/linux-portable-arm/${{ env.APP_NAME }}-ARM.AppImage
+      # The tag is created on the commit that was built when it does not exist yet.
+      # GitHub lists a SHA-256 digest for every release asset.
+      - name: Create GitHub release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        working-directory: release
+        run: |
+          ls -la
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" * --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" * --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" --title "$TAG" --generate-notes
+          fi

@@ -1,0 +1,1566 @@
+msgid ""
+msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.0\nLanguage: id\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=1; plural=0;\n"
+
+msgid "Ready for an X/Twitter URL."
+msgstr "Siap menerima URL X/Twitter."
+
+msgid "On"
+msgstr "Aktif"
+
+msgid "Off"
+msgstr "Nonaktif"
+
+msgid "Select"
+msgstr "Pilih"
+
+msgid "Home"
+msgstr "Beranda"
+
+msgid "Settings"
+msgstr "Pengaturan"
+
+msgid "Theme"
+msgstr "Tema"
+
+msgid "Color scheme"
+msgstr "Skema warna"
+
+msgid "System"
+msgstr "Sistem"
+
+msgid "Dark"
+msgstr "Gelap"
+
+msgid "Light"
+msgstr "Terang"
+
+msgid "Palette"
+msgstr "Palet"
+
+msgid "Default"
+msgstr "Bawaan"
+
+msgid "Teal"
+msgstr "Toska"
+
+msgid "Green"
+msgstr "Hijau"
+
+msgid "Purple"
+msgstr "Ungu"
+
+msgid "Slate"
+msgstr "Slate"
+
+msgid "Red"
+msgstr "Merah"
+
+msgid "Orange"
+msgstr "Oranye"
+
+msgid "Amber"
+msgstr "Amber"
+
+msgid "Emerald"
+msgstr "Zamrud"
+
+msgid "Cyan"
+msgstr "Sian"
+
+msgid "Sky"
+msgstr "Langit"
+
+msgid "Blue"
+msgstr "Biru"
+
+msgid "Indigo"
+msgstr "Nila"
+
+msgid "Violet"
+msgstr "Violet"
+
+msgid "Rose"
+msgstr "Mawar"
+
+msgid "Pink"
+msgstr "Merah muda"
+
+msgid "Saved"
+msgstr "Tersimpan"
+
+msgid "Primary"
+msgstr "Warna utama"
+
+msgid "Canvas"
+msgstr "Latar"
+
+msgid "Surface"
+msgstr "Permukaan"
+
+msgid "Text"
+msgstr "Teks"
+
+msgid "Reset"
+msgstr "Atur ulang"
+
+msgid "Save"
+msgstr "Simpan"
+
+msgid "About"
+msgstr "Tentang"
+
+msgid "Twitter/X Media Batch Downloader"
+msgstr "Twitter/X Media Batch Downloader"
+
+msgid "Version {}"
+msgstr "Versi {}"
+
+msgid "Downloads original-quality images and videos from Twitter/X accounts."
+msgstr "Mengunduh gambar dan video berkualitas asli dari akun Twitter/X."
+
+msgid "Export JSON"
+msgstr "Ekspor JSON"
+
+msgid "Search X/Twitter media URL"
+msgstr "Cari URL media X/Twitter"
+
+msgid "Search and extract"
+msgstr "Cari dan ekstrak"
+
+msgid "Continue"
+msgstr "Lanjutkan"
+
+msgid "Download all"
+msgstr "Unduh semua"
+
+msgid "Open folder"
+msgstr "Buka folder"
+
+msgid "SETTINGS"
+msgstr "PENGATURAN"
+
+msgid "General"
+msgstr "Umum"
+
+msgid "Cookies"
+msgstr "Cookies"
+
+msgid "Downloads"
+msgstr "Unduhan"
+
+msgid "Storage"
+msgstr "Penyimpanan"
+
+msgid "Interface"
+msgstr "Antarmuka"
+
+msgid "Display language"
+msgstr "Bahasa tampilan"
+
+msgid "System language"
+msgstr "Bahasa sistem"
+
+msgid "English"
+msgstr "Inggris"
+
+msgid "Indonesian"
+msgstr "Bahasa Indonesia"
+
+msgid "Spanish"
+msgstr "Spanyol"
+
+msgid "French"
+msgstr "Prancis"
+
+msgid "German"
+msgstr "Jerman"
+
+msgid "Portuguese"
+msgstr "Portugis"
+
+msgid "Turkish"
+msgstr "Turkiye"
+
+msgid "Simplified Chinese"
+msgstr "Cina Sederhana"
+
+msgid "Renderer"
+msgstr "Perender"
+
+msgid "Restart required. Your current renderer is still active."
+msgstr "Mulai ulang diperlukan. Perender Anda saat ini masih aktif."
+
+msgid "GPU — WGPU"
+msgstr "GPU — WGPU"
+
+msgid "GPU mode is unavailable in this build."
+msgstr "Mode GPU tidak tersedia dalam build ini."
+
+msgid "X/Twitter authentication"
+msgstr "Autentikasi X/Twitter"
+
+msgid "auth_token (required)"
+msgstr "auth_token (wajib)"
+
+msgid "Add auth_token in Settings to search"
+msgstr "Tambahkan auth_token di Pengaturan untuk mencari"
+
+msgid "Add auth_token in Settings to fetch"
+msgstr "Tambahkan auth_token di Pengaturan untuk fetch"
+
+msgid "Add auth_token in Settings to update accounts"
+msgstr "Tambahkan auth_token di Pengaturan untuk memperbarui akun"
+
+msgid "click here"
+msgstr "klik di sini"
+
+msgid "An X auth_token is required before extraction."
+msgstr "auth_token X wajib diisi sebelum ekstraksi."
+
+msgid "X auth_token"
+msgstr "auth_token X"
+
+msgid "Clear"
+msgstr "Hapus"
+
+msgid "Extraction defaults"
+msgstr "Pengaturan ekstraksi"
+
+msgid "Media type"
+msgstr "Jenis media"
+
+msgid "All media"
+msgstr "Semua media"
+
+msgid "Videos"
+msgstr "Video"
+
+msgid "Retweets"
+msgstr "Retweet"
+
+msgid "Choose whether xtractor skips or includes reposts."
+msgstr "Pilih apakah xtractor melewati atau menyertakan retweet."
+
+msgid "Skip"
+msgstr "Lewati"
+
+msgid "Include"
+msgstr "Sertakan"
+
+msgid "Original"
+msgstr "Asli"
+
+msgid "Exclude videos"
+msgstr "Kecualikan video"
+
+msgid "Include text-only posts"
+msgstr "Sertakan post tanpa media"
+
+msgid "Download folder"
+msgstr "Folder unduhan"
+
+msgid "Browse"
+msgstr "Telusuri"
+
+msgid "Open"
+msgstr "Buka"
+
+msgid "History"
+msgstr "Riwayat"
+
+msgid "Clear history"
+msgstr "Hapus riwayat"
+
+msgid "Fetches"
+msgstr "Hasil ekstraksi"
+
+msgid "{} media"
+msgstr "{} media"
+
+msgid "Video"
+msgstr "Video"
+
+msgid "Preview unavailable"
+msgstr "Pratinjau tidak tersedia"
+
+msgid "Close preview"
+msgstr "Tutup pratinjau"
+
+msgid "Download file"
+msgstr "Unduh file"
+
+msgid "View"
+msgstr "Lihat"
+
+msgid "Open post"
+msgstr "Buka postingan"
+
+msgid "Cancel operation"
+msgstr "Batalkan operasi"
+
+msgid "Media quality"
+msgstr "Kualitas media"
+
+msgid "Video quality"
+msgstr "Kualitas video"
+
+msgid "Highest"
+msgstr "Tertinggi"
+
+msgid "Lowest"
+msgstr "Terendah"
+
+msgid "Image size"
+msgstr "Ukuran gambar"
+
+msgid "Large"
+msgstr "Besar"
+
+msgid "Medium"
+msgstr "Sedang"
+
+msgid "Small"
+msgstr "Kecil"
+
+msgid "Filename format"
+msgstr "Format nama file"
+
+msgid "Folder name format"
+msgstr "Format nama folder"
+
+msgid "Folder name tokens: {handle} (author handle), {name} (display name), and {date} (download date in YYYYMMDD format)."
+msgstr "Token nama folder: {handle} (handle penulis), {name} (nama tampilan), dan {date} (tanggal unduhan dalam format YYYYMMDD)."
+
+msgid "Downloaded media filename format"
+msgstr "Format nama file media yang diunduh"
+
+msgid "Preview"
+msgstr "Pratinjau"
+
+
+msgid "Drop any X (Twitter) username or link — grab all the media."
+msgstr "Tempel username atau tautan X (Twitter) apa saja — ambil semua medianya."
+
+msgid "Paste from clipboard"
+msgstr "Tempel dari clipboard"
+
+msgid "posts"
+msgstr "postingan"
+
+msgid "following"
+msgstr "mengikuti"
+
+msgid "followers"
+msgstr "pengikut"
+
+msgid "media"
+msgstr "media"
+
+msgid "All"
+msgstr "Semua"
+
+msgid "Image"
+msgstr "Gambar"
+
+msgid "GIF"
+msgstr "GIF"
+
+msgid "Failed"
+msgstr "Gagal"
+
+msgid "Load more"
+msgstr "Muat lagi"
+
+msgid "Nothing in this filter."
+msgstr "Tidak ada media dalam filter ini."
+
+msgid "Media preview"
+msgstr "Preview media"
+
+msgid "Replies"
+msgstr "Balasan"
+
+msgid "Reposts"
+msgstr "Posting ulang"
+
+msgid "Likes"
+msgstr "Suka"
+
+msgid "Views"
+msgstr "Tayangan"
+
+msgid "via {}"
+msgstr "melalui {}"
+
+msgid "Download {}"
+msgstr "Unduh {}"
+
+msgid "Play"
+msgstr "Putar"
+
+msgid "Pause"
+msgstr "Jeda"
+
+msgid "Playback position"
+msgstr "Posisi pemutaran"
+
+msgid "Looping GIF"
+msgstr "GIF berulang"
+
+msgid "Mute"
+msgstr "Bisukan"
+
+msgid "Unmute"
+msgstr "Aktifkan suara"
+
+msgid "Volume"
+msgstr "Volume"
+
+msgid "Video playback failed."
+msgstr "Pemutaran video gagal."
+
+msgid "Try again"
+msgstr "Coba lagi"
+
+msgid "Import history JSON"
+msgstr "Impor JSON riwayat"
+
+msgid "Remove from history"
+msgstr "Hapus dari riwayat"
+
+msgid "Search accounts…"
+msgstr "Cari akun…"
+
+msgid "Clear search"
+msgstr "Hapus pencarian"
+
+msgid "No accounts fetched yet."
+msgstr "Belum ada akun yang diambil."
+
+msgid "No accounts match “{}”."
+msgstr "Tidak ada akun yang cocok dengan “{}”."
+
+msgid "Remove {} from history?"
+msgstr "Hapus {} dari riwayat?"
+
+msgid "The history records will be removed. Downloaded files will remain in your folder."
+msgstr "Catatan riwayat akan dihapus. File yang diunduh tetap tersimpan di folder Anda."
+
+msgid "Remove"
+msgstr "Hapus"
+
+msgid "Just now"
+msgstr "Baru saja"
+
+msgid "{} minutes ago"
+msgstr "{} menit yang lalu"
+
+msgid "{} hours ago"
+msgstr "{} jam yang lalu"
+
+msgid "{} days ago"
+msgstr "{} hari yang lalu"
+
+msgid "History JSON exported."
+msgstr "JSON riwayat berhasil diekspor."
+
+msgid "Could not export history JSON."
+msgstr "Gagal mengekspor JSON riwayat."
+
+msgid "No valid history entries found in this JSON."
+msgstr "Tidak ditemukan catatan riwayat yang valid dalam JSON ini."
+
+msgid "Back"
+msgstr "Kembali"
+
+msgid "Avatar size"
+msgstr "Ukuran avatar"
+
+msgid "Banner size"
+msgstr "Ukuran banner"
+
+msgid "Bigger"
+msgstr "Lebih besar"
+
+msgid "Normal"
+msgstr "Normal"
+
+msgid "Download avatar"
+msgstr "Unduh avatar"
+
+msgid "Download banner"
+msgstr "Unduh banner"
+
+msgid "Auto Convert GIF"
+msgstr "Konversi GIF otomatis"
+
+msgid "Concurrent downloads"
+msgstr "Unduhan bersamaan"
+
+msgid "Save X GIF videos as animated .gif files using FFmpeg."
+msgstr "Simpan video GIF X sebagai file .gif animasi menggunakan FFmpeg."
+
+msgid "Download images"
+msgstr "Unduh gambar"
+
+msgid "Download videos"
+msgstr "Unduh video"
+
+msgid "Download GIFs"
+msgstr "Unduh GIF"
+
+msgid "{} downloaded"
+msgstr "{} diunduh"
+
+msgid "{} available"
+msgstr "{} tersedia"
+
+msgid "Earlier downloads"
+msgstr "Unduhan sebelumnya"
+
+msgid "Open file"
+msgstr "Buka file"
+
+msgid "File missing"
+msgstr "File tidak ditemukan"
+
+msgid "No downloads yet."
+msgstr "Belum ada unduhan."
+
+msgid "Clear download history?"
+msgstr "Hapus riwayat unduhan?"
+
+msgid "Clear fetch history?"
+msgstr "Hapus riwayat fetch?"
+
+msgid "Buy Me a Coffee"
+msgstr "Traktir Kopi"
+
+msgid "Support"
+msgstr "Dukung"
+
+msgid "Scan the QR code or copy the address to support the project."
+msgstr "Pindai kode QR atau salin alamat untuk mendukung proyek ini."
+
+msgid "Network"
+msgstr "Jaringan"
+
+msgid "Copy wallet address"
+msgstr "Salin alamat wallet"
+
+msgid "Wallet address copied."
+msgstr "Alamat wallet disalin."
+
+msgid "Could not copy wallet address."
+msgstr "Alamat wallet tidak dapat disalin."
+
+msgid "Free space"
+msgstr "Ruang kosong"
+
+msgid "Download folder usage"
+msgstr "Penggunaan folder unduhan"
+
+msgid "Calculating…"
+msgstr "Menghitung…"
+
+msgid "{} total on drive"
+msgstr "{} total di drive"
+
+msgid "{} files"
+msgstr "{} file"
+
+msgid "Some files could not be read."
+msgstr "Sebagian file tidak dapat dibaca."
+
+msgid "Counts final files in the selected folder, including subfolders."
+msgstr "Menghitung file final di folder terpilih, termasuk subfolder."
+
+msgid "Refresh"
+msgstr "Perbarui"
+
+msgid "Retry FFmpeg download"
+msgstr "Coba unduh FFmpeg lagi"
+
+msgid "Checking FFmpeg…"
+msgstr "Memeriksa FFmpeg…"
+
+msgid "Downloading FFmpeg…"
+msgstr "Mengunduh FFmpeg…"
+
+msgid "Installing FFmpeg…"
+msgstr "Memasang FFmpeg…"
+
+msgid "Fetch sessions"
+msgstr "Sesi fetch"
+
+msgid "View fetch sessions"
+msgstr "Lihat sesi fetch"
+
+msgid "{} fetch sessions"
+msgstr "{} sesi fetch"
+
+msgid "1 fetch session"
+msgstr "1 sesi fetch"
+
+msgid "All fetch sessions in this group will be removed. Downloaded files will remain in your folder."
+msgstr "Semua sesi fetch dalam grup ini akan dihapus. File unduhan tetap ada di folder Anda."
+
+msgid "Zinc"
+msgstr "Zinc"
+
+msgid "Stone"
+msgstr "Stone"
+
+msgid "Mauve"
+msgstr "Mauve"
+
+msgid "Mist"
+msgstr "Mist"
+
+msgid "Drive storage"
+msgstr "Penyimpanan drive"
+
+msgid "{}% used"
+msgstr "{}% terpakai"
+
+msgid "Storage capacity unavailable"
+msgstr "Kapasitas penyimpanan tidak tersedia"
+
+msgid "Restart to apply renderer"
+msgstr "Mulai ulang untuk menerapkan renderer"
+
+msgid "Your renderer preference has been saved. Restart the app to apply it."
+msgstr "Pilihan renderer telah disimpan. Mulai ulang aplikasi untuk menerapkannya."
+
+msgid "Restart will be available when the current operation finishes."
+msgstr "Mulai ulang tersedia setelah proses yang sedang berjalan selesai."
+
+msgid "Restart later"
+msgstr "Mulai ulang nanti"
+
+msgid "Restart now"
+msgstr "Mulai ulang sekarang"
+
+msgid "Could not save the renderer preference. Please try again."
+msgstr "Pilihan renderer tidak dapat disimpan. Silakan coba lagi."
+
+msgid "Could not restart the app. Please try again."
+msgstr "Aplikasi tidak dapat dimulai ulang. Silakan coba lagi."
+
+msgid "GIF conversion mode"
+msgstr "Mode konversi GIF"
+
+msgid "GIF resolution"
+msgstr "Resolusi GIF"
+
+msgid "Fast"
+msgstr "Cepat"
+
+msgid "Better"
+msgstr "Lebih baik"
+
+msgid "High (800px)"
+msgstr "Tinggi (800px)"
+
+msgid "Medium (600px)"
+msgstr "Sedang (600px)"
+
+msgid "Low (400px)"
+msgstr "Rendah (400px)"
+
+msgid "Fast keeps the source frame rate."
+msgstr "Mode Cepat mempertahankan frame rate sumber."
+
+msgid "Better uses an optimized color palette."
+msgstr "Mode Lebih baik menggunakan palet warna yang dioptimalkan."
+
+msgid "{} FPS"
+msgstr "{} FPS"
+
+msgid "Select media"
+msgstr "Pilih media"
+
+msgid "Deselect media"
+msgstr "Batalkan pilihan media"
+
+msgid "Select filter"
+msgstr "Pilih filter"
+
+msgid "Deselect filter"
+msgstr "Batalkan pilihan filter"
+
+msgid "Download selected ({})"
+msgstr "Unduh pilihan ({})"
+
+msgid "Download retries"
+msgstr "Percobaan ulang unduhan"
+
+msgid "Installed"
+msgstr "Terpasang"
+
+msgid "Not installed"
+msgstr "Belum terpasang"
+
+msgid "Version unknown"
+msgstr "Versi tidak diketahui"
+
+msgid "Latest"
+msgstr "Terbaru"
+
+msgid "Not checked"
+msgstr "Belum diperiksa"
+
+msgid "Updates are installed in the portable data folder."
+msgstr "Pembaruan dipasang di folder data portabel."
+
+msgid "Check for updates"
+msgstr "Periksa pembaruan"
+
+msgid "Install latest xtractor"
+msgstr "Pasang xtractor terbaru"
+
+msgid "Download xtractor"
+msgstr "Unduh xtractor"
+
+msgid "Checking xtractor updates…"
+msgstr "Memeriksa pembaruan xtractor…"
+
+msgid "Xtractor release available."
+msgstr "Rilis xtractor tersedia."
+
+msgid "Xtractor is up to date."
+msgstr "Xtractor sudah versi terbaru."
+
+msgid "Preparing xtractor update…"
+msgstr "Menyiapkan pembaruan xtractor…"
+
+msgid "Downloading xtractor…"
+msgstr "Mengunduh xtractor…"
+
+msgid "Installing xtractor…"
+msgstr "Memasang xtractor…"
+
+msgid "Xtractor updated successfully."
+msgstr "Xtractor berhasil diperbarui."
+
+msgid "Could not check xtractor updates. Please try again."
+msgstr "Pembaruan xtractor tidak dapat diperiksa. Silakan coba lagi."
+
+msgid "Could not update xtractor. Your previous binary is preserved. Please try again."
+msgstr "Xtractor tidak dapat diperbarui. Binary sebelumnya tetap tersimpan. Silakan coba lagi."
+
+msgid "Could not install xtractor. Please try again."
+msgstr "Xtractor tidak dapat dipasang. Silakan coba lagi."
+
+msgid "Fetch options"
+msgstr "Opsi fetch"
+
+msgid "Batch accounts"
+msgstr "Batch akun"
+
+msgid "Account list"
+msgstr "Daftar akun"
+
+msgid "One handle or profile URL per line. Up to 100 accounts; duplicates are removed."
+msgstr "Satu handle atau URL profil per baris. Maksimal 100 akun; duplikat dihapus."
+
+msgid "Date range"
+msgstr "Rentang tanggal"
+
+msgid "Search posts from an account within a date range."
+msgstr "Cari postingan akun dalam rentang tanggal."
+
+msgid "Start date"
+msgstr "Tanggal awal"
+
+msgid "End date"
+msgstr "Tanggal akhir"
+
+msgid "Fetch pending"
+msgstr "Fetch yang tertunda"
+
+msgid "Stop batch"
+msgstr "Hentikan batch"
+
+msgid "Reset queue"
+msgstr "Reset antrean"
+
+msgid "Clear queue"
+msgstr "Hapus antrean"
+
+msgid "View results"
+msgstr "Lihat hasil"
+
+msgid "Queued"
+msgstr "Antre"
+
+msgid "Fetching"
+msgstr "Sedang fetch"
+
+msgid "Completed"
+msgstr "Selesai"
+
+msgid "Incomplete"
+msgstr "Belum lengkap"
+
+msgid "Cancelled"
+msgstr "Dibatalkan"
+
+msgid "Apply"
+msgstr "Terapkan"
+
+msgid "Enter a start date or an end date."
+msgstr "Isi tanggal awal atau tanggal akhir."
+
+msgid "Use valid dates in YYYY-MM-DD format."
+msgstr "Gunakan tanggal valid dalam format YYYY-MM-DD."
+
+msgid "The end date must not be before the start date."
+msgstr "Tanggal akhir tidak boleh sebelum tanggal awal."
+
+msgid "Date filters require a profile or media URL, not likes or replies."
+msgstr "Filter tanggal memerlukan URL profil atau media, bukan likes atau replies."
+
+msgid "Use an @handle or an X/Twitter profile URL."
+msgstr "Gunakan @handle atau URL profil X/Twitter."
+
+msgid "Batch accounts require profile, media, likes, or replies URLs."
+msgstr "Batch akun memerlukan URL profil, media, likes, atau replies."
+
+msgid "Use a valid X/Twitter account handle."
+msgstr "Gunakan handle akun X/Twitter yang valid."
+
+msgid "Use at most 100 accounts in one batch."
+msgstr "Gunakan maksimal 100 akun dalam satu batch."
+
+msgid "Enter at least one account for the batch."
+msgstr "Isi setidaknya satu akun untuk batch."
+
+msgid "New"
+msgstr "Baru"
+
+msgid "Convert downloaded GIFs"
+msgstr "Konversi GIF yang sudah diunduh"
+
+msgid "Convert {} GIF MP4 files from this download batch."
+msgstr "Konversi {} file GIF MP4 dari batch unduhan ini."
+
+msgid "Conversion mode"
+msgstr "Mode konversi"
+
+msgid "Resolution"
+msgstr "Resolusi"
+
+msgid "Keep original MP4 files"
+msgstr "Simpan file MP4 asli"
+
+msgid "Downloads will list both the GIF and its original MP4."
+msgstr "Downloads akan menampilkan GIF beserta MP4 aslinya."
+
+msgid "Original MP4 files are removed only after conversion and history saving succeed."
+msgstr "MP4 asli hanya dihapus setelah konversi dan penyimpanan riwayat berhasil."
+
+msgid "Convert"
+msgstr "Konversi"
+
+msgid "Convert GIFs"
+msgstr "Konversi GIF"
+
+msgid "{} GIF MP4 files"
+msgstr "{} file GIF MP4"
+
+msgid "Stop"
+msgstr "Hentikan"
+
+msgid "Post date/time use UTC. Date uses the download date. Unknown post dates use unknown. The extension is added automatically."
+msgstr "Tanggal/waktu posting memakai UTC. Date memakai tanggal unduh. Tanggal posting yang tidak tersedia memakai unknown. Ekstensi ditambahkan otomatis."
+
+msgid "Other files"
+msgstr "File lain"
+
+msgid "Fetch order"
+msgstr "Urutan fetch"
+
+msgid "Newest first"
+msgstr "Terbaru dulu"
+
+msgid "Oldest first"
+msgstr "Terlama dulu"
+
+msgid "Grid view"
+msgstr "Tampilan grid"
+
+msgid "List view"
+msgstr "Tampilan list"
+
+msgid "Diagnostics"
+msgstr "Diagnostik"
+
+msgid "Session logs are stored in the portable data folder."
+msgstr "Log sesi tersimpan di folder data portable."
+
+msgid "Open logs"
+msgstr "Buka log"
+
+msgid "Copy error details"
+msgstr "Salin detail error"
+
+msgid "Error details copied."
+msgstr "Detail error disalin."
+
+msgid "Could not copy error details."
+msgstr "Tidak dapat menyalin detail error."
+
+msgid "Could not open the logs folder."
+msgstr "Tidak dapat membuka folder log."
+
+msgid "The saved batch queue could not be restored. Its file has been preserved."
+msgstr "Antrean batch tersimpan tidak dapat dipulihkan. Filenya tetap disimpan."
+
+msgid "Download organization and limits"
+msgstr "Organisasi dan batas unduhan"
+
+msgid "Separate media folders"
+msgstr "Pisahkan folder media"
+
+msgid "Store media in Image, Video and GIF subfolders inside each account folder."
+msgstr "Simpan media dalam subfolder Image, Video, dan GIF di dalam folder tiap akun."
+
+msgid "Total speed limit (KiB/s)"
+msgstr "Batas kecepatan total (KiB/s)"
+
+msgid "Delay between requests (ms)"
+msgstr "Jeda antar-request (ms)"
+
+msgid "0 disables the limit. The speed budget is shared by parallel downloads."
+msgstr "0 menonaktifkan batas. Batas kecepatan dibagi oleh seluruh unduhan paralel."
+
+msgid "Cancel selection"
+msgstr "Batalkan seleksi"
+
+msgid "Select accounts"
+msgstr "Pilih akun"
+
+msgid "Select visible"
+msgstr "Pilih yang terlihat"
+
+msgid "Update selected ({})"
+msgstr "Perbarui pilihan ({})"
+
+msgid "Each account keeps its saved fetch filters."
+msgstr "Tiap akun memakai filter fetch yang tersimpan."
+
+msgid "Select 1–100 account fetches to update."
+msgstr "Pilih 1–100 fetch akun untuk diperbarui."
+
+msgid "Embed post metadata"
+msgstr "Sematkan metadata posting"
+
+msgid "Write the post URL, original media name and post text into JPG/MP4 comments."
+msgstr "Tulis URL posting, nama media asli, dan teks posting pada komentar JPG/MP4."
+
+msgid "ExifTool is downloaded into the portable data folder when missing. Applies to new JPG/MP4 downloads; converted GIFs are excluded."
+msgstr "ExifTool diunduh ke folder data portable jika belum ada. Berlaku untuk unduhan JPG/MP4 baru; GIF hasil konversi dikecualikan."
+
+msgid "All groups"
+msgstr "Semua grup"
+
+msgid "Group"
+msgstr "Grup"
+
+msgid "Tags, separated by commas"
+msgstr "Tag, dipisahkan koma"
+
+msgid "Assign group and tags"
+msgstr "Atur grup dan tag"
+
+msgid "Replace labels for selected accounts. Empty fields clear existing labels."
+msgstr "Ganti label akun yang dipilih. Kolom kosong menghapus label yang ada."
+
+msgid "Filter group"
+msgstr "Filter grup"
+
+msgid "Export accounts TXT"
+msgstr "Ekspor akun TXT"
+
+msgid "Account groups and tags saved."
+msgstr "Grup dan tag akun disimpan."
+
+msgid "Account list exported."
+msgstr "Daftar akun diekspor."
+
+msgid "No accounts to export."
+msgstr "Tidak ada akun untuk diekspor."
+
+msgid "Group names must be at most 64 characters."
+msgstr "Nama grup maksimal 64 karakter."
+
+msgid "Tags must be at most 40 characters."
+msgstr "Tag maksimal 40 karakter."
+
+msgid "Use at most 16 tags per account."
+msgstr "Gunakan maksimal 16 tag per akun."
+
+msgid "Select accounts first."
+msgstr "Pilih akun terlebih dahulu."
+
+msgid "Network timeouts"
+msgstr "Timeout jaringan"
+
+msgid "Fetch page timeout (seconds)"
+msgstr "Timeout halaman fetch (detik)"
+
+msgid "HTTP read timeout (seconds)"
+msgstr "Timeout pembacaan HTTP (detik)"
+
+msgid "5–3600 seconds. HTTP applies to downloads, previews and thumbnails."
+msgstr "5–3600 detik. HTTP berlaku untuk unduhan, preview, dan thumbnail."
+
+msgid "Enter timeout values from 5 to 3600 seconds."
+msgstr "Masukkan timeout 5 hingga 3600 detik."
+
+msgid "Application and tool updates"
+msgstr "Pembaruan aplikasi dan tool"
+
+msgid "Checking…"
+msgstr "Memeriksa…"
+
+msgid "Application"
+msgstr "Aplikasi"
+
+msgid "Update available"
+msgstr "Pembaruan tersedia"
+
+msgid "Up to date"
+msgstr "Sudah terbaru"
+
+msgid "Installed version is newer than the published release"
+msgstr "Versi terpasang lebih baru dari rilis yang dipublikasikan"
+
+msgid "Version could not be compared"
+msgstr "Versi tidak dapat dibandingkan"
+
+msgid "Open release"
+msgstr "Buka rilis"
+
+msgid "View logs"
+msgstr "Lihat log"
+
+msgid "Session logs"
+msgstr "Log sesi"
+
+msgid "Session"
+msgstr "Sesi"
+
+msgid "Session log contents"
+msgstr "Isi log sesi"
+
+msgid "Export log"
+msgstr "Ekspor log"
+
+msgid "Random extra delay (ms)"
+msgstr "Jeda acak tambahan (ms)"
+
+msgid "Adds a random 0 to this many milliseconds between download requests, including retries. 0 disables jitter."
+msgstr "Tambahkan jeda acak dari 0 hingga nilai ini di antara permintaan download, termasuk percobaan ulang. 0 menonaktifkan jitter."
+
+msgid "Showing the latest 256 KiB. Export saves the full session log."
+msgstr "Menampilkan 256 KiB terakhir. Ekspor menyimpan log sesi lengkap."
+
+msgid "No session logs yet."
+msgstr "Belum ada log sesi."
+
+msgid "This session log is empty."
+msgstr "Log sesi ini kosong."
+
+msgid "Displayed log copied."
+msgstr "Log yang ditampilkan disalin."
+
+msgid "Session log exported."
+msgstr "Log sesi diekspor."
+
+msgid "Enter whole numbers: speed 0–1048576 KiB/s, delay/jitter 0–3600000 ms."
+msgstr "Masukkan bilangan bulat: kecepatan 0–1048576 KiB/dtk, jeda/jitter 0–3600000 md."
+
+msgid "Merged archive"
+msgstr "Arsip gabungan"
+
+msgid "Media types"
+msgstr "Jenis media"
+
+msgid "Choose one or more media types. Result filters can also be combined."
+msgstr "Pilih satu atau beberapa jenis media. Filter hasil juga bisa digabungkan."
+
+msgid "Show text-only posts as cards and save them as UTF-8 TXT files."
+msgstr "Tampilkan posting teks sebagai kartu dan simpan sebagai file TXT UTF-8."
+
+msgid "Download text"
+msgstr "Download teks"
+
+msgid "Select at least one media type or enable text posts."
+msgstr "Pilih minimal satu jenis media atau aktifkan posting teks."
+
+msgid "Manual proxy"
+msgstr "Proxy manual"
+
+msgid "Proxy URL"
+msgstr "URL proxy"
+
+msgid "Proxy settings saved."
+msgstr "Pengaturan proxy disimpan."
+
+msgid "Update / Reinstall FFmpeg"
+msgstr "Update / Instal ulang FFmpeg"
+
+msgid "Update / Reinstall ExifTool"
+msgstr "Update / Instal ulang ExifTool"
+
+msgid "Install the latest tools in the portable data folder. Existing system installations are preserved."
+msgstr "Pasang tool terbaru di folder data portable. Instalasi di sistem tetap dipertahankan."
+
+msgid "HTTP, HTTPS, SOCKS5 and SOCKS5H. Empty uses the system/environment proxy. Local preview traffic stays local."
+msgstr "HTTP, HTTPS, SOCKS5 dan SOCKS5H. Kosong memakai proxy sistem/environment. Trafik preview lokal tetap lokal."
+
+msgid "Enter a full HTTP, HTTPS, SOCKS5 or SOCKS5H proxy URL."
+msgstr "Masukkan URL proxy HTTP, HTTPS, SOCKS5 atau SOCKS5H lengkap."
+
+msgid "Use an HTTP, HTTPS, SOCKS5 or SOCKS5H proxy URL without a path, query or fragment."
+msgstr "Gunakan URL proxy HTTP, HTTPS, SOCKS5 atau SOCKS5H tanpa path, query atau fragment."
+
+msgid "A SOCKS proxy requires a port."
+msgstr "Proxy SOCKS memerlukan port."
+
+msgid "Repost"
+msgstr "Repost"
+
+msgid "Alt text"
+msgstr "Teks alternatif"
+
+msgid "Quotes"
+msgstr "Kutipan"
+
+msgid "Bookmarks"
+msgstr "Bookmark"
+
+msgid "Group color"
+msgstr "Warna grup"
+
+msgid "Default color"
+msgstr "Warna default"
+
+msgid "Choose a valid group color."
+msgstr "Pilih warna grup yang valid."
+
+msgid "Live: On"
+msgstr "Realtime: Aktif"
+
+msgid "Live: Off"
+msgstr "Realtime: Nonaktif"
+
+msgid "Auto-scroll: On"
+msgstr "Scroll otomatis: Aktif"
+
+msgid "Auto-scroll: Off"
+msgstr "Scroll otomatis: Nonaktif"
+
+msgid "Export errors"
+msgstr "Ekspor error"
+
+msgid "Live refreshes every second. Copy uses the displayed text."
+msgstr "Realtime diperbarui setiap detik. Salin menggunakan teks yang ditampilkan."
+
+msgid "Notify about updates on startup"
+msgstr "Notifikasi update saat aplikasi dibuka"
+
+msgid "Check for a new stable application release when the app opens."
+msgstr "Periksa rilis aplikasi stabil terbaru saat aplikasi dibuka."
+
+msgid "Later"
+msgstr "Nanti"
+
+msgid "Version {} is available. Open the release page to download it."
+msgstr "Versi {} tersedia. Buka halaman rilis untuk mengunduhnya."
+
+msgid "Quick refresh"
+msgstr "Refresh cepat"
+
+msgid "Stop after reaching saved data. Turn off for a full fetch. Reposts and private lists always use a full fetch."
+msgstr "Berhenti setelah mencapai data tersimpan. Nonaktifkan untuk fetch penuh. Repost dan daftar privat selalu memakai fetch penuh."
+
+msgid "Choose 1–50 downloads, or Auto: images 8, video/GIF 3, mixed 10."
+msgstr "Pilih 1–50 download, atau Auto: gambar 8, video/GIF 3, campuran 10."
+
+msgid "Auto"
+msgstr "Otomatis"
+
+msgid "Check downloaded files"
+msgstr "Periksa file download"
+
+msgid "Quick checks presence and recorded size. Deep also compares SHA-256. Older files without a checksum remain unverified."
+msgstr "Pemeriksaan cepat mengecek keberadaan dan ukuran tersimpan. Mendalam juga membandingkan SHA-256. File lama tanpa checksum belum dapat diverifikasi."
+
+msgid "Quick check"
+msgstr "Pemeriksaan cepat"
+
+msgid "Deep check"
+msgstr "Pemeriksaan mendalam"
+
+msgid "Check files"
+msgstr "Periksa file"
+
+msgid "Empty file"
+msgstr "File kosong"
+
+msgid "Size mismatch"
+msgstr "Ukuran tidak cocok"
+
+msgid "Restore database backup?"
+msgstr "Pulihkan backup database?"
+
+msgid "Restore"
+msgstr "Pulihkan"
+
+msgid "This replaces current history, account labels and download records. Media files and authentication settings stay as they are. A recovery backup is created first."
+msgstr "Ini mengganti history, label akun dan catatan download. File media dan pengaturan autentikasi tetap. Backup pemulihan dibuat terlebih dahulu."
+
+msgid "Data and file checks"
+msgstr "Data dan pemeriksaan file"
+
+msgid "Back up history, account labels and download records. Downloaded media and auth tokens are not included."
+msgstr "Cadangkan history, label akun dan catatan download. File media dan auth token tidak disertakan."
+
+msgid "Check downloads"
+msgstr "Periksa download"
+
+msgid "Backup database"
+msgstr "Backup database"
+
+msgid "Restore backup"
+msgstr "Pulihkan backup"
+
+msgid "Working on database backup…"
+msgstr "Memproses backup database…"
+
+msgid "Search accounts"
+msgstr "Cari akun"
+
+msgid "Name or username"
+msgstr "Nama atau username"
+
+msgid "Searching…"
+msgstr "Mencari…"
+
+msgid "Search"
+msgstr "Cari"
+
+msgid "{} followers"
+msgstr "{} pengikut"
+
+msgid "Protected"
+msgstr "Privat"
+
+msgid "Search for an account by name or username."
+msgstr "Cari akun berdasarkan nama atau username."
+
+msgid "Cut"
+msgstr "Potong"
+
+msgid "Paste"
+msgstr "Tempel"
+
+msgid "Select all"
+msgstr "Pilih semua"
+
+msgid "Database backup created."
+msgstr "Backup database dibuat."
+
+msgid "Database restored. A recovery backup was saved in the portable backups folder."
+msgstr "Database dipulihkan. Backup pemulihan disimpan di folder backups portable."
+
+msgid "Click an account to fill its username in Home."
+msgstr "Klik akun untuk mengisi username di Home."
+
+msgid "Close account search"
+msgstr "Tutup pencarian akun"
+
+msgid "Close fetch options"
+msgstr "Tutup opsi fetch"
+
+msgid "Yellow"
+msgstr "Yellow"
+
+msgid "Lime"
+msgstr "Lime"
+
+msgid "Fuchsia"
+msgstr "Fuchsia"
+
+msgid "Gray"
+msgstr "Gray"
+
+msgid "Neutral"
+msgstr "Neutral"
+
+msgid "Olive"
+msgstr "Olive"
+
+msgid "Taupe"
+msgstr "Taupe"
+
+msgid "Shade"
+msgstr "Tingkat warna"
+
+msgid "Fetch source"
+msgstr "Sumber fetch"
+
+msgid "Public · Profile / URL"
+msgstr "Publik · Profil / URL"
+
+msgid "Private · My Likes"
+msgstr "Privat · Likes saya"
+
+msgid "Private · My Bookmarks"
+msgstr "Privat · Bookmarks saya"
+
+msgid "Fetch Likes from the account signed in with your auth_token. Its username is detected automatically."
+msgstr "Ambil Likes dari akun yang login menggunakan auth_token Anda. Username akun dideteksi otomatis."
+
+msgid "Bookmarks are private to the account signed in with your auth_token. No username is needed."
+msgstr "Bookmarks hanya dapat diakses oleh akun yang login menggunakan auth_token Anda. Tidak perlu username."
+
+msgid "Enter a profile, media, or search URL in Home. Protected posts require access from the account signed in with your auth_token."
+msgstr "Masukkan URL profil, media, atau pencarian di Home. Post terlindungi memerlukan izin akses dari akun pemilik auth_token."
+
+msgid "Set auth_token in Settings before fetching. Private lists cannot use batch accounts or date filters."
+msgstr "Isi auth_token di Settings sebelum fetch. Daftar privat tidak mendukung batch akun atau filter tanggal."
+
+msgid "Private lists use a full fetch, so Quick refresh is unavailable."
+msgstr "Daftar privat selalu memakai fetch penuh, sehingga Quick refresh tidak tersedia."
+
+msgid "Fetch your Likes using the account signed in with auth_token."
+msgstr "Ambil Likes dari akun yang login menggunakan auth_token."
+
+msgid "Fetch your private Bookmarks using the account signed in with auth_token."
+msgstr "Ambil Bookmarks privat dari akun yang login menggunakan auth_token."
+
+msgid "Fetch my Likes"
+msgstr "Ambil Likes saya"
+
+msgid "Fetch my Bookmarks"
+msgstr "Ambil Bookmarks saya"
+
+msgid "Reset defaults"
+msgstr "Reset ke default"
+
+msgid "Restore preferences"
+msgstr "Pulihkan preferensi"
+
+msgid "Reset all preferences"
+msgstr "Reset seluruh preferensi"
+
+msgid "Reset all preferences to defaults. Keeps auth_token, history, account labels, tools and downloaded files."
+msgstr "Kembalikan seluruh preferensi ke default. Auth_token, history, label akun, tools, dan file download tetap disimpan."
+
+msgid "Use portable Downloads folder"
+msgstr "Gunakan folder Downloads portable"
+
+msgid "Reset fetch options"
+msgstr "Reset opsi fetch"
+
+msgid "Default settings restored."
+msgstr "Pengaturan default dipulihkan."
+
+msgid "Could not save default settings. Please try again."
+msgstr "Pengaturan default gagal disimpan. Silakan coba lagi."
+
+msgid "Could not prepare the portable Downloads folder."
+msgstr "Folder Downloads portable gagal disiapkan."
+
+msgid "Save your X auth_token locally. Up to 5 previous tokens are kept in the portable config.json."
+msgstr "Simpan auth_token X secara lokal. Maksimal 5 token sebelumnya disimpan di config.json portable."
+
+msgid "Active token"
+msgstr "Token aktif"
+
+msgid "Check active token"
+msgstr "Cek token aktif"
+
+msgid "Previous auth_tokens"
+msgstr "Riwayat auth_token"
+
+msgid "Check a previous token, use it as the active token, or remove it from local history."
+msgstr "Cek token sebelumnya, gunakan sebagai token aktif, atau hapus dari riwayat lokal."
+
+msgid "Valid"
+msgstr "Valid"
+
+msgid "Invalid / expired"
+msgstr "Tidak valid / kedaluwarsa"
+
+msgid "Temporary error — check again"
+msgstr "Gangguan sementara — cek lagi"
+
+msgid "Could not determine validity"
+msgstr "Validitas belum dapat dipastikan"
+
+msgid "Last checked"
+msgstr "Terakhir dicek"
+
+msgid "Check"
+msgstr "Cek"
+
+msgid "Use"
+msgstr "Gunakan"
+
+msgid "Remove from token history"
+msgstr "Hapus dari riwayat token"
+
+msgid "Could not save authentication settings."
+msgstr "Pengaturan autentikasi gagal disimpan."
+
+msgid "Enter full screen"
+msgstr "Masuk layar penuh"
+
+msgid "Exit full screen"
+msgstr "Keluar dari layar penuh"
+
+msgid "Zoom in"
+msgstr "Perbesar"
+
+msgid "Zoom out"
+msgstr "Perkecil"
+
+msgid "Fit to screen"
+msgstr "Sesuaikan ke layar"
+
+msgid "Media zoom"
+msgstr "Pembesaran media"
+
+msgid "Media canvas"
+msgstr "Area media"
+
+msgid "Post details"
+msgstr "Detail postingan"
+
+msgid "Hide details"
+msgstr "Sembunyikan detail"
+
+msgid "Show details"
+msgstr "Tampilkan detail"
+
+msgid "Jump to top"
+msgstr "Kembali ke atas"
+
+msgid "Xtractor is required to use this app. Download it to continue."
+msgstr "Xtractor diperlukan untuk menggunakan aplikasi ini. Unduh untuk melanjutkan."
+
+msgid "Downloading…"
+msgstr "Mengunduh…"
+
+msgid "Download"
+msgstr "Unduh"
+
+msgid "Back to Home"
+msgstr "Kembali ke Beranda"
+
+msgid "Forward to results"
+msgstr "Maju ke hasil"
+
+msgid "Single"
+msgstr "Tunggal"
+
+msgid "Batch"
+msgstr "Batch"
+
+msgid "Batch account list"
+msgstr "Daftar akun batch"
+
+msgid "Update queue"
+msgstr "Perbarui antrean"
+
+msgid "Edit accounts"
+msgstr "Edit akun"
+
+msgid "Open a result to inspect it. Back returns to this queue."
+msgstr "Buka hasil untuk memeriksanya. Tombol kembali membawa Anda ke antrean ini."
+
+msgid "Back to batch"
+msgstr "Kembali ke batch"
+
+msgid "Batch results"
+msgstr "Hasil batch"
+
+msgid "Saved batch result is no longer available. Reset the queue to fetch it again."
+msgstr "Hasil batch tersimpan tidak lagi tersedia. Reset antrean untuk mengambilnya kembali."
+
+msgid "Fetch profiles from the batch queue. These options apply to every account in the queue."
+msgstr "Ambil profil dari antrean batch. Opsi ini berlaku untuk semua akun dalam antrean."
+
+msgid "Stop each account after reaching saved data. Turn off for a full fetch. Reposts always use a full fetch."
+msgstr "Berhenti pada setiap akun setelah mencapai data tersimpan. Nonaktifkan untuk mengambil semua data. Repost selalu mengambil semua data."
+
+msgid "Library"
+msgstr "Koleksi"
+
+msgid "Refresh library"
+msgstr "Segarkan koleksi"
+
+msgid "Search library"
+msgstr "Cari koleksi"
+
+msgid "Open library account"
+msgstr "Buka akun di koleksi"
+
+msgid "Refetch"
+msgstr "Ambil ulang"
+
+msgid "Back to library"
+msgstr "Kembali ke koleksi"
+
+msgid "Download pending"
+msgstr "Unduh yang tersisa"
+
+msgid "File list"
+msgstr "Daftar file"
+
+msgid "Available"
+msgstr "Tersedia"
+
+msgid "Not downloaded"
+msgstr "Belum diunduh"
+
+msgid "Download again"
+msgstr "Unduh ulang"
+
+msgid "Downloaded accounts will appear here."
+msgstr "Akun yang medianya sudah diunduh akan muncul di sini."
+
+msgid "No accounts match this search."
+msgstr "Tidak ada akun yang cocok dengan pencarian ini."
+
+msgid "Loading library…"
+msgstr "Memuat koleksi…"
+
+msgid "Downloading library media…"
+msgstr "Mengunduh media koleksi…"
+
+msgid "Updating library account…"
+msgstr "Memperbarui akun koleksi…"
+
+msgid "{} library files downloaded."
+msgstr "{} file koleksi berhasil diunduh."
+
+msgid "Accounts"
+msgstr "Akun"
+
+msgid "Loading history…"
+msgstr "Memuat riwayat…"
+
+msgid "Loading media…"
+msgstr "Memuat media…"
+
+msgid "Could not load saved media."
+msgstr "Tidak dapat memuat media tersimpan."
+
+msgid "Preparing downloads…"
+msgstr "Menyiapkan unduhan…"
