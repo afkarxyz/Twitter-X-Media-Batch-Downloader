@@ -44,8 +44,9 @@ impl Desktop {
             return;
         }
         let key = format!(
-            "{}:{}",
+            "{}:{}:{}",
             self.app.get_history_show_saved(),
+            self.app.get_history_source_filter(),
             self.app.get_history_search_query()
         );
         let reset = key != self.history_scroll_key;
@@ -152,6 +153,8 @@ impl Desktop {
             self.tr("Loading history…")
         } else if !query.is_empty() {
             self.tr("No accounts match “{}”.").replace("{}", &query)
+        } else if self.app.get_history_source_filter() > 0 {
+            self.tr("No fetches match this filter.")
         } else {
             self.tr(if saved {
                 "No downloads yet."
@@ -196,6 +199,35 @@ impl Desktop {
             })
         };
         let message=self.tr(if confirmation.group{"All fetch sessions in this group will be removed. Downloaded files will remain in your folder."}else{"The history records will be removed. Downloaded files will remain in your folder."});
+        let action = if confirmation.id.is_some() {
+            "Remove"
+        } else {
+            "Clear history"
+        };
+        let (close, confirmed) =
+            self.destructive_confirm(ctx, "History confirmation", title, message, action);
+        if confirmed {
+            let confirmation = self.history_confirmation.take().unwrap();
+            if let Some(id) = confirmation.id {
+                self.app.invoke_remove_history(id);
+            } else {
+                self.app.invoke_clear_history();
+            }
+        } else if close {
+            self.history_confirmation = None;
+        }
+    }
+
+    /// A centered confirmation for an irreversible action; returns (closed, confirmed).
+    /// `label` names the dialog for accessibility and keeps its state apart.
+    pub(in crate::ui) fn destructive_confirm(
+        &self,
+        ctx: &egui::Context,
+        label: &str,
+        title: String,
+        message: String,
+        action: &str,
+    ) -> (bool, bool) {
         let colors = appearance::Palette::new(
             &self.app.global::<AppTheme>().get_preset(),
             ctx.theme() == egui::Theme::Dark,
@@ -219,7 +251,7 @@ impl Desktop {
         let height = 174.0 + title_galley.size().y + message_galley.size().y;
         let mut close = false;
         let mut confirmed = false;
-        let id = egui::Id::new("history-confirmation");
+        let id = egui::Id::new(("confirmation", label));
         let response = egui::Modal::new(id)
             .area(egui::Modal::default_area(id).anchor(egui::Align2::CENTER_CENTER, [28.0, 0.0]))
             .backdrop_color(Color32::TRANSPARENT)
@@ -236,7 +268,7 @@ impl Desktop {
                     egui::Rect::from_min_size(ui.next_widget_position(), Vec2::new(380.0, height));
                 let response = ui.allocate_rect(panel, egui::Sense::hover());
                 response.widget_info(|| {
-                    egui::WidgetInfo::labeled(egui::WidgetType::Other, true, "History confirmation")
+                    egui::WidgetInfo::labeled(egui::WidgetType::Other, true, label)
                 });
                 ui.painter().rect_filled(panel, 18, colors.surface);
                 ui.painter().rect_stroke(
@@ -284,15 +316,10 @@ impl Desktop {
                 if self.busy() {
                     action_ui.disable();
                 }
-                let label = self.tr(if confirmation.id.is_some() {
-                    "Remove"
-                } else {
-                    "Clear history"
-                });
                 confirmed = self
                     .action_button(
                         &mut action_ui,
-                        &label,
+                        &self.tr(action),
                         ActionStyle {
                             tone: ButtonTone::Destructive,
                             icon: Some((Icon::Trash, appearance::CONTROL_ICON_SIZE)),
@@ -304,15 +331,6 @@ impl Desktop {
                     .clicked();
             });
         close |= response.should_close();
-        if confirmed {
-            let confirmation = self.history_confirmation.take().unwrap();
-            if let Some(id) = confirmation.id {
-                self.app.invoke_remove_history(id);
-            } else {
-                self.app.invoke_clear_history();
-            }
-        } else if close {
-            self.history_confirmation = None;
-        }
+        (close, confirmed)
     }
 }

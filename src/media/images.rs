@@ -29,6 +29,31 @@ struct Memory {
 thread_local! { static MEMORY: RefCell<Memory> = RefCell::new(Memory::default()); }
 const MEMORY_LIMIT: usize = 64 * 1024 * 1024;
 
+impl Memory {
+    /// Insert an image, evicting the least recently used ones except `keep`.
+    fn store(&mut self, key: Key, image: Image, bytes: usize, keep: Option<&Key>) {
+        while self.bytes + bytes > MEMORY_LIMIT {
+            let Some(oldest) = self
+                .images
+                .iter()
+                .filter(|(key, _)| keep != Some(*key))
+                .min_by_key(|(_, (_, _, used))| *used)
+                .map(|(key, _)| key.clone())
+            else {
+                break;
+            };
+            let (_, size, _) = self.images.remove(&oldest).unwrap();
+            self.bytes -= size;
+        }
+        self.clock += 1;
+        self.failed.remove(&key);
+        if let Some((_, size, _)) = self.images.insert(key, (image, bytes, self.clock)) {
+            self.bytes -= size;
+        }
+        self.bytes += bytes;
+    }
+}
+
 pub fn image(kind: Kind, url: &str) -> Image {
     MEMORY.with_borrow_mut(|memory| {
         memory.clock += 1;
@@ -42,6 +67,10 @@ pub fn image(kind: Kind, url: &str) -> Image {
             })
             .unwrap_or_default()
     })
+}
+
+pub fn pending(kind: Kind, url: &str) -> bool {
+    MEMORY.with_borrow(|memory| memory.pending.contains(&(kind, url.to_owned())))
 }
 
 pub fn register(app: &AppWindow) {
@@ -235,23 +264,15 @@ pub(crate) fn request(app: &AppWindow, kind: Kind, url: String) {
                     decoded.height(),
                 );
                 let loaded = Image::from_rgba8(pixels);
+                // The open preview is never read back through image(), so it would
+                // look oldest; evicting it only loses the copy that model rebuilds use.
+                let shown = crate::media::results::find(
+                    &app.get_media_items(),
+                    app.get_selected_media_index(),
+                )
+                .map(|item| (Kind::Preview, item.preview_url));
                 MEMORY.with_borrow_mut(|memory| {
-                    while memory.bytes + bytes > MEMORY_LIMIT && !memory.images.is_empty() {
-                        let oldest = memory
-                            .images
-                            .iter()
-                            .min_by_key(|(_, (_, _, used))| *used)
-                            .map(|(key, _)| key.clone())
-                            .unwrap();
-                        let (_, size, _) = memory.images.remove(&oldest).unwrap();
-                        memory.bytes -= size;
-                    }
-                    memory.clock += 1;
-                    memory
-                        .images
-                        .insert(key.clone(), (loaded.clone(), bytes, memory.clock));
-                    memory.bytes += bytes;
-                    memory.failed.remove(&key);
+                    memory.store(key, loaded.clone(), bytes, shown.as_ref());
                 });
                 apply(&app, kind, &url, loaded);
             } else {
@@ -391,12 +412,17 @@ fn apply(app: &AppWindow, kind: Kind, url: &str, loaded: Image) {
 }
 
 async fn load(url: &str, kind: Kind) -> Option<image::RgbaImage> {
+    // Previews have their own slots so they never queue behind a grid of thumbnails.
     static SLOTS: std::sync::OnceLock<tokio::sync::Semaphore> = std::sync::OnceLock::new();
-    let _slot = SLOTS
-        .get_or_init(|| tokio::sync::Semaphore::new(8))
-        .acquire()
-        .await
-        .ok()?;
+    static PREVIEW_SLOTS: std::sync::OnceLock<tokio::sync::Semaphore> = std::sync::OnceLock::new();
+    let _slot = if kind == Kind::Preview {
+        PREVIEW_SLOTS.get_or_init(|| tokio::sync::Semaphore::new(2))
+    } else {
+        SLOTS.get_or_init(|| tokio::sync::Semaphore::new(8))
+    }
+    .acquire()
+    .await
+    .ok()?;
     if let Some(path) = reqwest::Url::parse(url)
         .ok()
         .filter(|url| url.scheme() == "file")
@@ -509,6 +535,27 @@ mod tests {
         let thumbnail = decode(bytes, Kind::Thumbnail).await.unwrap();
         assert_eq!(thumbnail.width(), 512);
         assert!(thumbnail.height() < original.height());
+    }
+
+    #[test]
+    fn eviction_keeps_the_shown_preview_while_newer_thumbnails_arrive() {
+        let mut memory = Memory::default();
+        let shown = (Kind::Preview, "https://example.test/orig.jpg".to_owned());
+        let half = MEMORY_LIMIT / 2;
+        memory.store(shown.clone(), Image::default(), half, Some(&shown));
+        for index in 0..8 {
+            let key = (Kind::Thumbnail, format!("https://example.test/{index}.jpg"));
+            memory.store(key, Image::default(), half / 3, Some(&shown));
+        }
+        assert!(memory.images.contains_key(&shown));
+        assert!(memory.bytes <= MEMORY_LIMIT);
+        memory.store(
+            (Kind::Thumbnail, "https://example.test/next.jpg".into()),
+            Image::default(),
+            half,
+            None,
+        );
+        assert!(!memory.images.contains_key(&shown));
     }
 
     #[test]

@@ -1,6 +1,14 @@
 use crate::ui::components::dialog::child;
 use crate::ui::*;
 
+#[derive(Default)]
+pub(in crate::ui) struct LibrarySelection {
+    pub total: usize,
+    pub saved: usize,
+    /// Saved GIF MP4 files that can still be converted.
+    pub gifs: usize,
+}
+
 impl Desktop {
     pub(in crate::ui) fn library_view(&mut self, ui: &mut Ui) {
         let bounds = ui.max_rect();
@@ -603,18 +611,29 @@ impl Desktop {
                     {
                         app.invoke_library_refetch(data.account.clone());
                     }
+                    let selected = crate::media::results::downloadable_selection(&app);
+                    let download = if selected > 0 {
+                        self.tr("Download selected ({})")
+                            .replace("{}", &selected.to_string())
+                    } else {
+                        "Download pending".into()
+                    };
                     if self
                         .setting_action(
                             ui,
-                            "Download pending",
+                            &download,
                             Some(Icon::Download),
                             1,
-                            Vec2::new(160.0, 32.0),
-                            !self.busy() && data.pending + data.missing > 0,
+                            Vec2::new(if selected > 0 { 200.0 } else { 160.0 }, 32.0),
+                            !self.busy() && (selected > 0 || data.pending + data.missing > 0),
                         )
                         .clicked()
                     {
-                        app.invoke_library_download(-1);
+                        app.invoke_library_download(if selected > 0 {
+                            crate::library::SELECTED
+                        } else {
+                            -1
+                        });
                     }
                     if self
                         .setting_action(
@@ -642,14 +661,21 @@ impl Desktop {
                     {
                         app.invoke_library_refresh();
                     }
+                    let chosen = self.library_selection();
+                    let convert = if chosen.gifs > 0 {
+                        self.tr("Convert selected GIFs ({})")
+                            .replace("{}", &chosen.gifs.to_string())
+                    } else {
+                        "Convert GIFs".into()
+                    };
                     if app.get_archive_gif_count() > 0
                         && self
                             .setting_action(
                                 ui,
-                                "Convert GIFs",
+                                &convert,
                                 Some(Icon::Film),
                                 0,
-                                Vec2::new(132.0, 32.0),
+                                Vec2::new(if chosen.gifs > 0 { 210.0 } else { 132.0 }, 32.0),
                                 !self.busy(),
                             )
                             .clicked()
@@ -670,6 +696,50 @@ impl Desktop {
                         app.update_library(|data| data.files_view = true);
                     }
                 });
+                let chosen = self.library_selection();
+                if chosen.total > 0 {
+                    ui.horizontal_wrapped(|ui| {
+                        let colors = self.colors(ui);
+                        ui.label(
+                            RichText::new(
+                                self.tr("{} selected").replace("{}", &chosen.total.to_string()),
+                            )
+                            .font(egui::FontId::new(
+                                typography::BODY,
+                                egui::FontFamily::Name("cera-bold".into()),
+                            ))
+                            .color(colors.secondary),
+                        );
+                        let idle = !self.busy();
+                        for (label, icon, tone, width, enabled) in [
+                            ("Download again", Icon::Restart, 0, 150.0, idle && chosen.saved > 0),
+                            ("Copy to folder…", Icon::Copy, 0, 150.0, idle && chosen.saved > 0),
+                            ("Delete files", Icon::Trash, 2, 130.0, idle && chosen.saved > 0),
+                            ("Clear selection", Icon::Close, 0, 150.0, true),
+                        ] {
+                            if self
+                                .setting_action(
+                                    ui,
+                                    label,
+                                    Some(icon),
+                                    tone,
+                                    Vec2::new(width, 32.0),
+                                    enabled,
+                                )
+                                .clicked()
+                            {
+                                match label {
+                                    "Download again" => {
+                                        app.invoke_library_download(crate::library::REDOWNLOAD)
+                                    }
+                                    "Copy to folder…" => app.invoke_library_copy_selected(),
+                                    "Delete files" => self.library_delete_confirmation = true,
+                                    _ => app.global::<MediaSelection>().invoke_clear(),
+                                }
+                            }
+                        }
+                    });
+                }
                 if !data.job.is_empty() && app.get_is_busy() {
                     if self.operation_status_row(ui, &data.status, "Stop") {
                         app.invoke_cancel_operation();
@@ -704,6 +774,38 @@ impl Desktop {
                             self.limit = 30;
                         }
                     }
+                    let selection = app.global::<MediaSelection>();
+                    let items = app.get_media_items();
+                    // Saved files cannot be selected, so only unsaved results count.
+                    let selectable = self.kind != "library-saved"
+                        && app.global::<MediaResults>().invoke_count(
+                            items.clone(),
+                            if self.kind == "library-missing" {
+                                "library-missing"
+                            } else {
+                                "library-pending"
+                            }
+                            .into(),
+                        ) > 0;
+                    let label = self.tr(
+                        if selection.invoke_all_selected(
+                            selection.get_indices(),
+                            items,
+                            self.kind.clone(),
+                        ) {
+                            "Deselect filter"
+                        } else {
+                            "Select filter"
+                        },
+                    );
+                    ui.add_enabled_ui(!self.busy() && selectable, |ui| {
+                        if self
+                            .home_action(ui, &label, None, false, Vec2::new(0.0, 32.0), 16)
+                            .clicked()
+                        {
+                            selection.invoke_toggle_filter(self.kind.clone());
+                        }
+                    });
                 });
                 let all = app.get_media_items();
                 let rows = self.result_view.get(
@@ -727,6 +829,63 @@ impl Desktop {
                     ui.ctx().request_repaint();
                 }
             });
+    }
+
+    /// Counts what the selection in an open library account can act on.
+    pub(in crate::ui) fn library_selection(&self) -> LibrarySelection {
+        let app = &self.app;
+        let mut summary = LibrarySelection::default();
+        if app.get_selected_tab() != crate::library::TAB || !app.get_library().view_ready {
+            return summary;
+        }
+        let selected = app
+            .global::<MediaSelection>()
+            .get_indices()
+            .iter()
+            .collect::<HashSet<_>>();
+        if selected.is_empty() {
+            return summary;
+        }
+        app.get_media_items().visit(&mut |_, item| {
+            if selected.contains(&item.media_index) {
+                summary.total += 1;
+                if item.status == "Saved" {
+                    summary.saved += 1;
+                    summary.gifs += usize::from(
+                        item.media_type == "animated_gif"
+                            && std::path::Path::new(&item.saved_path)
+                                .extension()
+                                .is_some_and(|extension| extension.eq_ignore_ascii_case("mp4")),
+                    );
+                }
+            }
+            true
+        });
+        summary
+    }
+
+    pub(in crate::ui) fn library_delete_confirm(&mut self, ctx: &egui::Context) {
+        if !self.library_delete_confirmation {
+            return;
+        }
+        let count = self.library_selection().saved;
+        if count == 0 {
+            self.library_delete_confirmation = false;
+            return;
+        }
+        let (close, confirmed) = self.destructive_confirm(
+            ctx,
+            "Delete confirmation",
+            self.tr("Delete {} files from disk?").replace("{}", &count.to_string()),
+            self.tr("The selected files are permanently deleted from your folder. They stay in the library as missing files and can be downloaded again."),
+            "Delete files",
+        );
+        if confirmed {
+            self.app.invoke_library_delete_selected();
+        }
+        if close || confirmed {
+            self.library_delete_confirmation = false;
+        }
     }
 
     pub(in crate::ui) fn media_download_or_open(&self, item: &MediaItem) {

@@ -209,6 +209,59 @@ fn history_search_and_card_icons_dispatch_without_account_management() {
 }
 
 #[test]
+fn history_source_filter_keeps_only_url_likes_or_bookmark_fetches() {
+    let app = history_fixture();
+    let entries = [
+        ("1", "demo", "https://x.com/demo"),
+        ("2", "liker", "https://x.com/liker/likes"),
+        ("3", "saver", "https://x.com/i/bookmarks"),
+    ]
+    .map(|(id, username, source)| crate::download::engine::HistoryEntry {
+        id: id.into(),
+        username: username.into(),
+        source_url: source.into(),
+        ..Default::default()
+    });
+    let searches = Rc::new(RefCell::new(0));
+    app.on_search_history({
+        let app = app.as_weak();
+        let entries = entries.clone();
+        let searches = searches.clone();
+        move |query, saved| {
+            *searches.borrow_mut() += 1;
+            crate::history::view_model::refresh(&app.upgrade().unwrap(), &entries, &query, saved);
+        }
+    });
+    let handles = |app: &AppWindow| {
+        app.get_history_items()
+            .iter()
+            .map(|row| row.handle.to_string())
+            .collect::<Vec<_>>()
+    };
+    let mut h = harness(app.clone());
+    h.set_size(Vec2::new(1024.0, 600.0));
+    h.run();
+    for (choice, expected) in [
+        ("Likes", vec!["liker"]),
+        ("Bookmarks", vec!["saver"]),
+        ("URL", vec!["demo"]),
+    ] {
+        h.get_by_label("Fetch source").click();
+        h.run();
+        h.get_by_label(choice).click();
+        h.run();
+        assert_eq!(handles(&app), expected, "{choice}");
+    }
+    h.get_by_label("Fetch source").click();
+    h.run();
+    h.get_by_label("All").click();
+    h.run();
+    assert_eq!(app.get_history_source_filter(), 0);
+    assert_eq!(handles(&app).len(), 3);
+    assert_eq!(*searches.borrow(), 4);
+}
+
+#[test]
 fn history_removal_requires_confirmation_and_preserves_session_scope() {
     let app = history_fixture();
     let removed = Rc::new(RefCell::new(Vec::new()));

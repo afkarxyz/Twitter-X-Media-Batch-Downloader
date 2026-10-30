@@ -591,3 +591,90 @@ async fn library_download_progress_tracks_the_queue_and_does_not_reset_for_the_n
         assert_eq!(app.get_library().available, if cancelled { 1 } else { 2 });
     }
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn selected_files_are_downloaded_again_in_place_and_deleted_from_disk() {
+    let fixture = crate::download::saved_files::tests::Fixture::new();
+    let folder = fixture.0.join("demo");
+    std::fs::create_dir_all(&folder).unwrap();
+    let path = folder.join("original.png");
+    std::fs::write(&path, b"stale").unwrap();
+    let bytes = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/logo/logo.png"));
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}/photo.png", listener.local_addr().unwrap());
+    let mut saved = entry(MediaCandidate {
+        username: "demo".into(),
+        author_name: "Demo".into(),
+        tweet_id: "100".into(),
+        created_at: "2026-10-15T00:00:00Z".into(),
+        url,
+        media_type: "photo".into(),
+        status: "Saved".into(),
+        saved_path: path.to_string_lossy().into_owned(),
+        saved_bytes: 5,
+        ..Default::default()
+    });
+    saved.download.as_mut().unwrap().output_dir = folder.to_string_lossy().into_owned();
+    let history = Arc::new(Mutex::new(vec![saved]));
+    let app = AppWindow::new().unwrap();
+    crate::media::results::register(&app);
+    let context = Context {
+        ui: app.as_weak(),
+        backend: Arc::new(Mutex::new(BackendState::default())),
+        history: history.clone(),
+        filter: Arc::new(Mutex::new((String::new(), false))),
+        cancel: Arc::new(AtomicBool::new(false)),
+        catalog: Arc::new(Mutex::new(Arc::new(Vec::new()))),
+    };
+    register_context(&app, context);
+    app.set_selected_tab(TAB);
+    wait(&app, || !app.get_library().loading).await;
+    app.invoke_library_open("demo".into());
+    wait(&app, || {
+        app.get_library().view_ready && !app.get_library().loading
+    })
+    .await;
+    assert_eq!(app.get_library().available, 1);
+    app.global::<MediaSelection>().invoke_toggle(0);
+    listener.set_nonblocking(true).unwrap();
+    let server = std::thread::spawn(move || {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            if let Ok((mut stream, _)) = listener.accept() {
+                stream.set_nonblocking(false).unwrap();
+                let mut request = [0; 4096];
+                stream.read(&mut request).unwrap();
+                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", bytes.len()).unwrap();
+                stream.write_all(bytes).unwrap();
+                return;
+            }
+            assert!(Instant::now() < deadline, "No re-download request arrived");
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    });
+    app.invoke_library_download(REDOWNLOAD);
+    assert!(app.get_is_busy());
+    wait(&app, || {
+        !app.get_is_busy() && app.get_library().job.is_empty() && !app.get_library().loading
+    })
+    .await;
+    server.join().unwrap();
+    assert!(app.get_library().error.is_empty(), "{}", app.get_library().error);
+    assert_eq!(std::fs::read(&path).unwrap(), bytes);
+    assert_eq!(
+        std::fs::read_dir(&folder).unwrap().count(),
+        1,
+        "Downloading again left a second copy beside the original"
+    );
+    assert_eq!(app.get_library().available, 1);
+
+    app.global::<MediaSelection>()
+        .set_indices(ModelRc::new(VecModel::from(vec![0])));
+    app.invoke_library_delete_selected();
+    wait(&app, || {
+        !app.get_is_busy() && !app.get_library().loading && app.get_library().missing == 1
+    })
+    .await;
+    assert!(!path.exists());
+    assert_eq!(app.global::<MediaSelection>().get_indices().row_count(), 0);
+}

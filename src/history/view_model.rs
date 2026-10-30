@@ -33,8 +33,10 @@ pub fn refresh(app: &AppWindow, entries: &[HistoryEntry], query: &str, saved_onl
         .iter()
         .collect();
     let query = query.trim().to_lowercase();
+    let source = app.get_history_source_filter();
     let rows = crate::accounts::labels::decorate(app, rows)
         .into_iter()
+        .filter(|row| source <= 0 || crate::fetch::sources::kind(&row.source_url) == source - 1)
         .filter(|row| {
             query.is_empty()
                 || [

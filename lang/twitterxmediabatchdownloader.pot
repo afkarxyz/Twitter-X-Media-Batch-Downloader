@@ -1603,3 +1603,57 @@ msgstr ""
 
 msgid "Independent open-source project, not affiliated with or endorsed by X Corp. Media is downloaded directly from X to your device. You are responsible for how you use it."
 msgstr ""
+
+msgid "Preview banner"
+msgstr ""
+
+msgid "Banner preview"
+msgstr ""
+
+msgid "Loading preview…"
+msgstr ""
+
+msgid "URL"
+msgstr ""
+
+msgid "No fetches match this filter."
+msgstr ""
+
+msgid "{} selected"
+msgstr ""
+
+msgid "Copy to folder…"
+msgstr ""
+
+msgid "Delete files"
+msgstr ""
+
+msgid "Clear selection"
+msgstr ""
+
+msgid "Convert selected GIFs ({})"
+msgstr ""
+
+msgid "Convert {} selected GIF MP4 files."
+msgstr ""
+
+msgid "Delete {} files from disk?"
+msgstr ""
+
+msgid "The selected files are permanently deleted from your folder. They stay in the library as missing files and can be downloaded again."
+msgstr ""
+
+msgid "Deleting library files…"
+msgstr ""
+
+msgid "Copying library files…"
+msgstr ""
+
+msgid "{} library files deleted."
+msgstr ""
+
+msgid "{} library files copied."
+msgstr ""
+
+msgid "None of the selected files are on disk."
+msgstr ""

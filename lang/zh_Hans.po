@@ -1,5 +1,5 @@
 msgid ""
-msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.2\nLanguage: zh_Hans\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=1; plural=0;\n"
+msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.3\nLanguage: zh_Hans\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=1; plural=0;\n"
 
 msgid "Ready for an X/Twitter URL."
 msgstr "已准备好接收 X/Twitter URL。"
@@ -1591,3 +1591,57 @@ msgstr "个新增"
 
 msgid "Independent open-source project, not affiliated with or endorsed by X Corp. Media is downloaded directly from X to your device. You are responsible for how you use it."
 msgstr "独立的开源项目，与 X Corp. 无关联，也未获其认可。媒体直接从 X 下载到你的设备。你需要对自己的使用方式负责。"
+
+msgid "Preview banner"
+msgstr "预览横幅"
+
+msgid "Banner preview"
+msgstr "横幅预览"
+
+msgid "Loading preview…"
+msgstr "正在加载预览…"
+
+msgid "URL"
+msgstr "URL"
+
+msgid "No fetches match this filter."
+msgstr "没有符合此筛选条件的提取记录。"
+
+msgid "{} selected"
+msgstr "已选择 {} 项"
+
+msgid "Copy to folder…"
+msgstr "复制到文件夹…"
+
+msgid "Delete files"
+msgstr "删除文件"
+
+msgid "Clear selection"
+msgstr "清除选择"
+
+msgid "Convert selected GIFs ({})"
+msgstr "转换所选 GIF（{}）"
+
+msgid "Convert {} selected GIF MP4 files."
+msgstr "转换 {} 个所选 GIF MP4 文件。"
+
+msgid "Delete {} files from disk?"
+msgstr "要从磁盘删除 {} 个文件吗？"
+
+msgid "The selected files are permanently deleted from your folder. They stay in the library as missing files and can be downloaded again."
+msgstr "所选文件将从文件夹中永久删除。它们会以缺失文件的形式保留在媒体库中，可以重新下载。"
+
+msgid "Deleting library files…"
+msgstr "正在删除媒体库文件…"
+
+msgid "Copying library files…"
+msgstr "正在复制媒体库文件…"
+
+msgid "{} library files deleted."
+msgstr "已删除 {} 个媒体库文件。"
+
+msgid "{} library files copied."
+msgstr "已复制 {} 个媒体库文件。"
+
+msgid "None of the selected files are on disk."
+msgstr "所选文件均不在磁盘上。"

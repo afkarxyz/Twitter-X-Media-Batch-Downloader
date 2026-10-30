@@ -756,18 +756,33 @@ pub fn profile_image_url(json: &str, kind: &str, size: &str) -> Option<String> {
             url.set_path(&format!("{stem}{suffix}.{extension}"));
         }
     } else {
-        let path = url.path().trim_end_matches('/').to_owned();
-        let base = ["/1500x500", "/600x200", "/300x100"]
-            .iter()
-            .find_map(|suffix| path.strip_suffix(suffix))
-            .unwrap_or(&path);
-        url.set_path(&if size == "orig" {
-            base.to_owned()
-        } else {
-            format!("{base}/{size}")
-        });
+        resize_banner(&mut url, size);
     }
     Some(url.to_string())
+}
+
+fn resize_banner(url: &mut reqwest::Url, size: &str) {
+    let path = url.path().trim_end_matches('/').to_owned();
+    let base = ["/1500x500", "/600x200", "/300x100"]
+        .iter()
+        .find_map(|suffix| path.strip_suffix(suffix))
+        .unwrap_or(&path);
+    url.set_path(&if size == "orig" {
+        base.to_owned()
+    } else {
+        format!("{base}/{size}")
+    });
+}
+
+/// The full-size version of a profile banner shown at a reduced size.
+pub fn original_banner_url(raw: &str) -> String {
+    match reqwest::Url::parse(raw) {
+        Ok(mut url) if url.host_str() == Some("pbs.twimg.com") => {
+            resize_banner(&mut url, "orig");
+            url.to_string()
+        }
+        _ => raw.to_owned(),
+    }
 }
 
 pub async fn download_profile_image(
@@ -3344,6 +3359,14 @@ mod quality_tests {
             profile_image_url(json, "banner", "600x200")
                 .unwrap()
                 .ends_with("/600x200")
+        );
+        assert_eq!(
+            original_banner_url("https://pbs.twimg.com/profile_banners/1/123/1500x500"),
+            "https://pbs.twimg.com/profile_banners/1/123"
+        );
+        assert_eq!(
+            original_banner_url("https://example.test/banner/600x200"),
+            "https://example.test/banner/600x200"
         );
         let item = MediaCandidate {
             thumb_url: "https://pbs.twimg.com/media/test?format=jpg&name=small".into(),

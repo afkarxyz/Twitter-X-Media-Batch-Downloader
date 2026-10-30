@@ -134,15 +134,37 @@ impl Desktop {
     pub(in crate::ui) fn history_filters(&mut self, ui: &mut Ui, rect: egui::Rect) {
         let app = self.app.clone();
         let colors = self.colors(ui);
+        let search = crate::ui::components::account_search::search_rect(rect);
+        let picker = egui::Rect::from_min_max(
+            egui::pos2(search.left() - 168.0, rect.top()),
+            egui::pos2(search.left() - 8.0, rect.bottom()),
+        );
         self.history_text(
             ui,
-            egui::Rect::from_min_size(rect.min, Vec2::new(200.0, rect.height())),
+            egui::Rect::from_min_max(
+                rect.min,
+                egui::pos2(rect.left().max(picker.left() - 8.0), rect.bottom()),
+            ),
             format!("{} ({})", self.tr("Fetches"), app.get_history_fetch_count()),
             14.0,
             true,
             colors.secondary,
         );
-        let search = crate::ui::components::account_search::search_rect(rect);
+        let choices = ["All", "URL", "Likes", "Bookmarks"].map(|choice| self.tr(choice));
+        let selected = app.get_history_source_filter().clamp(0, 3) as usize;
+        let next = self.choice_picker(
+            &mut child(ui, "history-source-picker", picker),
+            picker,
+            &crate::ui::components::dropdown::SelectOptions::new("Fetch source", &choices),
+            selected,
+        );
+        if next != selected {
+            app.set_history_source_filter(next as i32);
+            app.invoke_search_history(
+                app.get_history_search_query(),
+                app.get_history_show_saved(),
+            );
+        }
         let mut query = app.get_history_search_query();
         if self.account_search_input(
             ui,

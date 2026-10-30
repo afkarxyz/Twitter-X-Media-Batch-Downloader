@@ -131,7 +131,26 @@ fn library_actions_filter_preview_and_retry_without_card_clickthrough() {
         -1,
         "An inline action also opened the preview"
     );
-    h.get_by_label("Library media 1").click();
+    h.get_by_role_and_label(egui::accesskit::Role::Button, "Library media 1")
+        .click();
+    h.run();
+    assert_eq!(
+        app.global::<MediaSelection>()
+            .get_indices()
+            .iter()
+            .collect::<Vec<_>>(),
+        [1]
+    );
+    assert!(h.query_by_label("Media preview").is_none());
+    h.get_by_label("Download selected (1)").click();
+    h.run();
+    assert_eq!(
+        events.borrow().last().unwrap(),
+        &format!("download:{}", crate::library::SELECTED)
+    );
+    h.get_by_label("Clear selection").click();
+    h.run();
+    h.get_by_label("Preview · Library media 1").click();
     h.run();
     assert!(h.query_by_label("Media preview").is_some());
     h.get_by_label("Download again").click();
@@ -507,4 +526,108 @@ fn render_library_feedback_review() {
                 .unwrap();
         }
     }
+}
+
+#[test]
+fn library_results_select_like_home_including_saved_files() {
+    fn selected(app: &AppWindow) -> Vec<i32> {
+        let mut values = app
+            .global::<MediaSelection>()
+            .get_indices()
+            .iter()
+            .collect::<Vec<_>>();
+        values.sort();
+        values
+    }
+    let app = library_fixture();
+    let mut h = harness(app.clone());
+    h.set_size(Vec2::new(1024.0, 600.0));
+    h.run();
+    h.get_by_label("Open library account · Demo").click();
+    h.run();
+    let tile = |index: usize| format!("Library media {index}");
+    h.get_by_role_and_label(egui::accesskit::Role::Button, &tile(2))
+        .click();
+    h.run();
+    assert_eq!(selected(&app), [2]);
+    // The saved file 0 is selected too, but only the other two are downloaded.
+    h.get_by_role_and_label(egui::accesskit::Role::Button, &tile(0))
+        .click_modifiers(egui::Modifiers::SHIFT);
+    h.run();
+    assert_eq!(selected(&app), [0, 1, 2]);
+    assert_eq!(app.get_selected_media_index(), -1);
+    assert!(h.query_by_label("Download selected (2)").is_some());
+    h.get_by_role_and_label(egui::accesskit::Role::Button, &tile(0))
+        .click();
+    h.run();
+    assert_eq!(selected(&app), [1, 2]);
+    assert_eq!(app.get_selected_media_index(), -1);
+    h.get_by_label("Deselect filter").click();
+    h.run();
+    assert!(selected(&app).is_empty());
+    assert!(h.query_by_label("Download pending").is_some());
+    h.get_by_label("Select filter").click();
+    h.run();
+    assert_eq!(selected(&app), [1, 2]);
+    h.get_by_label("Preview · Library media 0").click();
+    h.run();
+    assert_eq!(app.get_selected_media_index(), 0);
+}
+
+#[test]
+fn selected_library_files_offer_download_again_copy_and_confirmed_delete() {
+    let app = library_fixture();
+    let events = Rc::new(RefCell::new(Vec::new()));
+    app.on_library_download({
+        let events = events.clone();
+        move |index| events.borrow_mut().push(format!("download:{index}"))
+    });
+    app.on_library_copy_selected({
+        let events = events.clone();
+        move || events.borrow_mut().push("copy".into())
+    });
+    app.on_library_delete_selected({
+        let events = events.clone();
+        move || events.borrow_mut().push("delete".into())
+    });
+    let mut h = harness(app.clone());
+    h.set_size(Vec2::new(1024.0, 700.0));
+    h.run();
+    h.get_by_label("Open library account · Demo").click();
+    h.run();
+    assert!(h.query_by_label("Delete files").is_none());
+    // Only the Ready file 2 is selected: nothing on disk to act on yet.
+    h.get_by_role_and_label(egui::accesskit::Role::Button, "Library media 2")
+        .click();
+    h.run();
+    assert!(h.get_by_label("Delete files").accesskit_node().is_disabled());
+    h.get_by_role_and_label(egui::accesskit::Role::Button, "Library media 0")
+        .click();
+    h.run();
+    assert!(h.query_by_label("2 selected").is_some());
+    h.get_by_label("Download again").click();
+    h.run();
+    assert_eq!(
+        events.borrow().last().unwrap(),
+        &format!("download:{}", crate::library::REDOWNLOAD)
+    );
+    h.get_by_label("Copy to folder…").click();
+    h.run();
+    assert_eq!(events.borrow().last().unwrap(), "copy");
+    h.get_by_label("Delete files").click();
+    h.run();
+    assert!(h.query_by_label("Delete confirmation").is_some());
+    h.get_by_label("Cancel").click();
+    h.run();
+    assert!(h.query_by_label("Delete confirmation").is_none());
+    assert_eq!(events.borrow().last().unwrap(), "copy");
+    h.get_by_label("Delete files").click();
+    h.run();
+    h.get_all_by_label("Delete files").last().unwrap().click();
+    h.run();
+    assert_eq!(events.borrow().last().unwrap(), "delete");
+    assert!(h.query_by_label("Delete confirmation").is_none());
+    h.get_by_label("Clear selection").click();
+    h.run();
+    assert_eq!(app.global::<MediaSelection>().get_indices().row_count(), 0);
 }

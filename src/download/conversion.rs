@@ -305,15 +305,27 @@ pub(crate) fn register_with_persistence(
             return;
         };
         let mut seen = HashSet::new();
-        let candidates =
-            if app.get_selected_tab() == crate::library::TAB && app.get_library().view_ready {
-                context.backend.lock().unwrap().candidates.clone()
-            } else {
-                entry.media.clone()
-            };
+        let library = app.get_selected_tab() == crate::library::TAB && app.get_library().view_ready;
+        let candidates = if library {
+            context.backend.lock().unwrap().candidates.clone()
+        } else {
+            entry.media.clone()
+        };
+        // In Library, selected GIFs narrow the conversion to just those files.
+        let selected = app
+            .global::<crate::MediaSelection>()
+            .get_indices()
+            .iter()
+            .map(|index| index as usize)
+            .collect::<HashSet<_>>();
+        let only_selected = library
+            && candidates
+                .iter()
+                .any(|item| selected.contains(&item.media_index) && eligible(item));
         let paths = candidates
             .iter()
             .filter(|item| eligible(item))
+            .filter(|item| !only_selected || selected.contains(&item.media_index))
             .filter(|item| {
                 seen.insert(if cfg!(windows) {
                     item.saved_path.to_ascii_lowercase()

@@ -544,7 +544,7 @@ fn home_hover_changes_the_painted_controls_and_keeps_tooltips_and_clicks() {
         "Open folder",
         "Image  5",
         "List view",
-        "Select media · xbatchdemo · @xbatchdemo · item 0",
+        "Preview · xbatchdemo · @xbatchdemo · item 0",
         "Download file · xbatchdemo · @xbatchdemo · item 0",
     ] {
         h.hover_at(egui::pos2(500.0, 10.0));
@@ -670,8 +670,8 @@ fn render_home_hover_review() {
         ("Export JSON", "export-hover"),
         ("Grid view", "grid-hover"),
         (
-            "Select media · xbatchdemo · @xbatchdemo · item 0",
-            "tile-select-hover",
+            "Preview · xbatchdemo · @xbatchdemo · item 0",
+            "tile-preview-hover",
         ),
         (
             "Download file · xbatchdemo · @xbatchdemo · item 0",
@@ -741,7 +741,8 @@ fn navigation_download_selection_and_preview_use_source_indices() {
     app.on_start_downloads(move |scope| record.borrow_mut().push(scope));
     let mut h = harness(app.clone());
     h.run();
-    h.get_by_label("Select media · UI test fixture").click();
+    h.get_by_role_and_label(egui::accesskit::Role::Button, "UI test fixture")
+        .click();
     h.run();
     assert_eq!(
         app.global::<MediaSelection>()
@@ -771,8 +772,10 @@ fn navigation_download_selection_and_preview_use_source_indices() {
     h.run();
     assert_eq!(app.get_selected_tab(), 3);
     app.set_selected_tab(0);
-    app.set_selected_media_index(42);
     h.run();
+    h.get_by_label("Preview · UI test fixture").click();
+    h.run();
+    assert_eq!(app.get_selected_media_index(), 42);
     assert!(h.query_by_label("Media preview").is_some());
     h.key_press(egui::Key::Escape);
     h.run();

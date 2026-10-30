@@ -238,6 +238,12 @@ pub(super) struct Desktop {
     batch_sources_draft: Option<String>,
     preview_view: crate::media::results::ViewCache,
     visible_media: HashSet<i32>,
+    /// Media index of the last clicked result; Shift-click selects from here.
+    selection_anchor: Option<i32>,
+    /// Original banner URL while the banner viewer is open.
+    banner_preview: Option<String>,
+    /// Asks before the selected library files are deleted from disk.
+    library_delete_confirmation: bool,
 }
 impl Desktop {
     fn new(app: AppWindow) -> Self {
@@ -294,6 +300,9 @@ impl Desktop {
             batch_sources_draft: None,
             preview_view: Default::default(),
             visible_media: HashSet::new(),
+            selection_anchor: None,
+            banner_preview: None,
+            library_delete_confirmation: false,
         }
     }
     fn theme(&mut self, ctx: &egui::Context) {
@@ -468,6 +477,7 @@ impl Desktop {
                 _ => self.home_view(ui),
             });
         self.preview_overlay(&ctx);
+        self.banner_preview_overlay(&ctx);
         self.dialogs(&ctx);
         if self.app.get_selected_media_index() >= 0 {
             self.visible_media

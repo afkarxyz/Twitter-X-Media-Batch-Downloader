@@ -1,4 +1,5 @@
 pub(in crate::ui) mod account_search;
+pub(in crate::ui) mod banner_preview;
 pub(in crate::ui) mod fetch_options;
 pub(in crate::ui) mod preview;
 pub(in crate::ui) mod preview_canvas;
@@ -17,6 +18,7 @@ impl Desktop {
         self.archive_dialog(ctx);
         self.update_dialog(ctx);
         self.history_confirm(ctx);
+        self.library_delete_confirm(ctx);
         self.toast(ctx);
         if !app.get_archive_conversion_open() {
             self.keep_original_gifs = true;
@@ -41,9 +43,15 @@ impl Desktop {
         ));
         let mut closed = !egui::Popup::is_any_open(ctx)
             && ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape));
+        let selected_gifs = self.library_selection().gifs;
         closed|=self.preference_modal(ctx,"archive-conversion",520.0,|ui|{
             self.setting_text(ui,"Convert downloaded GIFs",17.0,true,self.colors(ui).heading);
-            self.setting_text(ui,&self.tr("Convert {} GIF MP4 files from this download batch.").replace("{}",&app.get_archive_gif_count().to_string()),14.0,false,self.colors(ui).secondary);
+            let summary = if selected_gifs > 0 {
+                self.tr("Convert {} selected GIF MP4 files.").replace("{}",&selected_gifs.to_string())
+            } else {
+                self.tr("Convert {} GIF MP4 files from this download batch.").replace("{}",&app.get_archive_gif_count().to_string())
+            };
+            self.setting_text(ui,&summary,14.0,false,self.colors(ui).secondary);
             let width=(ui.available_width()-12.0)/2.0;
             ui.horizontal(|ui|{
                 ui.spacing_mut().item_spacing.x=12.0;

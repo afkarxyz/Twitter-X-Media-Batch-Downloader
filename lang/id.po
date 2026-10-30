@@ -1,5 +1,5 @@
 msgid ""
-msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.2\nLanguage: id\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=1; plural=0;\n"
+msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.3\nLanguage: id\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=1; plural=0;\n"
 
 msgid "Ready for an X/Twitter URL."
 msgstr "Siap menerima URL X/Twitter."
@@ -1591,3 +1591,57 @@ msgstr "baru"
 
 msgid "Independent open-source project, not affiliated with or endorsed by X Corp. Media is downloaded directly from X to your device. You are responsible for how you use it."
 msgstr "Proyek open source independen, tidak berafiliasi dengan atau didukung oleh X Corp. Media diunduh langsung dari X ke perangkat Anda. Anda bertanggung jawab atas cara Anda menggunakannya."
+
+msgid "Preview banner"
+msgstr "Pratinjau banner"
+
+msgid "Banner preview"
+msgstr "Pratinjau banner"
+
+msgid "Loading preview…"
+msgstr "Memuat pratinjau…"
+
+msgid "URL"
+msgstr "URL"
+
+msgid "No fetches match this filter."
+msgstr "Tidak ada hasil ekstraksi yang cocok dengan filter ini."
+
+msgid "{} selected"
+msgstr "{} dipilih"
+
+msgid "Copy to folder…"
+msgstr "Salin ke folder…"
+
+msgid "Delete files"
+msgstr "Hapus file"
+
+msgid "Clear selection"
+msgstr "Batalkan pilihan"
+
+msgid "Convert selected GIFs ({})"
+msgstr "Konversi GIF terpilih ({})"
+
+msgid "Convert {} selected GIF MP4 files."
+msgstr "Konversi {} file MP4 GIF terpilih."
+
+msgid "Delete {} files from disk?"
+msgstr "Hapus {} file dari disk?"
+
+msgid "The selected files are permanently deleted from your folder. They stay in the library as missing files and can be downloaded again."
+msgstr "File terpilih akan dihapus permanen dari folder Anda. File tetap tercantum di koleksi sebagai file hilang dan dapat diunduh lagi."
+
+msgid "Deleting library files…"
+msgstr "Menghapus file koleksi…"
+
+msgid "Copying library files…"
+msgstr "Menyalin file koleksi…"
+
+msgid "{} library files deleted."
+msgstr "{} file koleksi dihapus."
+
+msgid "{} library files copied."
+msgstr "{} file koleksi disalin."
+
+msgid "None of the selected files are on disk."
+msgstr "Tidak ada file terpilih yang ada di disk."

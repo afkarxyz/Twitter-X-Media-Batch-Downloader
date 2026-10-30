@@ -183,7 +183,7 @@ pub fn register(app: &AppWindow) {
         let Some(app) = ui.upgrade() else { return };
         if app.get_is_busy()
             || app.get_xtractor_busy()
-            || find(&app.get_media_items(), index).is_none_or(|item| item.status == "Saved")
+            || find(&app.get_media_items(), index).is_none()
         {
             return;
         }
@@ -191,6 +191,22 @@ pub fn register(app: &AppWindow) {
         let mut values = selection.get_indices().iter().collect::<HashSet<_>>();
         if !values.remove(&index) {
             values.insert(index);
+        }
+        set_selection(&selection, values);
+    });
+    let ui = app.as_weak();
+    // Adds every selectable item between two positions of the displayed rows.
+    selection.on_select_range(move |rows, from, to| {
+        let Some(app) = ui.upgrade() else { return };
+        if app.get_is_busy() || app.get_xtractor_busy() {
+            return;
+        }
+        let selection = app.global::<MediaSelection>();
+        let mut values = selection.get_indices().iter().collect::<HashSet<_>>();
+        for position in from.min(to).max(0)..=from.max(to) {
+            if let Some(item) = rows.row_data(position as usize) {
+                values.insert(item.media_index);
+            }
         }
         set_selection(&selection, values);
     });
@@ -274,6 +290,34 @@ fn set_selection(selection: &MediaSelection, values: HashSet<i32>) {
     selection.set_indices(crate::ui::runtime::ModelRc::new(
         crate::ui::runtime::VecModel::from(values),
     ));
+}
+
+/// Selected results that a download would fetch; saved files can be selected but are skipped.
+pub fn downloadable_selection(app: &AppWindow) -> i32 {
+    let selected = app
+        .global::<MediaSelection>()
+        .get_indices()
+        .iter()
+        .collect::<HashSet<_>>();
+    if selected.is_empty() {
+        return 0;
+    }
+    let items = app.get_media_items();
+    let count = if let Some(model) = items.as_any().downcast_ref::<PagedModel>() {
+        model
+            .eligible("all")
+            .into_iter()
+            .filter(|index| selected.contains(index))
+            .count()
+    } else {
+        let mut count = 0;
+        items.visit(&mut |_, item| {
+            count += usize::from(item.status != "Saved" && selected.contains(&item.media_index));
+            true
+        });
+        count
+    };
+    count.min(i32::MAX as usize) as i32
 }
 
 pub fn retain_pending_selection(app: &AppWindow) {

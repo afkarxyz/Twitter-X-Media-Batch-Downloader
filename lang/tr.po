@@ -1,5 +1,5 @@
 msgid ""
-msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.2\nLanguage: tr\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=2; plural=(n != 1);\n"
+msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.3\nLanguage: tr\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=2; plural=(n != 1);\n"
 
 msgid "Ready for an X/Twitter URL."
 msgstr "X/Twitter URL’si için hazır."
@@ -1591,3 +1591,57 @@ msgstr "yeni"
 
 msgid "Independent open-source project, not affiliated with or endorsed by X Corp. Media is downloaded directly from X to your device. You are responsible for how you use it."
 msgstr "Bağımsız bir açık kaynak projesidir; X Corp. ile bağlantılı değildir ve X Corp. tarafından onaylanmamıştır. Medya doğrudan X'ten cihazınıza indirilir. Uygulamayı nasıl kullandığınızdan siz sorumlusunuz."
+
+msgid "Preview banner"
+msgstr "Kapağı önizle"
+
+msgid "Banner preview"
+msgstr "Kapak önizlemesi"
+
+msgid "Loading preview…"
+msgstr "Önizleme yükleniyor…"
+
+msgid "URL"
+msgstr "URL"
+
+msgid "No fetches match this filter."
+msgstr "Bu filtreyle eşleşen getirme yok."
+
+msgid "{} selected"
+msgstr "{} seçildi"
+
+msgid "Copy to folder…"
+msgstr "Klasöre kopyala…"
+
+msgid "Delete files"
+msgstr "Dosyaları sil"
+
+msgid "Clear selection"
+msgstr "Seçimi temizle"
+
+msgid "Convert selected GIFs ({})"
+msgstr "Seçili GIF'leri dönüştür ({})"
+
+msgid "Convert {} selected GIF MP4 files."
+msgstr "Seçili {} GIF MP4 dosyasını dönüştür."
+
+msgid "Delete {} files from disk?"
+msgstr "{} dosya diskten silinsin mi?"
+
+msgid "The selected files are permanently deleted from your folder. They stay in the library as missing files and can be downloaded again."
+msgstr "Seçili dosyalar klasörünüzden kalıcı olarak silinir. Kütüphanede eksik dosya olarak kalır ve yeniden indirilebilir."
+
+msgid "Deleting library files…"
+msgstr "Kütüphane dosyaları siliniyor…"
+
+msgid "Copying library files…"
+msgstr "Kütüphane dosyaları kopyalanıyor…"
+
+msgid "{} library files deleted."
+msgstr "{} kütüphane dosyası silindi."
+
+msgid "{} library files copied."
+msgstr "{} kütüphane dosyası kopyalandı."
+
+msgid "None of the selected files are on disk."
+msgstr "Seçili dosyaların hiçbiri diskte yok."

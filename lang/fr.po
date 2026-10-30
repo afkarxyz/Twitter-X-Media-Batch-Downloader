@@ -1,5 +1,5 @@
 msgid ""
-msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.2\nLanguage: fr\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=2; plural=(n != 1);\n"
+msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.3\nLanguage: fr\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=2; plural=(n != 1);\n"
 
 msgid "Ready for an X/Twitter URL."
 msgstr "Prêt pour une URL X/Twitter."
@@ -1591,3 +1591,57 @@ msgstr "nouveaux"
 
 msgid "Independent open-source project, not affiliated with or endorsed by X Corp. Media is downloaded directly from X to your device. You are responsible for how you use it."
 msgstr "Projet open source indépendant, non affilié à X Corp. ni approuvé par X Corp. Les médias sont téléchargés directement depuis X sur votre appareil. Vous êtes responsable de l’usage que vous en faites."
+
+msgid "Preview banner"
+msgstr "Aperçu de la bannière"
+
+msgid "Banner preview"
+msgstr "Aperçu de la bannière"
+
+msgid "Loading preview…"
+msgstr "Chargement de l’aperçu…"
+
+msgid "URL"
+msgstr "URL"
+
+msgid "No fetches match this filter."
+msgstr "Aucune récupération ne correspond à ce filtre."
+
+msgid "{} selected"
+msgstr "{} sélectionnés"
+
+msgid "Copy to folder…"
+msgstr "Copier vers un dossier…"
+
+msgid "Delete files"
+msgstr "Supprimer les fichiers"
+
+msgid "Clear selection"
+msgstr "Effacer la sélection"
+
+msgid "Convert selected GIFs ({})"
+msgstr "Convertir les GIF sélectionnés ({})"
+
+msgid "Convert {} selected GIF MP4 files."
+msgstr "Convertir {} fichiers MP4 GIF sélectionnés."
+
+msgid "Delete {} files from disk?"
+msgstr "Supprimer {} fichiers du disque ?"
+
+msgid "The selected files are permanently deleted from your folder. They stay in the library as missing files and can be downloaded again."
+msgstr "Les fichiers sélectionnés sont définitivement supprimés de votre dossier. Ils restent dans la bibliothèque comme fichiers manquants et peuvent être téléchargés à nouveau."
+
+msgid "Deleting library files…"
+msgstr "Suppression des fichiers de la bibliothèque…"
+
+msgid "Copying library files…"
+msgstr "Copie des fichiers de la bibliothèque…"
+
+msgid "{} library files deleted."
+msgstr "{} fichiers de la bibliothèque supprimés."
+
+msgid "{} library files copied."
+msgstr "{} fichiers de la bibliothèque copiés."
+
+msgid "None of the selected files are on disk."
+msgstr "Aucun des fichiers sélectionnés n’est sur le disque."

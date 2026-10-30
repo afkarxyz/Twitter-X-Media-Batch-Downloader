@@ -14,6 +14,10 @@ use std::{
 };
 
 pub const TAB: i32 = 4;
+/// `library_download` index that downloads the selected media of the open account.
+pub const SELECTED: i32 = -2;
+/// `library_download` index that replaces the selected saved files with fresh downloads.
+pub const REDOWNLOAD: i32 = -3;
 
 #[derive(Clone)]
 pub(super) struct Context {

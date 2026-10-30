@@ -192,6 +192,8 @@ pub struct AppWindowData {
     pub library_refetch: Handler<dyn Fn(String)>,
     pub library_refetch_selected: Handler<dyn Fn()>,
     pub library_download: Handler<dyn Fn(i32)>,
+    pub library_delete_selected: Handler<dyn Fn()>,
+    pub library_copy_selected: Handler<dyn Fn()>,
     pub library_refresh: Handler<dyn Fn()>,
     pub page_changed: Handler<dyn Fn(i32)>,
     pub history_loaded: Vec<Rc<dyn Fn()>>,
@@ -313,6 +315,7 @@ pub struct AppWindowData {
     pub history_saved_count: i32,
     pub history_show_saved: bool,
     pub history_search_query: String,
+    pub history_source_filter: i32,
     pub history_busy: bool,
     pub download_batch_id: String,
     pub archive_conversion_busy: bool,
@@ -448,6 +451,8 @@ impl Default for AppWindowData {
             library_refetch: None,
             library_refetch_selected: None,
             library_download: None,
+            library_delete_selected: None,
+            library_copy_selected: None,
             library_refresh: None,
             page_changed: None,
             history_loaded: Vec::new(),
@@ -569,6 +574,7 @@ impl Default for AppWindowData {
             history_saved_count: 0,
             history_show_saved: false,
             history_search_query: "".into(),
+            history_source_filter: 0,
             history_busy: false,
             download_batch_id: "".into(),
             archive_conversion_busy: false,
@@ -821,6 +827,24 @@ impl AppWindow {
         let callback = self.state.borrow().appwindow.library_download.clone();
         if let Some(callback) = callback {
             callback(index);
+        }
+    }
+    pub fn on_library_delete_selected(&self, callback: impl Fn() + 'static) {
+        self.state.borrow_mut().appwindow.library_delete_selected = Some(Rc::new(callback));
+    }
+    pub fn invoke_library_delete_selected(&self) {
+        let callback = self.state.borrow().appwindow.library_delete_selected.clone();
+        if let Some(callback) = callback {
+            callback();
+        }
+    }
+    pub fn on_library_copy_selected(&self, callback: impl Fn() + 'static) {
+        self.state.borrow_mut().appwindow.library_copy_selected = Some(Rc::new(callback));
+    }
+    pub fn invoke_library_copy_selected(&self) {
+        let callback = self.state.borrow().appwindow.library_copy_selected.clone();
+        if let Some(callback) = callback {
+            callback();
         }
     }
     pub fn on_library_refresh(&self, callback: impl Fn() + 'static) {
@@ -1557,6 +1581,13 @@ impl AppWindow {
     }
     pub fn set_history_show_saved(&self, value: bool) {
         self.state.borrow_mut().appwindow.history_show_saved = value;
+    }
+    /// 0 shows every fetch; 1, 2 and 3 show URL, likes and bookmarks fetches.
+    pub fn get_history_source_filter(&self) -> i32 {
+        self.state.borrow().appwindow.history_source_filter
+    }
+    pub fn set_history_source_filter(&self, value: i32) {
+        self.state.borrow_mut().appwindow.history_source_filter = value;
     }
     pub fn get_history_search_query(&self) -> String {
         self.state.borrow().appwindow.history_search_query.clone()
@@ -2493,6 +2524,7 @@ pub struct MediaSelectionData {
     pub indices: ModelRc<i32>,
     pub all_selected: Handler<dyn Fn(ModelRc<i32>, ModelRc<MediaItem>, String) -> bool>,
     pub toggle: Handler<dyn Fn(i32)>,
+    pub select_range: Handler<dyn Fn(ModelRc<MediaItem>, i32, i32)>,
     pub toggle_filter: Handler<dyn Fn(String)>,
     pub clear: Handler<dyn Fn()>,
 }
@@ -2511,9 +2543,6 @@ impl MediaSelection {
     }
     pub fn set_indices(&self, value: ModelRc<i32>) {
         self.app.state.borrow_mut().mediaselection.indices = value.clone();
-    }
-    pub fn get_count(&self) -> i32 {
-        self.get_indices().row_count() as i32
     }
     pub fn on_all_selected(
         &self,
@@ -2538,6 +2567,15 @@ impl MediaSelection {
     pub fn invoke_toggle(&self, arg0: i32) {
         let callback = self.app.state.borrow().mediaselection.toggle.clone();
         callback.map(|callback| callback(arg0)).unwrap_or_default()
+    }
+    pub fn on_select_range(&self, callback: impl Fn(ModelRc<MediaItem>, i32, i32) + 'static) {
+        self.app.state.borrow_mut().mediaselection.select_range = Some(Rc::new(callback));
+    }
+    pub fn invoke_select_range(&self, arg0: ModelRc<MediaItem>, arg1: i32, arg2: i32) {
+        let callback = self.app.state.borrow().mediaselection.select_range.clone();
+        callback
+            .map(|callback| callback(arg0, arg1, arg2))
+            .unwrap_or_default()
     }
     pub fn on_toggle_filter(&self, callback: impl Fn(String) + 'static) {
         self.app.state.borrow_mut().mediaselection.toggle_filter = Some(Rc::new(callback));

@@ -1,9 +1,199 @@
 use super::{Context, catalog};
 use crate::{AppWindow, download::engine as downloader};
 use std::{
-    path::Path,
+    collections::HashSet,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex, atomic::Ordering},
 };
+
+/// Moves a fresh download over the file it replaces. When the format changed
+/// (for example a GIF conversion setting), the new file keeps its own name.
+async fn replace_file(previous: &Path, fresh: &Path) -> Result<PathBuf, String> {
+    let same_format = previous
+        .extension()
+        .zip(fresh.extension())
+        .is_some_and(|(left, right)| left.eq_ignore_ascii_case(right));
+    if same_format {
+        tokio::fs::rename(fresh, previous).await.map_err(|error| {
+            format!("Downloaded again, but could not replace {}: {error}", previous.display())
+        })?;
+        return Ok(previous.to_path_buf());
+    }
+    match tokio::fs::remove_file(previous).await {
+        Ok(()) => Ok(fresh.to_path_buf()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(fresh.to_path_buf()),
+        Err(error) => Err(format!(
+            "Downloaded again, but could not remove {}: {error}",
+            previous.display()
+        )),
+    }
+}
+
+/// Selected media of the open library account, with their saved files.
+fn selected_files(app: &AppWindow) -> Vec<PathBuf> {
+    let items = app.get_media_items();
+    app.global::<crate::MediaSelection>()
+        .get_indices()
+        .iter()
+        .filter_map(|index| crate::media::results::find(&items, index))
+        .filter(|item| !item.saved_path.is_empty())
+        .map(|item| PathBuf::from(item.saved_path))
+        .collect()
+}
+
+/// Picks a name in `folder` that does not overwrite an existing file.
+fn free_path(folder: &Path, name: &std::ffi::OsStr) -> PathBuf {
+    let candidate = folder.join(name);
+    if !candidate.exists() {
+        return candidate;
+    }
+    let source = Path::new(name);
+    let stem = source.file_stem().unwrap_or(name).to_string_lossy();
+    let extension = source
+        .extension()
+        .map(|extension| format!(".{}", extension.to_string_lossy()))
+        .unwrap_or_default();
+    (1..)
+        .map(|suffix| folder.join(format!("{stem} ({suffix}){extension}")))
+        .find(|path| !path.exists())
+        .unwrap()
+}
+
+/// Deletes or copies the selected files off the UI thread, then reports and refreshes.
+fn run_file_job(
+    app: &AppWindow,
+    context: &Context,
+    status: &str,
+    work: impl FnOnce() -> (usize, Vec<String>) + Send + 'static,
+    summary: &'static str,
+) {
+    app.set_is_busy(true);
+    app.set_is_extracting(false);
+    app.set_status(crate::i18n::translate(
+        &app.global::<crate::I18n>().get_language(),
+        status,
+    ));
+    app.update_library(|data| {
+        data.feedback_active = true;
+        data.error.clear();
+    });
+    let ui = context.ui.clone();
+    let job = move || {
+        let (count, errors) = work();
+        let _ = ui.upgrade_in_event_loop(move |app| {
+            app.set_is_busy(false);
+            app.update_library(|data| {
+                data.error = errors.first().cloned().unwrap_or_default();
+            });
+            app.invoke_library_refresh();
+            let message = crate::i18n::translate(
+                &app.global::<crate::I18n>().get_language(),
+                summary,
+            )
+            .replace("{}", &count.to_string());
+            crate::app::notifications::show_library_toast(
+                &app,
+                if let Some(error) = errors.first() {
+                    format!("{message}\n{error}")
+                } else {
+                    message
+                },
+                if errors.is_empty() { "info" } else { "error" },
+            );
+            app.update_library(|data| data.feedback_active = false);
+        });
+    };
+    if let Ok(runtime) = tokio::runtime::Handle::try_current() {
+        runtime.spawn_blocking(job);
+    } else {
+        std::thread::spawn(job);
+    }
+}
+
+fn library_idle(app: &AppWindow) -> bool {
+    !(app.get_is_busy()
+        || app.get_history_busy()
+        || app.get_tool_update_busy()
+        || !app.get_library().job.is_empty())
+}
+
+fn register_file_actions(app: &AppWindow, context: Context) {
+    let owner = context.clone();
+    app.on_library_delete_selected(move || {
+        let Some(app) = owner.ui.upgrade() else { return };
+        if !library_idle(&app) {
+            return;
+        }
+        let files = selected_files(&app);
+        if files.is_empty() {
+            return;
+        }
+        app.set_selected_media_index(-1);
+        app.global::<crate::MediaSelection>().invoke_clear();
+        run_file_job(
+            &app,
+            &owner,
+            "Deleting library files…",
+            move || {
+                let mut deleted = 0;
+                let mut errors = Vec::new();
+                for path in files.into_iter().collect::<HashSet<_>>() {
+                    match std::fs::remove_file(&path) {
+                        Ok(()) => deleted += 1,
+                        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                        Err(error) => {
+                            errors.push(format!("Could not delete {}: {error}", path.display()))
+                        }
+                    }
+                }
+                (deleted, errors)
+            },
+            "{} library files deleted.",
+        );
+    });
+    app.on_library_copy_selected(move || {
+        let Some(app) = context.ui.upgrade() else { return };
+        if !library_idle(&app) {
+            return;
+        }
+        let files = selected_files(&app)
+            .into_iter()
+            .filter(|path| path.is_file())
+            .collect::<Vec<_>>();
+        if files.is_empty() {
+            crate::app::notifications::show_library_toast(
+                &app,
+                "None of the selected files are on disk.",
+                "error",
+            );
+            return;
+        }
+        let Some(folder) = rfd::FileDialog::new().pick_folder() else {
+            return;
+        };
+        run_file_job(
+            &app,
+            &context,
+            "Copying library files…",
+            move || {
+                let mut copied = 0;
+                let mut errors = Vec::new();
+                for source in files {
+                    let Some(name) = source.file_name() else { continue };
+                    let target = free_path(&folder, name);
+                    match std::fs::copy(&source, &target) {
+                        Ok(_) => copied += 1,
+                        Err(error) => {
+                            errors.push(format!("Could not copy {}: {error}", source.display()))
+                        }
+                    }
+                }
+                (copied, errors)
+            },
+            "{} library files copied.",
+        );
+    });
+}
 
 pub(super) fn register(app: &AppWindow, context: Context) {
     register_refetch(
@@ -11,6 +201,7 @@ pub(super) fn register(app: &AppWindow, context: Context) {
         context.clone(),
         crate::app::fetch::spawn_extraction_job,
     );
+    register_file_actions(app, context.clone());
     app.on_library_download(move |index| {
         let Some(app) = context.ui.upgrade() else {
             return;
@@ -29,12 +220,21 @@ pub(super) fn register(app: &AppWindow, context: Context) {
         else {
             return;
         };
+        let selected = app
+            .global::<crate::MediaSelection>()
+            .get_indices()
+            .iter()
+            .map(|index| index as usize)
+            .collect::<std::collections::HashSet<_>>();
         let tasks: Vec<_> = account
             .entry
             .media
             .iter()
-            .filter(|item| {
-                item.status != "Saved" && (index < 0 || item.media_index == index as usize)
+            .filter(|item| match index {
+                super::REDOWNLOAD => item.status == "Saved" && selected.contains(&item.media_index),
+                super::SELECTED => item.status != "Saved" && selected.contains(&item.media_index),
+                index if index < 0 => item.status != "Saved",
+                index => item.status != "Saved" && item.media_index == index as usize,
             })
             .cloned()
             .collect();
@@ -71,6 +271,8 @@ pub(super) fn register(app: &AppWindow, context: Context) {
                 if owner.cancel.load(Ordering::Relaxed) {
                     break;
                 }
+                // A saved file is replaced only after its new copy downloaded.
+                let previous = (item.status == "Saved").then(|| PathBuf::from(&item.saved_path));
                 let folder = if item.saved_path.is_empty() {
                     Path::new(&account.entry.download.as_ref().unwrap().output_dir)
                 } else {
@@ -114,6 +316,18 @@ pub(super) fn register(app: &AppWindow, context: Context) {
                         if let Some(warning) = warning {
                             errors.push(warning);
                         }
+                        let path = match previous {
+                            Some(previous) if previous != path => {
+                                match replace_file(&previous, &path).await {
+                                    Ok(path) => path,
+                                    Err(error) => {
+                                        errors.push(error);
+                                        path
+                                    }
+                                }
+                            }
+                            _ => path,
+                        };
                         item.status = "Saved".into();
                         item.saved_path = path.to_string_lossy().into_owned();
                         item.integrity_error.clear();
@@ -383,4 +597,34 @@ fn next_refetch(
             }
         })),
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn copies_never_overwrite_and_keep_the_extension() {
+        let fixture = crate::download::saved_files::tests::Fixture::new();
+        let name = std::ffi::OsStr::new("photo.jpg");
+        assert_eq!(free_path(&fixture.0, name), fixture.0.join("photo.jpg"));
+        std::fs::write(fixture.0.join("photo.jpg"), b"a").unwrap();
+        std::fs::write(fixture.0.join("photo (1).jpg"), b"b").unwrap();
+        assert_eq!(free_path(&fixture.0, name), fixture.0.join("photo (2).jpg"));
+    }
+
+    #[tokio::test]
+    async fn a_new_format_keeps_its_name_and_removes_the_old_file() {
+        let fixture = crate::download::saved_files::tests::Fixture::new();
+        let (old, fresh) = (fixture.0.join("clip.mp4"), fixture.0.join("clip (1).mp4"));
+        std::fs::write(&old, b"old").unwrap();
+        std::fs::write(&fresh, b"new").unwrap();
+        assert_eq!(replace_file(&old, &fresh).await.unwrap(), old);
+        assert_eq!(std::fs::read(&old).unwrap(), b"new");
+        assert!(!fresh.exists());
+        let gif = fixture.0.join("clip.gif");
+        std::fs::write(&gif, b"gif").unwrap();
+        assert_eq!(replace_file(&old, &gif).await.unwrap(), gif);
+        assert!(!old.exists());
+    }
 }

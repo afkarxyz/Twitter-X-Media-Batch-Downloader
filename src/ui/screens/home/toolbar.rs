@@ -5,7 +5,7 @@ impl Desktop {
     pub(in crate::ui) fn result_toolbar(&self, ui: &mut Ui, items: ui_runtime::ModelRc<MediaItem>) {
         let app = self.app.clone();
         let results = app.global::<MediaResults>();
-        let selected = app.global::<MediaSelection>().get_count();
+        let selected = crate::media::results::downloadable_selection(&app);
         let colors = self.colors(ui);
         let new = results.invoke_new_count(items.clone());
         let count = format!(

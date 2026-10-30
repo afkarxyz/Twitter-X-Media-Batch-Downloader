@@ -38,6 +38,16 @@ impl Desktop {
             self.preview_texture = Default::default();
             self.preview_canvas.reset();
         }
+        // Rebuilt result models and failed loads fall back to the thumbnail; asking
+        // again restores the original without reselecting. Pending and recently
+        // failed requests are skipped by request().
+        if item.media_type == "photo" && item.detail_image.size().width == 0 {
+            crate::media::images::request(
+                &app,
+                crate::media::images::Kind::Preview,
+                item.preview_url.to_string(),
+            );
+        }
         let fullscreen = self.preview_canvas.fullscreen;
         let viewport = ctx.viewport_rect();
         let width = if fullscreen {
@@ -567,7 +577,7 @@ impl Desktop {
         }
     }
 
-    fn preview_icon_style(&self, size: f32) -> IconStyle {
+    pub(in crate::ui) fn preview_icon_style(&self, size: f32) -> IconStyle {
         IconStyle {
             idle: Color32::from_black_alpha(140),
             hover: Color32::from_black_alpha(204),

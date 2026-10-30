@@ -472,6 +472,16 @@ fn media_numbers_follow_display_order_and_filters_without_changing_source_indice
         h.get_by_role_and_label(egui::accesskit::Role::Label, "#1")
             .click();
         h.run();
+        assert_eq!(
+            app.global::<MediaSelection>()
+                .get_indices()
+                .iter()
+                .collect::<Vec<_>>(),
+            [99]
+        );
+        app.global::<MediaSelection>().invoke_clear();
+        h.get_by_label("Preview · Gamma").click();
+        h.run();
         assert_eq!(app.get_selected_media_index(), 99);
         h.get_by_label("Close preview").click();
         h.run();
@@ -894,4 +904,84 @@ fn gif_loops_and_video_audio_controls_follow_playback_readiness() {
     h.get_by_label("Mute").click();
     h.run();
     assert_eq!(*muted.borrow(), [true]);
+}
+
+#[test]
+fn clicks_select_results_and_the_eye_button_opens_the_preview() {
+    fn selected(app: &AppWindow) -> Vec<i32> {
+        let mut values = app
+            .global::<MediaSelection>()
+            .get_indices()
+            .iter()
+            .collect::<Vec<_>>();
+        values.sort();
+        values
+    }
+    for view in ["grid", "list"] {
+        let app = original_home_fixture();
+        app.set_results_view(view.into());
+        let mut h = harness(app.clone());
+        h.set_size(Vec2::new(1440.0, 1400.0));
+        h.run();
+        let title = |index: usize| format!("xbatchdemo · @xbatchdemo · item {index}");
+        let click = |h: &mut Harness<'_, Desktop>, index: usize, modifiers: egui::Modifiers| {
+            h.get_by_role_and_label(egui::accesskit::Role::Button, &title(index))
+                .click_modifiers(modifiers);
+            h.run();
+        };
+
+        click(&mut h, 1, egui::Modifiers::NONE);
+        assert_eq!(selected(&app), [1], "{view}");
+        assert_eq!(app.get_selected_media_index(), -1, "{view}");
+
+        // The range includes the Saved item 4, but downloads only count the others.
+        click(&mut h, 6, egui::Modifiers::SHIFT);
+        assert_eq!(selected(&app), [1, 2, 3, 4, 5, 6], "{view}");
+        assert!(h.query_by_label("Download selected (5)").is_some(), "{view}");
+
+        click(&mut h, 3, egui::Modifiers::NONE);
+        assert_eq!(selected(&app), [1, 2, 4, 5, 6], "{view}");
+        click(&mut h, 2, egui::Modifiers::NONE);
+        assert_eq!(selected(&app), [1, 4, 5, 6], "{view}");
+
+        // Shift extends from the last clicked result.
+        click(&mut h, 8, egui::Modifiers::SHIFT);
+        assert_eq!(selected(&app), [1, 2, 3, 4, 5, 6, 7, 8], "{view}");
+
+        click(&mut h, 4, egui::Modifiers::NONE);
+        assert_eq!(selected(&app), [1, 2, 3, 5, 6, 7, 8], "{view}");
+        assert_eq!(app.get_selected_media_index(), -1, "{view}");
+
+        h.get_by_label(&format!("Preview · {}", title(0))).click();
+        h.run();
+        assert_eq!(app.get_selected_media_index(), 0, "{view}");
+        assert_eq!(selected(&app), [1, 2, 3, 5, 6, 7, 8], "{view}");
+        assert!(h.query_by_label("Media preview").is_some(), "{view}");
+    }
+}
+
+#[test]
+fn banner_preview_opens_the_original_banner_and_closes_with_escape() {
+    let app = original_home_fixture();
+    let mut profile = app.get_account_profile();
+    profile.banner_url = "https://pbs.twimg.com/profile_banners/1/123/1500x500".into();
+    app.set_account_profile(profile);
+    let mut h = harness(app.clone());
+    h.set_size(Vec2::new(1024.0, 600.0));
+    h.run();
+    let preview = h.get_by_label("Preview banner").rect();
+    let download = h.get_by_label("Download banner").rect();
+    assert!(preview.right() < download.left());
+    assert!((preview.center().y - download.center().y).abs() < 0.5);
+    h.get_by_label("Preview banner").click();
+    h.run();
+    assert_eq!(
+        h.state().banner_preview.as_deref(),
+        Some("https://pbs.twimg.com/profile_banners/1/123")
+    );
+    assert!(h.query_by_label("Banner preview").is_some());
+    h.key_press(egui::Key::Escape);
+    h.run();
+    assert!(h.state().banner_preview.is_none());
+    assert!(h.query_by_label("Banner preview").is_none());
 }

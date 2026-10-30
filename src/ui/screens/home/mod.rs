@@ -282,16 +282,6 @@ impl Desktop {
                         ),
                     );
                     let show = ui.rect_contains_pointer(banner);
-                    let button = egui::Rect::from_min_size(
-                        banner.right_top() + Vec2::new(-44.0, 8.0),
-                        Vec2::splat(appearance::COMPACT_CONTROL_SIZE),
-                    );
-                    let mut child = ui.new_child(
-                        egui::UiBuilder::new()
-                            .id_salt("banner-download")
-                            .max_rect(button)
-                            .layout(egui::Layout::top_down(egui::Align::Min)),
-                    );
                     let style = IconStyle {
                         idle: Color32::from_black_alpha(153),
                         hover: Color32::from_black_alpha(204),
@@ -302,20 +292,55 @@ impl Desktop {
                         icon_size: appearance::CONTROL_ICON_SIZE,
                         visible: show,
                     };
-                    child.add_enabled_ui(!self.busy(), |ui| {
-                        if self
-                            .home_icon(
-                                ui,
-                                Icon::Download,
-                                "Download banner",
-                                appearance::COMPACT_CONTROL_SIZE,
-                                style,
-                            )
-                            .clicked()
-                        {
-                            app.invoke_download_profile_image("banner".into());
-                        }
-                    });
+                    for (id, icon, label, offset, enabled) in [
+                        (
+                            "banner-preview",
+                            Icon::Eye,
+                            "Preview banner",
+                            -52.0 - appearance::COMPACT_CONTROL_SIZE,
+                            !profile.banner_url.is_empty(),
+                        ),
+                        (
+                            "banner-download",
+                            Icon::Download,
+                            "Download banner",
+                            -44.0,
+                            !self.busy(),
+                        ),
+                    ] {
+                        let button = egui::Rect::from_min_size(
+                            banner.right_top() + Vec2::new(offset, 8.0),
+                            Vec2::splat(appearance::COMPACT_CONTROL_SIZE),
+                        );
+                        let mut child = ui.new_child(
+                            egui::UiBuilder::new()
+                                .id_salt(id)
+                                .max_rect(button)
+                                .layout(egui::Layout::top_down(egui::Align::Min)),
+                        );
+                        child.add_enabled_ui(enabled, |ui| {
+                            if self
+                                .home_icon(
+                                    ui,
+                                    icon,
+                                    label,
+                                    appearance::COMPACT_CONTROL_SIZE,
+                                    style,
+                                )
+                                .clicked()
+                            {
+                                if id == "banner-preview" {
+                                    self.banner_preview = Some(
+                                        crate::download::engine::original_banner_url(
+                                            &profile.banner_url,
+                                        ),
+                                    );
+                                } else {
+                                    app.invoke_download_profile_image("banner".into());
+                                }
+                            }
+                        });
+                    }
                 }
                 egui::Frame::new().inner_margin(15).show(ui, |ui| {
                     ui.spacing_mut().item_spacing.y = 10.0;
@@ -733,7 +758,14 @@ impl Desktop {
         entry.1 = self.frame;
         entry.0.clone()
     }
-    fn media_tile(&mut self, ui: &mut Ui, item: &MediaItem, size: f32, position: usize) {
+    fn media_tile(
+        &mut self,
+        ui: &mut Ui,
+        rows: &ui_runtime::ModelRc<MediaItem>,
+        item: &MediaItem,
+        size: f32,
+        position: usize,
+    ) {
         let app = self.app.clone();
         let colors = self.colors(ui);
         self.visible_media.insert(item.media_index);
@@ -756,7 +788,7 @@ impl Desktop {
             rect,
             12.0,
             egui::Stroke::new(
-                if focus { 2.0 } else { 1.0 },
+                if focus || selected { 2.0 } else { 1.0 },
                 if selected || response.hovered() || focus {
                     colors.accent
                 } else {
@@ -777,6 +809,9 @@ impl Desktop {
             ui,
             egui::Rect::from_center_size(badge.center(), Vec2::splat(13.0)),
         );
+        if selected {
+            self.media_selected_badge(ui, badge.right_top() + Vec2::new(4.0, 0.0));
+        }
         if item.preview_image.size().width == 0 && item.media_type != "text" {
             icon.image(colors.secondary, 28.0).paint_at(
                 ui,
@@ -806,85 +841,75 @@ impl Desktop {
             ),
             position,
         );
-        if item.status != "Saved" || app.get_selected_tab() == crate::library::TAB {
-            for (id, icon, position, diameter) in [
-                (
-                    "select",
-                    if selected {
-                        Icon::SquareCheck
-                    } else {
-                        Icon::Square
-                    },
-                    rect.left_bottom() + Vec2::new(6.0, -34.0),
-                    28.0,
-                ),
-                (
-                    "download",
-                    if item.status == "Saved" {
-                        Icon::Folder
-                    } else {
-                        Icon::Download
-                    },
-                    rect.right_bottom() + Vec2::new(-34.0, -34.0),
-                    28.0,
-                ),
-            ] {
-                if id == "select" && app.get_selected_tab() == crate::library::TAB {
-                    continue;
-                }
-                let button_rect = egui::Rect::from_min_size(position, Vec2::splat(diameter));
-                let mut child = ui.new_child(
-                    egui::UiBuilder::new()
-                        .id_salt((item.media_index, id))
-                        .max_rect(button_rect)
-                        .layout(egui::Layout::top_down(egui::Align::Min)),
-                );
-                let style = IconStyle {
-                    idle: if selected && id == "select" {
-                        colors.primary
-                    } else {
-                        Color32::from_black_alpha(158)
-                    },
-                    hover: colors.primary,
-                    pressed: colors.primary.gamma_multiply(0.82),
-                    foreground: Color32::WHITE,
-                    border: egui::Stroke::NONE,
-                    radius: if id == "select" { 6 } else { 14 },
-                    icon_size: 16.0,
-                    visible: true,
-                };
-                let caption = format!(
-                    "{} · {}",
-                    self.tr(if id == "select" {
-                        if selected {
-                            "Deselect media"
-                        } else {
-                            "Select media"
-                        }
-                    } else {
-                        if item.status == "Saved" {
-                            "Open folder"
-                        } else if item.status == "Missing" {
-                            "Download again"
-                        } else {
-                            "Download file"
-                        }
-                    }),
-                    item.title
-                );
-                let button = child
-                    .add_enabled_ui(!self.busy(), |ui| {
-                        self.home_icon(ui, icon, &caption, diameter, style)
-                    })
-                    .inner;
-
-                if button.clicked() && !self.busy() {
-                    if id == "select" {
-                        app.global::<MediaSelection>()
-                            .invoke_toggle(item.media_index);
-                    } else {
-                        self.media_download_or_open(item);
-                    }
+        for (id, icon, position, diameter) in [
+            (
+                "preview",
+                Icon::Eye,
+                rect.left_bottom() + Vec2::new(6.0, -34.0),
+                28.0,
+            ),
+            (
+                "download",
+                if item.status == "Saved" {
+                    Icon::Folder
+                } else {
+                    Icon::Download
+                },
+                rect.right_bottom() + Vec2::new(-34.0, -34.0),
+                28.0,
+            ),
+        ] {
+            if id == "download"
+                && item.status == "Saved"
+                && app.get_selected_tab() != crate::library::TAB
+            {
+                continue;
+            }
+            let button_rect = egui::Rect::from_min_size(position, Vec2::splat(diameter));
+            let mut child = ui.new_child(
+                egui::UiBuilder::new()
+                    .id_salt((item.media_index, id))
+                    .max_rect(button_rect)
+                    .layout(egui::Layout::top_down(egui::Align::Min)),
+            );
+            let style = IconStyle {
+                idle: Color32::from_black_alpha(158),
+                hover: colors.primary,
+                pressed: colors.primary.gamma_multiply(0.82),
+                foreground: Color32::WHITE,
+                border: egui::Stroke::NONE,
+                radius: 14,
+                icon_size: 16.0,
+                visible: true,
+            };
+            let caption = format!(
+                "{} · {}",
+                self.tr(if id == "preview" {
+                    "Preview"
+                } else if item.status == "Saved" {
+                    "Open folder"
+                } else if item.status == "Missing" {
+                    "Download again"
+                } else {
+                    "Download file"
+                }),
+                item.title
+            );
+            let enabled = if id == "preview" {
+                !item.payload_pending
+            } else {
+                !self.busy()
+            };
+            let button = child
+                .add_enabled_ui(enabled, |ui| {
+                    self.home_icon(ui, icon, &caption, diameter, style)
+                })
+                .inner;
+            if button.clicked() && enabled {
+                if id == "preview" {
+                    self.media_preview(item);
+                } else {
+                    self.media_download_or_open(item);
                 }
             }
         }
@@ -967,9 +992,8 @@ impl Desktop {
                 Color32::WHITE,
             );
         }
-        if response.clicked() && !item.payload_pending {
-            app.set_selected_media_index(item.media_index);
-            app.invoke_load_media_preview(item.media_index);
+        if response.clicked() {
+            self.media_clicked(ui, rows, item, position);
         }
     }
 }
