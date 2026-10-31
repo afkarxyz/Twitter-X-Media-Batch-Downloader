@@ -21,11 +21,17 @@ impl Desktop {
         }
         let bounds = ui.max_rect();
         ui.allocate_rect(bounds, egui::Sense::hover());
-        let width = bounds.width().min(1104.0);
+        // Session details stay at the reading width; the account grid gains columns.
+        let details = !self.app.get_fetch_sessions_key().is_empty();
+        let width = if details {
+            bounds.width().min(appearance::CARD_PAGE_WIDTH)
+        } else {
+            appearance::card_page_width(bounds.width())
+        };
         let page = egui::Rect::from_center_size(bounds.center(), Vec2::new(width, bounds.height()))
             .shrink(12.0);
         let mut content = child(ui, "history-page", page);
-        if !self.app.get_fetch_sessions_key().is_empty() {
+        if details {
             self.fetch_session_details(&mut content);
             return;
         }
@@ -64,8 +70,9 @@ impl Desktop {
         };
         area.show_themed(&mut list_ui, |ui| {
             let width = ui.available_width();
-            let columns = if width >= 852.0 { 2 } else { 1 };
-            let card_width = (width - (columns - 1) as f32 * 12.0) / columns as f32;
+            let columns = appearance::account_card_columns(width);
+            let gap = appearance::ACCOUNT_CARD_GAP;
+            let card_width = (width - (columns - 1) as f32 * gap) / columns as f32;
             let pitch = appearance::ACCOUNT_CARD_HEIGHT + appearance::ACCOUNT_CARD_ROW_GAP;
             let height = (rows.row_count().div_ceil(columns) as f32 * pitch
                 - appearance::ACCOUNT_CARD_ROW_GAP)
@@ -75,7 +82,7 @@ impl Desktop {
                 let rect = egui::Rect::from_min_size(
                     grid.min
                         + Vec2::new(
-                            (index % columns) as f32 * (card_width + 12.0),
+                            (index % columns) as f32 * (card_width + gap),
                             (index / columns) as f32 * pitch,
                         ),
                     Vec2::new(card_width, appearance::ACCOUNT_CARD_HEIGHT),

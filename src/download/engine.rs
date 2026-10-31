@@ -426,8 +426,6 @@ pub fn history_rows<'a>(
             let saved_count = entry.saved_count();
             let title = if entry.account_name.is_empty() {
                 format!("@{}", entry.username)
-            } else if entry.username.is_empty() {
-                entry.account_name.clone()
             } else {
                 entry.account_name.clone()
             };
@@ -742,23 +740,27 @@ pub fn profile_image_url(json: &str, kind: &str, size: &str) -> Option<String> {
     }
     let mut url = reqwest::Url::parse(&fallback).ok()?;
     if kind == "avatar" {
-        let path = url.path().to_owned();
-        if let Some((stem, extension)) = path.rsplit_once('.') {
-            let stem = ["_normal", "_bigger", "_mini", "_200x200", "_400x400"]
-                .iter()
-                .find_map(|suffix| stem.strip_suffix(suffix))
-                .unwrap_or(stem);
-            let suffix = if size == "orig" {
-                String::new()
-            } else {
-                format!("_{size}")
-            };
-            url.set_path(&format!("{stem}{suffix}.{extension}"));
-        }
+        resize_avatar(&mut url, size);
     } else {
         resize_banner(&mut url, size);
     }
     Some(url.to_string())
+}
+
+fn resize_avatar(url: &mut reqwest::Url, size: &str) {
+    let path = url.path().to_owned();
+    if let Some((stem, extension)) = path.rsplit_once('.') {
+        let stem = ["_normal", "_bigger", "_mini", "_200x200", "_400x400"]
+            .iter()
+            .find_map(|suffix| stem.strip_suffix(suffix))
+            .unwrap_or(stem);
+        let suffix = if size == "orig" {
+            String::new()
+        } else {
+            format!("_{size}")
+        };
+        url.set_path(&format!("{stem}{suffix}.{extension}"));
+    }
 }
 
 fn resize_banner(url: &mut reqwest::Url, size: &str) {
@@ -774,11 +776,15 @@ fn resize_banner(url: &mut reqwest::Url, size: &str) {
     });
 }
 
-/// The full-size version of a profile banner shown at a reduced size.
-pub fn original_banner_url(raw: &str) -> String {
+/// The full-size version of a profile avatar ("avatar") or banner shown at a reduced size.
+pub fn original_profile_image_url(kind: &str, raw: &str) -> String {
     match reqwest::Url::parse(raw) {
         Ok(mut url) if url.host_str() == Some("pbs.twimg.com") => {
-            resize_banner(&mut url, "orig");
+            if kind == "avatar" {
+                resize_avatar(&mut url, "orig");
+            } else {
+                resize_banner(&mut url, "orig");
+            }
             url.to_string()
         }
         _ => raw.to_owned(),
@@ -3361,12 +3367,22 @@ mod quality_tests {
                 .ends_with("/600x200")
         );
         assert_eq!(
-            original_banner_url("https://pbs.twimg.com/profile_banners/1/123/1500x500"),
+            original_profile_image_url(
+                "banner",
+                "https://pbs.twimg.com/profile_banners/1/123/1500x500"
+            ),
             "https://pbs.twimg.com/profile_banners/1/123"
         );
         assert_eq!(
-            original_banner_url("https://example.test/banner/600x200"),
+            original_profile_image_url("banner", "https://example.test/banner/600x200"),
             "https://example.test/banner/600x200"
+        );
+        assert_eq!(
+            original_profile_image_url(
+                "avatar",
+                "https://pbs.twimg.com/profile_images/1/a_normal.jpg"
+            ),
+            "https://pbs.twimg.com/profile_images/1/a.jpg"
         );
         let item = MediaCandidate {
             thumb_url: "https://pbs.twimg.com/media/test?format=jpg&name=small".into(),

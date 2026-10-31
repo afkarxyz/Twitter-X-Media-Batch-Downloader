@@ -1,5 +1,5 @@
 msgid ""
-msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.3\nLanguage: de\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=2; plural=(n != 1);\n"
+msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.4\nLanguage: de\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=2; plural=(n != 1);\n"
 
 msgid "Ready for an X/Twitter URL."
 msgstr "Bereit für eine X/Twitter-URL."
@@ -640,12 +640,6 @@ msgstr "Besser verwendet eine optimierte Farbpalette."
 
 msgid "{} FPS"
 msgstr "{} FPS"
-
-msgid "Select media"
-msgstr "Medium auswählen"
-
-msgid "Deselect media"
-msgstr "Medium abwählen"
 
 msgid "Select filter"
 msgstr "Filter auswählen"
@@ -1598,9 +1592,6 @@ msgstr "Banner-Vorschau anzeigen"
 msgid "Banner preview"
 msgstr "Banner-Vorschau"
 
-msgid "Loading preview…"
-msgstr "Vorschau wird geladen…"
-
 msgid "URL"
 msgstr "URL"
 
@@ -1645,3 +1636,18 @@ msgstr "{} Bibliotheksdateien kopiert."
 
 msgid "None of the selected files are on disk."
 msgstr "Keine der ausgewählten Dateien ist auf dem Datenträger vorhanden."
+
+msgid "Loading original… please wait"
+msgstr "Original wird geladen… bitte warten"
+
+msgid "Fit to width"
+msgstr "An Breite anpassen"
+
+msgid "Preview avatar"
+msgstr "Avatar-Vorschau anzeigen"
+
+msgid "Avatar preview"
+msgstr "Avatar-Vorschau"
+
+msgid "Click accounts to add them to the batch list, or click again to remove them."
+msgstr "Klicken Sie auf Konten, um sie zum Kontenstapel hinzuzufügen, oder erneut, um sie zu entfernen."

@@ -396,6 +396,44 @@ fn settings_storage_refreshes_on_entry_and_path_changes_and_keeps_the_path_read_
 }
 
 #[test]
+fn background_storage_refreshes_keep_the_previous_figures_and_layout() {
+    let app = preferences();
+    app.set_settings_category(3);
+    app.set_output_dir("fixture/Downloads".into());
+    app.on_refresh_storage(|| {});
+    app.set_storage_used("1.2 GB".into());
+    app.set_storage_free("80.0 GB".into());
+    app.set_storage_files(42);
+    let texts = |h: &Harness<'_, Desktop>| {
+        h.output()
+            .shapes
+            .iter()
+            .filter_map(|shape| match &shape.shape {
+                egui::Shape::Text(text) => Some(text.galley.text().to_owned()),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+    };
+    let mut h = harness(app.clone());
+    app.set_storage_busy(true);
+    h.run();
+    assert!(
+        texts(&h).iter().any(|text| text == "Calculating…"),
+        "The first scan has nothing to show yet"
+    );
+    app.set_storage_ready(true);
+    h.run();
+    let metric = h.get_by_label("Download folder usage metric").rect();
+    let refreshing = texts(&h);
+    assert!(refreshing.iter().any(|text| text == "1.2 GB"));
+    assert!(!refreshing.iter().any(|text| text == "Calculating…"));
+    assert!(!h.get_by_label("Refresh").accesskit_node().is_disabled());
+    app.set_storage_busy(false);
+    h.run();
+    assert_eq!(h.get_by_label("Download folder usage metric").rect(), metric);
+}
+
+#[test]
 fn settings_quality_groups_and_limit_fields_act_independently() {
     let app = preferences();
     app.set_settings_category(2);

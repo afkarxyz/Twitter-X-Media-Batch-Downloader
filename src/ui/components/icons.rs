@@ -26,8 +26,6 @@ fastframe_icons::icons! {
         Video => "Video",
         Film => "Film",
         Text => "FileText",
-        Square => "Square",
-        SquareCheck => "SquareCheck",
         Check => "Check",
         Copy => "Copy",
         Cut => "Scissors",
@@ -75,5 +73,6 @@ fastframe_icons::icons! {
         ZoomIn => lucide "plus",
         ZoomOut => lucide "minus",
         Fit => lucide "monitor",
+        FitWidth => "MoveHorizontal",
     }
 }

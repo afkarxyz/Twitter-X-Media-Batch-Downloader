@@ -354,6 +354,7 @@ pub struct AppWindowData {
     pub storage_downloads_ratio: f32,
     pub storage_capacity_known: bool,
     pub storage_files: i32,
+    pub storage_ready: bool,
     pub ffmpeg_busy: bool,
     pub xtractor_busy: bool,
     pub xtractor_installed: bool,
@@ -613,6 +614,7 @@ impl Default for AppWindowData {
             storage_downloads_ratio: 0.0,
             storage_capacity_known: false,
             storage_files: 0,
+            storage_ready: false,
             ffmpeg_busy: false,
             xtractor_busy: false,
             xtractor_installed: false,
@@ -1769,6 +1771,13 @@ impl AppWindow {
     }
     pub fn set_storage_busy(&self, value: bool) {
         self.state.borrow_mut().appwindow.storage_busy = value;
+    }
+    /// The storage figures belong to the current download folder.
+    pub fn get_storage_ready(&self) -> bool {
+        self.state.borrow().appwindow.storage_ready
+    }
+    pub fn set_storage_ready(&self, value: bool) {
+        self.state.borrow_mut().appwindow.storage_ready = value;
     }
     pub fn get_storage_partial(&self) -> bool {
         self.state.borrow().appwindow.storage_partial

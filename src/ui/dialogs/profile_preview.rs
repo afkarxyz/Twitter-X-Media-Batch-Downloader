@@ -1,20 +1,34 @@
 use crate::media::images::{self, Kind};
 use crate::ui::components::dialog::child;
+use crate::ui::components::icon_button::IconStyle;
 use crate::ui::*;
 
 impl Desktop {
-    /// Shows the profile banner at its original size with the media viewer's zoom controls.
-    pub(in crate::ui) fn banner_preview_overlay(&mut self, ctx: &egui::Context) {
-        let Some(url) = self.banner_preview.clone() else {
+    pub(in crate::ui) fn open_profile_preview(&mut self, kind: &'static str, url: &str) {
+        self.profile_preview = Some((
+            kind,
+            crate::download::engine::original_profile_image_url(kind, url),
+        ));
+    }
+
+    /// Shows a profile avatar or banner at its original size with the media viewer's
+    /// zoom controls and a button to download it.
+    pub(in crate::ui) fn profile_preview_overlay(&mut self, ctx: &egui::Context) {
+        let Some((kind, url)) = self.profile_preview.clone() else {
             return;
         };
         let app = self.app.clone();
         let profile = app.get_account_profile();
-        if app.get_selected_tab() != 0 || profile.banner_url.is_empty() {
-            self.close_banner_preview(ctx);
+        let (source, fallback) = if kind == "avatar" {
+            (profile.avatar_url, profile.avatar_image)
+        } else {
+            (profile.banner_url, profile.banner_image)
+        };
+        if app.get_selected_tab() != 0 || source.is_empty() {
+            self.close_profile_preview(ctx);
             return;
         }
-        // The profile card only holds a cropped banner, so the original is loaded here.
+        // The profile card only holds a reduced copy, so the original is loaded here.
         let mut image = images::image(Kind::Preview, &url);
         if image.size().width == 0 {
             images::request(&app, Kind::Preview, url.clone());
@@ -22,7 +36,7 @@ impl Desktop {
         }
         let loading = image.size().width == 0 && images::pending(Kind::Preview, &url);
         if image.size().width == 0 {
-            image = profile.banner_image.clone();
+            image = fallback;
         }
         let has_image = image.size().width > 0;
         self.preview_canvas.info_hidden = true;
@@ -36,8 +50,13 @@ impl Desktop {
                 viewport.height() - 48.0,
             )
         };
+        let (title, download) = if kind == "avatar" {
+            ("Avatar preview", "Download avatar")
+        } else {
+            ("Banner preview", "Download banner")
+        };
         let mut close = false;
-        let id = egui::Id::new("banner-preview");
+        let id = egui::Id::new("profile-preview");
         let modal = egui::Modal::new(id)
             .area(
                 egui::Area::new(id)
@@ -64,11 +83,7 @@ impl Desktop {
                 );
                 let (stage, response) = ui.allocate_exact_size(size, egui::Sense::hover());
                 response.widget_info(|| {
-                    egui::WidgetInfo::labeled(
-                        egui::WidgetType::Other,
-                        true,
-                        self.tr("Banner preview"),
-                    )
+                    egui::WidgetInfo::labeled(egui::WidgetType::Other, true, self.tr(title))
                 });
                 ui.painter()
                     .rect_filled(stage, if fullscreen { 0 } else { 18 }, Color32::BLACK);
@@ -76,47 +91,48 @@ impl Desktop {
                     let texture = self.media_texture(ui.ctx(), &image);
                     self.preview_media_canvas(ui, &texture, stage);
                 }
-                if loading || !has_image {
-                    let caption = self.tr(if loading {
-                        "Loading preview…"
-                    } else {
-                        "Preview unavailable"
-                    });
-                    let font = egui::FontId::proportional(typography::BODY);
-                    if has_image {
-                        let width = ui
-                            .painter()
-                            .layout_no_wrap(caption.clone(), font.clone(), Color32::WHITE)
-                            .size()
-                            .x
-                            + 24.0;
-                        let pill = egui::Rect::from_center_size(
-                            egui::pos2(stage.center().x, stage.bottom() - 32.0),
-                            Vec2::new(width, 28.0),
-                        );
-                        ui.painter()
-                            .rect_filled(pill, 14, Color32::from_black_alpha(160));
-                        ui.painter().text(
-                            pill.center(),
-                            egui::Align2::CENTER_CENTER,
-                            caption,
-                            font,
-                            Color32::WHITE,
-                        );
-                    } else {
-                        ui.painter().text(
-                            stage.center(),
-                            egui::Align2::CENTER_CENTER,
-                            caption,
-                            font,
-                            Color32::from_gray(163),
-                        );
-                    }
+                if loading {
+                    self.preview_loading(ui, stage, has_image);
+                } else if !has_image {
+                    ui.painter().text(
+                        stage.center(),
+                        egui::Align2::CENTER_CENTER,
+                        self.tr("Preview unavailable"),
+                        egui::FontId::proportional(typography::BODY),
+                        Color32::from_gray(163),
+                    );
                 }
                 self.preview_view_controls(ui, stage, has_image, false);
+                let mut saving = child(
+                    ui,
+                    "profile-preview-download",
+                    egui::Rect::from_min_size(
+                        stage.right_top() + Vec2::new(-124.0, 10.0),
+                        Vec2::splat(appearance::CONTROL_HEIGHT),
+                    ),
+                );
+                if self.busy() {
+                    saving.disable();
+                }
+                if self
+                    .home_icon(
+                        &mut saving,
+                        Icon::Download,
+                        download,
+                        appearance::CONTROL_HEIGHT,
+                        IconStyle {
+                            radius: 16,
+                            icon_size: appearance::CONTROL_ICON_SIZE,
+                            ..self.preview_icon_style(18.0)
+                        },
+                    )
+                    .clicked()
+                {
+                    app.invoke_download_profile_image(kind.into());
+                }
                 let mut closing = child(
                     ui,
-                    "banner-preview-close",
+                    "profile-preview-close",
                     egui::Rect::from_min_size(
                         stage.right_top() + Vec2::new(-44.0, 10.0),
                         Vec2::splat(appearance::CONTROL_HEIGHT),
@@ -147,12 +163,12 @@ impl Desktop {
             }
         }
         if close {
-            self.close_banner_preview(ctx);
+            self.close_profile_preview(ctx);
         }
     }
 
-    fn close_banner_preview(&mut self, ctx: &egui::Context) {
-        self.banner_preview = None;
+    fn close_profile_preview(&mut self, ctx: &egui::Context) {
+        self.profile_preview = None;
         self.preview_canvas.leave_fullscreen(ctx);
         self.preview_canvas.reset();
         self.preview_canvas.info_hidden = false;

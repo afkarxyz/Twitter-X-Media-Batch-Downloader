@@ -1,6 +1,22 @@
 use crate::ui::components::dialog::child;
 use crate::ui::*;
 
+/// The lowercase account of a batch line: a handle with or without @, or a profile URL.
+fn batch_line_handle(line: &str) -> String {
+    let line = line.trim();
+    let account = reqwest::Url::parse(line)
+        .ok()
+        .filter(|url| {
+            matches!(
+                url.host_str(),
+                Some("x.com" | "www.x.com" | "twitter.com" | "www.twitter.com")
+            )
+        })
+        .and_then(|url| url.path_segments()?.next().map(str::to_owned))
+        .unwrap_or_else(|| line.trim_start_matches('@').to_owned());
+    account.to_lowercase()
+}
+
 impl Desktop {
     pub(in crate::ui) fn home_mode_switch(&self, ui: &mut Ui) {
         let app = self.app.clone();
@@ -140,6 +156,39 @@ impl Desktop {
         }
     }
 
+    /// The batch list as edited, or as applied when nothing is being edited.
+    fn batch_sources(&self) -> String {
+        self.batch_sources_draft
+            .clone()
+            .unwrap_or_else(|| self.app.get_batch_sources_text())
+    }
+
+    pub(in crate::ui) fn batch_contains(&self, handle: &str) -> bool {
+        let handle = handle.to_lowercase();
+        self.batch_sources()
+            .lines()
+            .any(|line| batch_line_handle(line) == handle)
+    }
+
+    /// Adds an account from search to the batch list, or removes it when it is listed.
+    /// The change stays a draft until Update queue applies it.
+    pub(in crate::ui) fn toggle_batch_source(&mut self, handle: &str) {
+        let key = handle.to_lowercase();
+        let sources = self.batch_sources();
+        let mut lines = sources
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .map(str::to_owned)
+            .collect::<Vec<_>>();
+        let before = lines.len();
+        lines.retain(|line| batch_line_handle(line) != key);
+        if lines.len() == before {
+            lines.push(format!("@{handle}"));
+        }
+        self.batch_sources_draft = Some(lines.join("\n"));
+        self.batch_list_editing = true;
+    }
+
     pub(in crate::ui) fn batch_page(&mut self, ui: &mut Ui) {
         let app = self.app.clone();
         let bounds = ui.available_rect_before_wrap();
@@ -194,6 +243,9 @@ impl Desktop {
                     if response.changed() { this.batch_sources_draft = Some(sources.clone()); }
                     ui.painter().set(border, egui::Shape::rect_stroke(frame, 6, egui::Stroke::new(1.0, if response.has_focus() { colors.accent } else { colors.input_border }), egui::StrokeKind::Inside));
                     ui.horizontal(|ui| {
+                        if this.setting_action(ui, "Search accounts", Some(Icon::AccountSearch), 0, Vec2::new(160.0, 32.0), !this.busy()).clicked() {
+                            app.set_account_search_open(true);
+                        }
                         if this.setting_action(ui, "Update queue", Some(Icon::Check), 0, Vec2::new(120.0, 32.0), !this.busy() && !sources.trim().is_empty()).clicked()
                             && app.invoke_apply_fetch_options(true, app.get_date_filter_enabled(), app.get_fetch_start_date(), app.get_fetch_end_date(), sources.clone()) {
                             this.batch_list_editing = false;

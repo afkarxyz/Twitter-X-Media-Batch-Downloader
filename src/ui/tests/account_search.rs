@@ -351,3 +351,32 @@ fn render_compact_account_search() {
         }
     }
 }
+
+#[test]
+fn batch_search_adds_and_removes_accounts_without_closing() {
+    let app = search_fixture(3);
+    app.set_batch_mode(true);
+    app.set_batch_sources_text("@User1\nhttps://x.com/other".into());
+    let mut h = harness(app.clone());
+    h.set_size(Vec2::new(1024.0, 700.0));
+    h.run();
+    let card = |index: usize| format!("Account {index} · @user{index}");
+    assert!(h.get_by_label(&card(1)).accesskit_node().toggled() == Some(egui::accesskit::Toggled::True));
+    h.get_by_label(&card(0)).click();
+    h.run();
+    assert!(app.get_account_search_open(), "Adding to the batch kept the dialog open");
+    assert!(app.get_batch_mode());
+    assert!(h.get_by_label(&card(0)).accesskit_node().toggled() == Some(egui::accesskit::Toggled::True));
+    assert_eq!(
+        h.state().batch_sources_draft.as_deref(),
+        Some("@User1\nhttps://x.com/other\n@user0")
+    );
+    h.get_by_label(&card(1)).click();
+    h.run();
+    assert_eq!(
+        h.state().batch_sources_draft.as_deref(),
+        Some("https://x.com/other\n@user0")
+    );
+    assert!(h.state().batch_list_editing);
+    assert!(app.get_source_url().is_empty(), "Home's single source stays untouched");
+}

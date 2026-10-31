@@ -8,6 +8,8 @@ pub(in crate::ui) struct PreviewCanvas {
     pub zoom: f32,
     pub pan: Vec2,
     was_fullscreen: bool,
+    /// Zoom to the stage width on the next frame, once the media size is known.
+    fill_width: bool,
 }
 
 impl Default for PreviewCanvas {
@@ -18,6 +20,7 @@ impl Default for PreviewCanvas {
             zoom: 1.0,
             pan: Vec2::ZERO,
             was_fullscreen: false,
+            fill_width: false,
         }
     }
 }
@@ -26,6 +29,19 @@ impl PreviewCanvas {
     pub fn reset(&mut self) {
         self.zoom = 1.0;
         self.pan = Vec2::ZERO;
+        self.fill_width = false;
+    }
+
+    pub fn request_fill_width(&mut self) {
+        self.fill_width = true;
+    }
+
+    /// Scales fitted media to the full stage width and shows its top edge.
+    fn apply_fill_width(&mut self, fitted: Vec2, viewport: Vec2) {
+        if std::mem::take(&mut self.fill_width) && fitted.x > 0.0 {
+            self.zoom = (viewport.x / fitted.x).clamp(0.25, 16.0);
+            self.pan = Vec2::new(0.0, ((fitted.y * self.zoom - viewport.y) / 2.0).max(0.0));
+        }
     }
 
     pub fn toggle_fullscreen(&mut self, ctx: &egui::Context) {
@@ -152,6 +168,7 @@ impl Desktop {
         let size = texture.size_vec2();
         let factor = (stage.width() / size.x).min(stage.height() / size.y);
         let fitted = Vec2::new(size.x * factor, size.y * factor);
+        self.preview_canvas.apply_fill_width(fitted, stage.size());
         self.preview_canvas.clamp_pan(fitted, stage.size());
         let mut canvas = child(ui, "zoomed-media", stage);
         canvas.set_clip_rect(stage.intersect(ui.clip_rect()));
@@ -263,7 +280,7 @@ impl Desktop {
         }
         let toolbar = egui::Rect::from_center_size(
             egui::pos2(stage.center().x, stage.top() + 27.0),
-            Vec2::new(178.0, appearance::CONTROL_HEIGHT),
+            Vec2::new(216.0, appearance::CONTROL_HEIGHT),
         );
         ui.painter()
             .rect_filled(toolbar, 17, Color32::from_black_alpha(140));
@@ -304,6 +321,7 @@ impl Desktop {
                 has_image && self.preview_canvas.zoom < 16.0,
             ),
             ("Fit to screen", Icon::Fit, 142.0, has_image),
+            ("Fit to width", Icon::FitWidth, 180.0, has_image),
         ] {
             let mut control = child(
                 ui,
@@ -331,12 +349,50 @@ impl Desktop {
                     match label {
                         "Zoom in" => self.preview_canvas.zoom_at(1.25, Vec2::ZERO),
                         "Zoom out" => self.preview_canvas.zoom_at(0.8, Vec2::ZERO),
+                        "Fit to width" => self.preview_canvas.request_fill_width(),
                         _ => self.preview_canvas.reset(),
                     }
                     ui.ctx().request_repaint();
                 }
             });
         }
+    }
+
+    /// A spinner with a caption while the original media loads: centred on an empty
+    /// stage, or as a pill at the bottom when a smaller copy is already shown.
+    pub(in crate::ui) fn preview_loading(&self, ui: &Ui, stage: egui::Rect, has_image: bool) {
+        let caption = self.tr("Loading original… please wait");
+        let font = egui::FontId::proportional(typography::BODY);
+        let text_width = ui
+            .painter()
+            .layout_no_wrap(caption.clone(), font.clone(), Color32::WHITE)
+            .size()
+            .x;
+        let pill = egui::Rect::from_center_size(
+            if has_image {
+                egui::pos2(stage.center().x, stage.bottom() - 36.0)
+            } else {
+                stage.center()
+            },
+            Vec2::new(text_width + 52.0, 32.0),
+        );
+        ui.painter()
+            .rect_filled(pill, 16, Color32::from_black_alpha(170));
+        egui::Spinner::new().size(16.0).color(Color32::WHITE).paint_at(
+            ui,
+            egui::Rect::from_center_size(pill.left_center() + Vec2::new(22.0, 0.0), Vec2::splat(16.0)),
+        );
+        ui.painter().text(
+            pill.left_center() + Vec2::new(38.0, 0.0),
+            egui::Align2::LEFT_CENTER,
+            &caption,
+            font,
+            Color32::WHITE,
+        );
+        ui.interact(pill, ui.id().with("preview-loading"), egui::Sense::hover())
+            .widget_info(|| {
+                egui::WidgetInfo::labeled(egui::WidgetType::ProgressIndicator, true, &caption)
+            });
     }
 
     pub(in crate::ui) fn preview_view_shortcuts(&mut self, ctx: &egui::Context, has_image: bool) {
@@ -371,6 +427,10 @@ impl Desktop {
                 }
                 if input.consume_key(egui::Modifiers::NONE, egui::Key::Num0) {
                     self.preview_canvas.reset();
+                    changed = true;
+                }
+                if input.consume_key(egui::Modifiers::NONE, egui::Key::W) {
+                    self.preview_canvas.request_fill_width();
                     changed = true;
                 }
             });

@@ -118,6 +118,7 @@ pub fn register(app: &AppWindow) -> crate::ui::runtime::Timer {
             previous.0.store(true, Ordering::Relaxed);
             if previous.1 != path {
                 app.set_storage_capacity_known(false);
+                app.set_storage_ready(false);
             }
             *previous = (cancel.clone(), path.clone());
         }
@@ -133,6 +134,7 @@ pub fn register(app: &AppWindow) -> crate::ui::runtime::Timer {
                     return;
                 }
                 app.set_storage_busy(false);
+                app.set_storage_ready(true);
                 let capacity = usage.drive_capacity();
                 app.set_storage_capacity_known(capacity.is_some());
                 app.set_storage_used_ratio(capacity.as_ref().map_or(0.0, |value| value.used_ratio));

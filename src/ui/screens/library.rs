@@ -13,11 +13,16 @@ impl Desktop {
     pub(in crate::ui) fn library_view(&mut self, ui: &mut Ui) {
         let bounds = ui.max_rect();
         ui.allocate_rect(bounds, egui::Sense::hover());
-        let page = egui::Rect::from_center_size(
-            bounds.center(),
-            Vec2::new(bounds.width().min(1104.0), bounds.height()),
-        )
-        .shrink(12.0);
+        // The file list stays at the reading width; account and media grids use the window.
+        let data = self.app.get_library();
+        let width = if data.view_ready && data.files_view {
+            bounds.width().min(appearance::CARD_PAGE_WIDTH)
+        } else {
+            appearance::card_page_width(bounds.width())
+        };
+        let page =
+            egui::Rect::from_center_size(bounds.center(), Vec2::new(width, bounds.height()))
+                .shrink(12.0);
         let mut content = child(ui, "library-page", page);
         if self.app.get_library().view_ready {
             if self.app.get_library().workspace_pending {
@@ -175,8 +180,9 @@ impl Desktop {
             .auto_shrink([false, false])
             .show_themed(&mut list_ui, |ui| {
                 let width = ui.available_width();
-                let columns = if width >= 852.0 { 2 } else { 1 };
-                let card_width = (width - (columns - 1) as f32 * 12.0) / columns as f32;
+                let columns = appearance::account_card_columns(width);
+                let card_width =
+                    (width - (columns - 1) as f32 * appearance::ACCOUNT_CARD_GAP) / columns as f32;
                 let count = rows.len().div_ceil(columns);
                 let pitch = appearance::ACCOUNT_CARD_HEIGHT + appearance::ACCOUNT_CARD_ROW_GAP;
                 let (grid, _) = ui.allocate_exact_size(

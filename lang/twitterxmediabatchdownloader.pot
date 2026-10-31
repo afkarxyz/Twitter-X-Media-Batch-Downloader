@@ -653,12 +653,6 @@ msgstr ""
 msgid "{} FPS"
 msgstr ""
 
-msgid "Select media"
-msgstr ""
-
-msgid "Deselect media"
-msgstr ""
-
 msgid "Select filter"
 msgstr ""
 
@@ -1610,9 +1604,6 @@ msgstr ""
 msgid "Banner preview"
 msgstr ""
 
-msgid "Loading preview…"
-msgstr ""
-
 msgid "URL"
 msgstr ""
 
@@ -1656,4 +1647,19 @@ msgid "{} library files copied."
 msgstr ""
 
 msgid "None of the selected files are on disk."
+msgstr ""
+
+msgid "Loading original… please wait"
+msgstr ""
+
+msgid "Fit to width"
+msgstr ""
+
+msgid "Preview avatar"
+msgstr ""
+
+msgid "Avatar preview"
+msgstr ""
+
+msgid "Click accounts to add them to the batch list, or click again to remove them."
 msgstr ""

@@ -7,11 +7,14 @@ impl Desktop {
         let app = self.app.clone();
         let index = app.get_selected_media_index();
         if index < 0 {
-            self.preview_canvas.info_hidden = false;
             self.preview_texture = Default::default();
-            self.preview_canvas.leave_fullscreen(ctx);
-            self.preview_canvas.reset();
             self.preview_index = None;
+            // The profile image viewer shares the canvas; only reset it once both are closed.
+            if self.profile_preview.is_none() {
+                self.preview_canvas.info_hidden = false;
+                self.preview_canvas.leave_fullscreen(ctx);
+                self.preview_canvas.reset();
+            }
             return;
         }
         let items = self.preview_view.get(
@@ -154,15 +157,31 @@ impl Desktop {
                 } else if image.size().width > 0 {
                     let texture = self.media_texture(ui.ctx(), image);
                     self.preview_media_canvas(ui, &texture, stage);
+                }
+                let loading = if video {
+                    frame.is_none() && playback.get_loading() && playback.get_error().is_empty()
                 } else {
+                    item.media_type == "photo"
+                        && item.detail_image.size().width == 0
+                        && crate::media::images::pending(
+                            crate::media::images::Kind::Preview,
+                            &item.preview_url,
+                        )
+                };
+                let shown = (video && frame.is_some()) || image.size().width > 0;
+                if loading {
+                    // Keep the indicator above the playback controls.
+                    let area = if video {
+                        egui::Rect::from_min_max(stage.min, stage.max - Vec2::new(0.0, 56.0))
+                    } else {
+                        stage
+                    };
+                    self.preview_loading(ui, area, shown);
+                } else if !text_post && !shown {
                     ui.painter().text(
                         stage.center(),
                         egui::Align2::CENTER_CENTER,
-                        self.tr(if playback.get_loading() {
-                            "Loading preview…"
-                        } else {
-                            "Preview unavailable"
-                        }),
+                        self.tr("Preview unavailable"),
                         egui::FontId::proportional(typography::BODY),
                         Color32::from_gray(163),
                     );

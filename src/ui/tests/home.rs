@@ -961,27 +961,73 @@ fn clicks_select_results_and_the_eye_button_opens_the_preview() {
 }
 
 #[test]
-fn banner_preview_opens_the_original_banner_and_closes_with_escape() {
+fn banner_preview_zooms_fills_the_width_and_closes_with_escape() {
     let app = original_home_fixture();
     let mut profile = app.get_account_profile();
     profile.banner_url = "https://pbs.twimg.com/profile_banners/1/123/1500x500".into();
+    // A tall stand-in: without a runtime the original never loads, so this copy is shown.
+    profile.banner_image =
+        ui_runtime::Image::from_rgba8(ui_runtime::SharedPixelBuffer::new(100, 300));
     app.set_account_profile(profile);
     let mut h = harness(app.clone());
     h.set_size(Vec2::new(1024.0, 600.0));
     h.run();
-    let preview = h.get_by_label("Preview banner").rect();
-    let download = h.get_by_label("Download banner").rect();
-    assert!(preview.right() < download.left());
-    assert!((preview.center().y - download.center().y).abs() < 0.5);
     h.get_by_label("Preview banner").click();
     h.run();
     assert_eq!(
-        h.state().banner_preview.as_deref(),
-        Some("https://pbs.twimg.com/profile_banners/1/123")
+        h.state().profile_preview,
+        Some((
+            "banner",
+            "https://pbs.twimg.com/profile_banners/1/123".to_owned()
+        ))
     );
     assert!(h.query_by_label("Banner preview").is_some());
+    h.get_by_label("Zoom in").click();
+    h.run_steps(4);
+    assert_eq!(
+        h.state().preview_canvas.zoom,
+        1.25,
+        "The idle media viewer reset the banner zoom"
+    );
+    h.get_by_label("Fit to width").click();
+    h.run_steps(2);
+    let stage = h.get_by_label("Media canvas").rect();
+    let fitted_width = 100.0 * stage.height() / 300.0;
+    assert!((h.state().preview_canvas.zoom - stage.width() / fitted_width).abs() < 0.01);
+    assert!(h.state().preview_canvas.pan.y > 0.0, "Fit to width starts at the top");
+    h.get_by_label("Fit to screen").click();
+    h.run();
+    assert_eq!(h.state().preview_canvas.zoom, 1.0);
     h.key_press(egui::Key::Escape);
     h.run();
-    assert!(h.state().banner_preview.is_none());
+    assert!(h.state().profile_preview.is_none());
     assert!(h.query_by_label("Banner preview").is_none());
+}
+
+#[test]
+fn video_loading_shows_a_please_wait_indicator_above_the_controls() {
+    let app = fixture();
+    app.set_media_items(ui_runtime::ModelRc::new(ui_runtime::VecModel::from(vec![
+        MediaItem {
+            media_index: 42,
+            title: "Loading video".into(),
+            media_type: "video".into(),
+            ..Default::default()
+        },
+    ])));
+    app.set_selected_media_index(42);
+    let mut h = harness(app.clone());
+    h.set_size(Vec2::new(1280.0, 800.0));
+    app.global::<PreviewPlayback>().set_loading(true);
+    // The spinner keeps repainting, so step instead of waiting for an idle frame.
+    h.run_steps(4);
+    let indicator = h.get_by_label("Loading original… please wait").rect();
+    assert!(indicator.bottom() < h.get_by_label("Play").rect().top());
+    app.global::<PreviewPlayback>().set_loading(false);
+    h.run_steps(4);
+    assert!(h.query_by_label("Loading original… please wait").is_none());
+    assert!(h.output().shapes.iter().any(|shape| matches!(
+        &shape.shape,
+        egui::Shape::Text(text) if text.galley.text() == "Preview unavailable"
+    )));
 }

@@ -1,5 +1,5 @@
 msgid ""
-msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.3\nLanguage: zh_Hans\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=1; plural=0;\n"
+msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.4\nLanguage: zh_Hans\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=1; plural=0;\n"
 
 msgid "Ready for an X/Twitter URL."
 msgstr "已准备好接收 X/Twitter URL。"
@@ -640,12 +640,6 @@ msgstr "更佳模式使用优化的调色板。"
 
 msgid "{} FPS"
 msgstr "{} FPS"
-
-msgid "Select media"
-msgstr "选择媒体"
-
-msgid "Deselect media"
-msgstr "取消选择媒体"
 
 msgid "Select filter"
 msgstr "选择筛选结果"
@@ -1598,9 +1592,6 @@ msgstr "预览横幅"
 msgid "Banner preview"
 msgstr "横幅预览"
 
-msgid "Loading preview…"
-msgstr "正在加载预览…"
-
 msgid "URL"
 msgstr "URL"
 
@@ -1645,3 +1636,18 @@ msgstr "已复制 {} 个媒体库文件。"
 
 msgid "None of the selected files are on disk."
 msgstr "所选文件均不在磁盘上。"
+
+msgid "Loading original… please wait"
+msgstr "正在加载原图… 请稍候"
+
+msgid "Fit to width"
+msgstr "适应宽度"
+
+msgid "Preview avatar"
+msgstr "预览头像"
+
+msgid "Avatar preview"
+msgstr "头像预览"
+
+msgid "Click accounts to add them to the batch list, or click again to remove them."
+msgstr "点击账号将其加入批量列表，再次点击即可移除。"

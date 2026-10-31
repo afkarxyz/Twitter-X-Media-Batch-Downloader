@@ -84,12 +84,6 @@ pub async fn run() -> Result<(), crate::ui::runtime::PlatformError> {
     network_timeouts::configure(settings.fetch_timeout_secs, settings.http_timeout_secs);
     crate::fetch::pacing::configure(settings.fetch_delay_ms, settings.fetch_jitter_ms);
     auth_tokens::set_rotation(settings.rotate_auth_tokens);
-    let (active_renderer, renderer_error) =
-        renderer_preferences::select_backend(&settings.renderer_mode).map_err(|error| {
-            session_log::error(format!("Could not initialize renderer: {error}"));
-            error
-        })?;
-    let startup_renderer_error = renderer_error.clone();
     let app = AppWindow::new().map_err(|error| {
         session_log::error(format!("Could not create app window: {error}"));
         error
@@ -289,26 +283,14 @@ pub async fn run() -> Result<(), crate::ui::runtime::PlatformError> {
 
     {
         let renderer = app.global::<RendererSettings>();
-        renderer.set_preferred(
-            if settings.renderer_mode == "gpu" && renderer_preferences::GPU_SUPPORTED {
-                "gpu"
-            } else {
-                "cpu"
-            }
-            .into(),
-        );
-        renderer.set_active(active_renderer.into());
+        let backend = if settings.renderer_mode == "gpu" && renderer_preferences::GPU_SUPPORTED {
+            "gpu"
+        } else {
+            "cpu"
+        };
+        renderer.set_preferred(backend.into());
+        renderer.set_active(backend.into());
         renderer.set_gpu_supported(renderer_preferences::GPU_SUPPORTED);
-        renderer.set_error(renderer_error);
-    }
-    if !startup_renderer_error.is_empty() {
-        show_toast(
-            &app,
-            format!(
-                "GPU renderer could not start. Using CPU for this session: {startup_renderer_error}"
-            ),
-            "info",
-        );
     }
     {
         let app_theme = app.global::<AppTheme>();
@@ -1051,9 +1033,9 @@ pub async fn run() -> Result<(), crate::ui::runtime::PlatformError> {
                         }
                         let toast_kind = if metadata_failed {
                             "error"
-                        } else if download_succeeded {
-                            "info"
-                        } else if message.to_ascii_lowercase().contains("cancelled") {
+                        } else if download_succeeded
+                            || message.to_ascii_lowercase().contains("cancelled")
+                        {
                             "info"
                         } else {
                             "error"

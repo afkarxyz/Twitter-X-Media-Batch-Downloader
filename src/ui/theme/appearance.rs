@@ -15,6 +15,34 @@ pub const NAVIGATION_ICON_SIZE: f32 = 18.0;
 pub const COMPACT_CONTROL_SIZE: f32 = 28.0;
 pub const ACCOUNT_CARD_HEIGHT: f32 = 94.0;
 pub const ACCOUNT_CARD_ROW_GAP: f32 = 10.0;
+pub const ACCOUNT_CARD_GAP: f32 = 12.0;
+/// History and Library pages keep this width until a third card column fits.
+pub const CARD_PAGE_WIDTH: f32 = 1104.0;
+const ACCOUNT_CARD_MIN_WIDTH: f32 = 420.0;
+const ACCOUNT_CARD_MAX_WIDTH: f32 = 520.0;
+const ACCOUNT_CARD_MAX_COLUMNS: usize = 4;
+
+/// Account card columns for a grid of the given width: one below 852 px, then as many
+/// as fit at the minimum card width, up to four on very wide windows.
+pub fn account_card_columns(width: f32) -> usize {
+    if width < 852.0 {
+        return 1;
+    }
+    (((width + ACCOUNT_CARD_GAP) / (ACCOUNT_CARD_MIN_WIDTH + ACCOUNT_CARD_GAP)) as usize)
+        .clamp(2, ACCOUNT_CARD_MAX_COLUMNS)
+}
+
+/// Width of a card page inside `available` (including its 12 px margins). Wide windows
+/// gain card columns instead of leaving the sides empty, and cards never grow past
+/// their maximum width.
+pub fn card_page_width(available: f32) -> f32 {
+    let columns = account_card_columns(available - 24.0);
+    if columns <= 2 {
+        return available.min(CARD_PAGE_WIDTH);
+    }
+    let grid = columns as f32 * ACCOUNT_CARD_MAX_WIDTH + (columns - 1) as f32 * ACCOUNT_CARD_GAP;
+    available.min(grid + 24.0)
+}
 pub const DANGER_FILL: Color32 = Color32::from_rgb(183, 55, 49);
 pub const DANGER_HOVER: Color32 = Color32::from_rgb(200, 68, 61);
 pub const DANGER_PRESSED: Color32 = Color32::from_rgb(146, 45, 40);
@@ -253,5 +281,26 @@ impl Desktop {
             size,
             crate::ui::components::icon_button::IconStyle::ghost(colors, selected),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn card_pages_gain_columns_instead_of_empty_sides() {
+        assert_eq!(account_card_columns(800.0), 1);
+        assert_eq!(account_card_columns(1080.0), 2);
+        assert_eq!(account_card_columns(1280.0), 2);
+        assert_eq!(account_card_columns(1300.0), 3);
+        assert_eq!(account_card_columns(1820.0), 4);
+        assert_eq!(account_card_columns(4000.0), 4);
+        // Up to two columns the page keeps its former width.
+        assert_eq!(card_page_width(1000.0), 1000.0);
+        assert_eq!(card_page_width(1200.0), CARD_PAGE_WIDTH);
+        // Three or more columns use the window, but cards stay at most 520 px.
+        assert_eq!(card_page_width(1400.0), 1400.0);
+        assert_eq!(card_page_width(4000.0), 4.0 * 520.0 + 3.0 * 12.0 + 24.0);
     }
 }

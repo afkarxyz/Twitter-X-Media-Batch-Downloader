@@ -292,55 +292,31 @@ impl Desktop {
                         icon_size: appearance::CONTROL_ICON_SIZE,
                         visible: show,
                     };
-                    for (id, icon, label, offset, enabled) in [
-                        (
-                            "banner-preview",
-                            Icon::Eye,
-                            "Preview banner",
-                            -52.0 - appearance::COMPACT_CONTROL_SIZE,
-                            !profile.banner_url.is_empty(),
-                        ),
-                        (
-                            "banner-download",
-                            Icon::Download,
-                            "Download banner",
-                            -44.0,
-                            !self.busy(),
-                        ),
-                    ] {
-                        let button = egui::Rect::from_min_size(
-                            banner.right_top() + Vec2::new(offset, 8.0),
-                            Vec2::splat(appearance::COMPACT_CONTROL_SIZE),
-                        );
-                        let mut child = ui.new_child(
-                            egui::UiBuilder::new()
-                                .id_salt(id)
-                                .max_rect(button)
-                                .layout(egui::Layout::top_down(egui::Align::Min)),
-                        );
-                        child.add_enabled_ui(enabled, |ui| {
-                            if self
-                                .home_icon(
-                                    ui,
-                                    icon,
-                                    label,
-                                    appearance::COMPACT_CONTROL_SIZE,
-                                    style,
-                                )
-                                .clicked()
-                            {
-                                if id == "banner-preview" {
-                                    self.banner_preview = Some(
-                                        crate::download::engine::original_banner_url(
-                                            &profile.banner_url,
-                                        ),
-                                    );
-                                } else {
-                                    app.invoke_download_profile_image("banner".into());
-                                }
-                            }
-                        });
-                    }
+                    // Downloading happens from the preview, which shows the original first.
+                    let button = egui::Rect::from_min_size(
+                        banner.right_top() + Vec2::new(-44.0, 8.0),
+                        Vec2::splat(appearance::COMPACT_CONTROL_SIZE),
+                    );
+                    let mut child = ui.new_child(
+                        egui::UiBuilder::new()
+                            .id_salt("banner-preview")
+                            .max_rect(button)
+                            .layout(egui::Layout::top_down(egui::Align::Min)),
+                    );
+                    child.add_enabled_ui(!profile.banner_url.is_empty(), |ui| {
+                        if self
+                            .home_icon(
+                                ui,
+                                Icon::Eye,
+                                "Preview banner",
+                                appearance::COMPACT_CONTROL_SIZE,
+                                style,
+                            )
+                            .clicked()
+                        {
+                            self.open_profile_preview("banner", &profile.banner_url);
+                        }
+                    });
                 }
                 egui::Frame::new().inner_margin(15).show(ui, |ui| {
                     ui.spacing_mut().item_spacing.y = 10.0;
@@ -362,7 +338,7 @@ impl Desktop {
                         );
                         let mut child = ui.new_child(
                             egui::UiBuilder::new()
-                                .id_salt("avatar-download")
+                                .id_salt("avatar-preview")
                                 .max_rect(avatar)
                                 .layout(egui::Layout::top_down(egui::Align::Min)),
                         );
@@ -376,12 +352,12 @@ impl Desktop {
                             icon_size: appearance::NAVIGATION_ICON_SIZE,
                             visible: false,
                         };
-                        child.add_enabled_ui(!self.busy(), |ui| {
+                        child.add_enabled_ui(!profile.avatar_url.is_empty(), |ui| {
                             if self
-                                .home_icon(ui, Icon::Download, "Download avatar", 64.0, style)
+                                .home_icon(ui, Icon::Eye, "Preview avatar", 64.0, style)
                                 .clicked()
                             {
-                                app.invoke_download_profile_image("avatar".into());
+                                self.open_profile_preview("avatar", &profile.avatar_url);
                             }
                         });
                     } else {

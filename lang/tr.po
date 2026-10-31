@@ -1,5 +1,5 @@
 msgid ""
-msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.3\nLanguage: tr\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=2; plural=(n != 1);\n"
+msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.4\nLanguage: tr\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=2; plural=(n != 1);\n"
 
 msgid "Ready for an X/Twitter URL."
 msgstr "X/Twitter URL’si için hazır."
@@ -640,12 +640,6 @@ msgstr "Daha iyi modu optimize edilmiş bir renk paleti kullanır."
 
 msgid "{} FPS"
 msgstr "{} FPS"
-
-msgid "Select media"
-msgstr "Medyayı seç"
-
-msgid "Deselect media"
-msgstr "Medya seçimini kaldır"
 
 msgid "Select filter"
 msgstr "Filtreyi seç"
@@ -1598,9 +1592,6 @@ msgstr "Kapağı önizle"
 msgid "Banner preview"
 msgstr "Kapak önizlemesi"
 
-msgid "Loading preview…"
-msgstr "Önizleme yükleniyor…"
-
 msgid "URL"
 msgstr "URL"
 
@@ -1645,3 +1636,18 @@ msgstr "{} kütüphane dosyası kopyalandı."
 
 msgid "None of the selected files are on disk."
 msgstr "Seçili dosyaların hiçbiri diskte yok."
+
+msgid "Loading original… please wait"
+msgstr "Orijinal yükleniyor… lütfen bekleyin"
+
+msgid "Fit to width"
+msgstr "Genişliğe sığdır"
+
+msgid "Preview avatar"
+msgstr "Avatarı önizle"
+
+msgid "Avatar preview"
+msgstr "Avatar önizlemesi"
+
+msgid "Click accounts to add them to the batch list, or click again to remove them."
+msgstr "Hesapları hesap grubuna eklemek için tıklayın, kaldırmak için yeniden tıklayın."

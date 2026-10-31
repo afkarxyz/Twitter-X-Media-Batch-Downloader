@@ -53,12 +53,14 @@ impl Desktop {
                     app.invoke_open_output_folder();
                 }
             });
-            let used = if app.get_storage_busy() {
+            // A periodic refresh keeps the previous figures until the new ones arrive.
+            let calculating = app.get_storage_busy() && !app.get_storage_ready();
+            let used = if calculating {
                 this.tr("Calculating…")
             } else {
                 app.get_storage_used()
             };
-            let free = if app.get_storage_busy() {
+            let free = if calculating {
                 this.tr("Calculating…")
             } else {
                 app.get_storage_free()
@@ -69,7 +71,7 @@ impl Desktop {
             let total = if app.get_storage_capacity_known() {
                 this.tr("{} total on drive")
                     .replace("{}", &app.get_storage_total())
-            } else if app.get_storage_busy() {
+            } else if calculating {
                 String::new()
             } else {
                 this.tr("Storage capacity unavailable")
@@ -130,7 +132,7 @@ impl Desktop {
                     Some(Icon::Restart),
                     0,
                     Vec2::new(100.0, 32.0),
-                    !app.get_storage_busy(),
+                    !calculating,
                 )
                 .clicked()
             {
@@ -208,7 +210,7 @@ impl Desktop {
         let colors = self.colors(ui);
         let dark = ui.visuals().dark_mode;
         let known = app.get_storage_capacity_known();
-        let busy = app.get_storage_busy();
+        let busy = app.get_storage_busy() && !app.get_storage_ready();
         let downloads = swatches::color("amber", if dark { 4 } else { 6 });
         let other = swatches::color("zinc", if dark { 5 } else { 4 });
         let free = swatches::color("zinc", if dark { 8 } else { 2 });

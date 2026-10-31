@@ -1,5 +1,3 @@
-use crate::ui::runtime::PlatformError;
-
 pub(crate) fn choose(app: &crate::AppWindow, mode: &str, save: impl FnOnce() -> bool) {
     let renderer = app.global::<crate::RendererSettings>();
     if !matches!(mode, "cpu" | "gpu") || (mode == "gpu" && !renderer.get_gpu_supported()) {
@@ -46,17 +44,6 @@ pub(crate) const GPU_SUPPORTED: bool = cfg!(all(
     feature = "gpu-renderer",
     not(any(target_os = "android", target_os = "ios"))
 ));
-
-pub(crate) fn select_backend(preferred: &str) -> Result<(&'static str, String), PlatformError> {
-    Ok((
-        if preferred == "gpu" && GPU_SUPPORTED {
-            "gpu"
-        } else {
-            "cpu"
-        },
-        String::new(),
-    ))
-}
 
 #[cfg(test)]
 mod tests {

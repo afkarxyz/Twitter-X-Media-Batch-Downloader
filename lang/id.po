@@ -1,5 +1,5 @@
 msgid ""
-msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.3\nLanguage: id\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=1; plural=0;\n"
+msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.4\nLanguage: id\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=1; plural=0;\n"
 
 msgid "Ready for an X/Twitter URL."
 msgstr "Siap menerima URL X/Twitter."
@@ -640,12 +640,6 @@ msgstr "Mode Lebih baik menggunakan palet warna yang dioptimalkan."
 
 msgid "{} FPS"
 msgstr "{} FPS"
-
-msgid "Select media"
-msgstr "Pilih media"
-
-msgid "Deselect media"
-msgstr "Batalkan pilihan media"
 
 msgid "Select filter"
 msgstr "Pilih filter"
@@ -1598,9 +1592,6 @@ msgstr "Pratinjau banner"
 msgid "Banner preview"
 msgstr "Pratinjau banner"
 
-msgid "Loading preview…"
-msgstr "Memuat pratinjau…"
-
 msgid "URL"
 msgstr "URL"
 
@@ -1645,3 +1636,18 @@ msgstr "{} file koleksi disalin."
 
 msgid "None of the selected files are on disk."
 msgstr "Tidak ada file terpilih yang ada di disk."
+
+msgid "Loading original… please wait"
+msgstr "Memuat versi asli… mohon tunggu"
+
+msgid "Fit to width"
+msgstr "Sesuaikan ke lebar"
+
+msgid "Preview avatar"
+msgstr "Pratinjau avatar"
+
+msgid "Avatar preview"
+msgstr "Pratinjau avatar"
+
+msgid "Click accounts to add them to the batch list, or click again to remove them."
+msgstr "Klik akun untuk menambahkannya ke daftar batch, atau klik lagi untuk menghapusnya."

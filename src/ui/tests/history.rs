@@ -126,13 +126,14 @@ fn history_grid_and_detail_positions_follow_the_legacy_layout() {
         h.get_by_label("Import history JSON").rect().min,
         egui::pos2(940.0, 18.0)
     );
+    // Ultrawide windows show four columns of cards at their maximum width.
     h.set_size(Vec2::new(2200.0, 900.0));
     h.run();
     let first = h
         .get_by_role_and_label(egui::accesskit::Role::Button, "xbatchdemo")
         .rect();
-    assert_eq!(first.left(), 588.0);
-    assert_eq!(first.width(), 534.0);
+    assert_eq!(first.left(), 70.0);
+    assert_eq!(first.width(), 520.0);
     h.set_size(Vec2::new(900.0, 600.0));
     h.run();
     assert_eq!(
@@ -552,4 +553,36 @@ async fn render_large_lazy_history_review() {
             .unwrap();
         app.set_selected_media_index(-1);
     }
+}
+
+#[test]
+fn wide_windows_fill_the_history_with_more_card_columns() {
+    let app = history_fixture();
+    let mut h = harness(app.clone());
+    let tops = |h: &Harness<'_, Desktop>| {
+        ["xbatchdemo", "NASA"]
+            .map(|title| {
+                h.get_by_role_and_label(egui::accesskit::Role::Button, title)
+                    .rect()
+                    .top()
+            })
+            .to_vec()
+    };
+    let long = |h: &Harness<'_, Desktop>| {
+        h.get_all_by_role(egui::accesskit::Role::Button)
+            .find(|node| node.accesskit_node().label().is_some_and(|label| label.starts_with("An account with a long display name")))
+            .unwrap()
+            .rect()
+    };
+    h.set_size(Vec2::new(1024.0, 700.0));
+    h.run();
+    let narrow = tops(&h);
+    assert_eq!(narrow[0], narrow[1]);
+    assert!(long(&h).top() > narrow[0], "Two columns wrap the third card");
+    h.set_size(Vec2::new(1900.0, 700.0));
+    h.run();
+    let wide = tops(&h);
+    assert_eq!(long(&h).top(), wide[0], "Wide windows show the cards side by side");
+    assert!(long(&h).width() <= 520.0);
+    assert!(h.get_by_label("Search accounts…").rect().right() > 1500.0);
 }

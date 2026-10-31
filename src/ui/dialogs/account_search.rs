@@ -23,6 +23,8 @@ impl Desktop {
         );
         let missing = app.get_saved_auth_token().is_empty();
         let busy = app.get_account_search_busy();
+        // From the batch page, accounts are added to the batch list instead of Home.
+        let batch = app.get_batch_mode();
         let items = app.get_account_search_items();
         let mut query = app.get_account_search_query();
         let more = !app.get_account_search_cursor().is_empty()
@@ -252,7 +254,11 @@ impl Desktop {
                 } else {
                     self.dialog_text(
                         &mut notices,
-                        "Click an account to fill its username in Home.",
+                        if batch {
+                            "Click accounts to add them to the batch list, or click again to remove them."
+                        } else {
+                            "Click an account to fill its username in Home."
+                        },
                         12.0,
                         false,
                         colors.secondary,
@@ -363,15 +369,18 @@ impl Desktop {
                         let response = card
                             .interact(rect, card.id().with("choose"), egui::Sense::click())
                             .on_hover_cursor(egui::CursorIcon::PointingHand);
+                        let listed = batch && self.batch_contains(&item.handle);
                         response.widget_info(|| {
-                            egui::WidgetInfo::labeled(
+                            egui::WidgetInfo::selected(
                                 egui::WidgetType::Button,
                                 true,
+                                listed,
                                 format!("{} · @{}", item.name, item.handle),
                             )
                         });
                         let selected = group.has_focus() && index == self.account_result_index;
-                        let highlight = selected || response.hovered() || response.has_focus();
+                        let highlight =
+                            listed || selected || response.hovered() || response.has_focus();
                         card.painter().rect_filled(
                             rect,
                             12,
@@ -406,8 +415,18 @@ impl Desktop {
                                 egui::Rect::from_center_size(avatar.center(), Vec2::splat(20.0)),
                             );
                         }
+                        if listed {
+                            let badge = egui::Rect::from_min_size(
+                                rect.right_top() + Vec2::new(-30.0, 8.0),
+                                Vec2::splat(22.0),
+                            );
+                            card.painter().rect_filled(badge, 11, colors.primary);
+                            Icon::Check
+                                .image(Color32::WHITE, 14.0)
+                                .paint_at(&card, badge.shrink(4.0));
+                        }
                         let left = rect.left() + 72.0;
-                        let text_width = rect.width() - 84.0;
+                        let text_width = rect.width() - if listed { 112.0 } else { 84.0 };
                         let top = rect.center().y - if item.bio.is_empty() { 20.5 } else { 31.0 };
                         let text = |text: String,
                                     y: f32,
@@ -566,10 +585,15 @@ impl Desktop {
             app.invoke_search_accounts(query, true);
         }
         if let Some(handle) = chosen {
-            app.set_source_url(handle);
-            app.set_selected_tab(0);
-            app.set_batch_mode(false);
-            close = true;
+            if batch {
+                // Stay open so several accounts can be added in one search.
+                self.toggle_batch_source(&handle);
+            } else {
+                app.set_source_url(handle);
+                app.set_selected_tab(0);
+                app.set_batch_mode(false);
+                close = true;
+            }
         }
         if close {
             app.invoke_close_account_search();

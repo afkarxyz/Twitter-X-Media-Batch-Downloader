@@ -1,8 +1,8 @@
 pub(in crate::ui) mod account_search;
-pub(in crate::ui) mod banner_preview;
 pub(in crate::ui) mod fetch_options;
 pub(in crate::ui) mod preview;
 pub(in crate::ui) mod preview_canvas;
+pub(in crate::ui) mod profile_preview;
 pub(in crate::ui) mod xtractor_setup;
 use crate::ui::components::dialog::child;
 use crate::ui::components::dropdown::SelectOptions;

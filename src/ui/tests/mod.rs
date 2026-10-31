@@ -608,10 +608,14 @@ fn home_profile_download_overlays_reveal_on_hover_and_respect_busy_state() {
     let calls = Rc::new(RefCell::new(Vec::new()));
     let record = calls.clone();
     app.on_download_profile_image(move |kind| record.borrow_mut().push(kind));
+    let mut profile = app.get_account_profile();
+    profile.avatar_url = "https://pbs.twimg.com/profile_images/1/a_normal.jpg".into();
+    profile.banner_url = "https://pbs.twimg.com/profile_banners/1/123/1500x500".into();
+    app.set_account_profile(profile);
     let mut h = harness(app.clone());
     h.set_size(Vec2::new(1024.0, 600.0));
     h.run();
-    for label in ["Download avatar", "Download banner"] {
+    for label in ["Preview avatar", "Preview banner"] {
         h.hover_at(egui::pos2(500.0, 10.0));
         h.run_steps(3);
         let rect = h.get_by_label(label).rect();
@@ -625,22 +629,39 @@ fn home_profile_download_overlays_reveal_on_hover_and_respect_busy_state() {
         assert_ne!(
             fill_for_rect(&h, rect),
             Color32::TRANSPARENT,
-            "{label} did not reveal its download overlay"
+            "{label} did not reveal its preview overlay"
         );
     }
-    h.hover_at(egui::pos2(500.0, 10.0));
-    h.run_steps(4);
-    h.get_by_label("Download avatar").click();
-    h.run_steps(2);
-    assert_eq!(*calls.borrow(), ["avatar"]);
+    // Downloads moved into the preview, next to the original image.
+    assert!(h.query_by_label("Download avatar").is_none());
+    assert!(h.query_by_label("Download banner").is_none());
+    for (preview, title, download, kind) in [
+        ("Preview avatar", "Avatar preview", "Download avatar", "avatar"),
+        ("Preview banner", "Banner preview", "Download banner", "banner"),
+    ] {
+        h.hover_at(egui::pos2(500.0, 10.0));
+        h.run_steps(4);
+        h.get_by_label(preview).click();
+        h.run_steps(2);
+        assert!(h.query_by_label(title).is_some(), "{title}");
+        h.get_by_label(download).click();
+        h.run_steps(2);
+        assert_eq!(calls.borrow().last().map(String::as_str), Some(kind));
+        h.key_press(egui::Key::Escape);
+        h.run_steps(2);
+        assert!(h.query_by_label(title).is_none(), "{title}");
+    }
     app.set_is_busy(true);
     h.hover_at(egui::pos2(500.0, 10.0));
     h.run_steps(4);
+    h.get_by_label("Preview avatar").click();
+    h.run_steps(2);
+    assert!(h.query_by_label("Avatar preview").is_some(), "Previews stay available while busy");
     h.get_by_label("Download avatar").click();
     h.run_steps(2);
     assert_eq!(
         *calls.borrow(),
-        ["avatar"],
+        ["avatar", "banner"],
         "A busy operation must disable profile downloads"
     );
 }
@@ -722,8 +743,8 @@ fn render_home_hover_review() {
         .preview_image;
     app.set_account_profile(profile);
     for (label, file) in [
-        ("Download avatar", "avatar-download-hover.png"),
-        ("Download banner", "banner-download-hover.png"),
+        ("Preview avatar", "avatar-preview-hover.png"),
+        ("Preview banner", "banner-preview-hover.png"),
     ] {
         h.hover_at(egui::pos2(500.0, 10.0));
         h.run_steps(3);
