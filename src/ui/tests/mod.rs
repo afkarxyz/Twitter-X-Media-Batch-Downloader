@@ -14,6 +14,19 @@ mod settings;
 mod support;
 mod xtractor_setup;
 
+#[test]
+fn window_icon_preserves_the_macos_bundle_and_other_desktops_keep_the_logo() {
+    let icon = window_icon();
+    if cfg!(target_os = "macos") {
+        assert_eq!((icon.width, icon.height), (0, 0));
+        assert!(icon.rgba.is_empty());
+    } else {
+        assert!(icon.width > 0 && icon.height > 0);
+        assert_eq!(icon.rgba.len(), (icon.width * icon.height * 4) as usize);
+        assert!(icon.rgba.chunks_exact(4).any(|pixel| pixel[3] > 0));
+    }
+}
+
 fn harness(app: AppWindow) -> Harness<'static, Desktop> {
     harness_at_frame_rate(app, 4.0)
 }
@@ -636,8 +649,18 @@ fn home_profile_download_overlays_reveal_on_hover_and_respect_busy_state() {
     assert!(h.query_by_label("Download avatar").is_none());
     assert!(h.query_by_label("Download banner").is_none());
     for (preview, title, download, kind) in [
-        ("Preview avatar", "Avatar preview", "Download avatar", "avatar"),
-        ("Preview banner", "Banner preview", "Download banner", "banner"),
+        (
+            "Preview avatar",
+            "Avatar preview",
+            "Download avatar",
+            "avatar",
+        ),
+        (
+            "Preview banner",
+            "Banner preview",
+            "Download banner",
+            "banner",
+        ),
     ] {
         h.hover_at(egui::pos2(500.0, 10.0));
         h.run_steps(4);
@@ -656,7 +679,10 @@ fn home_profile_download_overlays_reveal_on_hover_and_respect_busy_state() {
     h.run_steps(4);
     h.get_by_label("Preview avatar").click();
     h.run_steps(2);
-    assert!(h.query_by_label("Avatar preview").is_some(), "Previews stay available while busy");
+    assert!(
+        h.query_by_label("Avatar preview").is_some(),
+        "Previews stay available while busy"
+    );
     h.get_by_label("Download avatar").click();
     h.run_steps(2);
     assert_eq!(
@@ -1569,6 +1595,20 @@ fn palette_selection_text_has_aa_contrast_in_every_preset() {
             let colors = appearance::Palette::new(scheme.id, dark);
             let contrast = appearance::contrast(colors.accent, colors.on_accent);
             assert!(contrast >= 4.5, "{} dark={dark}: {contrast}", scheme.id);
+            // Selected text in every TextEdit is drawn in the selection stroke colour.
+            let mut visuals = if dark {
+                egui::Visuals::dark()
+            } else {
+                egui::Visuals::light()
+            };
+            colors.apply(&mut visuals);
+            let selected =
+                appearance::contrast(visuals.selection.bg_fill, visuals.selection.stroke.color);
+            assert!(
+                selected >= 4.5,
+                "{} dark={dark} selected text: {selected}",
+                scheme.id
+            );
             let overlay = appearance::contrast(colors.primary, Color32::WHITE);
             assert!(overlay >= 4.5, "{} overlay: {overlay}", scheme.id);
         }

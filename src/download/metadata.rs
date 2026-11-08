@@ -21,9 +21,11 @@ static TOOL: Mutex<Option<PathBuf>> = Mutex::new(None);
 const RELEASE: &str = "https://sourceforge.net/projects/exiftool/best_release.json";
 const MAX_ARCHIVE: usize = 64 * 1024 * 1024;
 
+pub const EXTENSIONS: [&str; 4] = ["jpg", "jpeg", "png", "mp4"];
+
 pub fn supported(path: &Path) -> bool {
     path.extension().is_some_and(|ext| {
-        ["jpg", "jpeg", "mp4"]
+        EXTENSIONS
             .iter()
             .any(|value| ext.eq_ignore_ascii_case(value))
     })
@@ -338,7 +340,7 @@ async fn install(
                 last = std::time::Instant::now();
             }
         }
-        if format!("{:x}", Sha256::digest(&archive)) != checksum {
+        if hex::encode(Sha256::digest(&archive)) != checksum {
             return Err("ExifTool archive checksum did not match.".into());
         }
         let root = data_root.join("exiftool");
@@ -429,15 +431,62 @@ pub fn comment(item: &MediaCandidate) -> String {
     if !item.tweet_text.is_empty() {
         parts.push(item.tweet_text.clone());
     }
-    let full = parts.join(" | ");
-    if full.len() <= 60_000 {
-        return full;
+    limit(parts.join(" | "))
+}
+
+/// Keeps a tag value within what every target format accepts.
+fn limit(value: String) -> String {
+    if value.len() <= 60_000 {
+        return value;
     }
     let mut end = 59_997;
-    while !full.is_char_boundary(end) {
+    while !value.is_char_boundary(end) {
         end -= 1;
     }
-    format!("{}…", &full[..end])
+    format!("{}…", &value[..end])
+}
+
+/// Tags written next to the legacy `Comment`, so file managers and photo
+/// libraries can show the author, post date, text and source separately.
+/// Images use EXIF and XMP; MP4 files use QuickTime and XMP.
+pub fn tags(item: &MediaCandidate, video: bool) -> serde_json::Map<String, serde_json::Value> {
+    let mut tags = serde_json::Map::new();
+    let mut set = |names: &[&str], value: String| {
+        if !value.is_empty() {
+            for name in names {
+                tags.insert((*name).into(), value.clone().into());
+            }
+        }
+    };
+    set(&["Comment"], comment(item));
+    let handle = item.username.trim_start_matches('@');
+    let author = match (item.author_name.trim(), handle) {
+        (_, "") => String::new(),
+        ("", handle) => format!("@{handle}"),
+        (name, handle) if name.eq_ignore_ascii_case(handle) => format!("@{handle}"),
+        (name, handle) => format!("{name} (@{handle})"),
+    };
+    let text = limit(item.tweet_text.trim().to_owned());
+    if video {
+        set(&["QuickTime:Artist", "XMP-dc:Creator"], author);
+        set(&["QuickTime:Description", "XMP-dc:Description"], text);
+    } else {
+        set(&["EXIF:Artist", "XMP-dc:Creator"], author);
+        set(&["EXIF:ImageDescription", "XMP-dc:Description"], text);
+    }
+    if let Some(date) = crate::media::identity::post_timestamp(item) {
+        let stamp = date.format("%Y:%m:%d %H:%M:%S").to_string();
+        if video {
+            set(&["Keys:CreationDate"], format!("{stamp}+00:00"));
+        } else {
+            set(&["EXIF:DateTimeOriginal"], stamp.clone());
+            set(&["EXIF:OffsetTimeOriginal"], "+00:00".into());
+            set(&["XMP-photoshop:DateCreated"], format!("{stamp}+00:00"));
+        }
+    }
+    set(&["XMP-dc:Source"], item.tweet_url.clone());
+    set(&["XMP-dc:Identifier"], item.tweet_id.clone());
+    tags
 }
 
 async fn run_tag(
@@ -508,7 +557,13 @@ pub async fn embed(
         path.extension().unwrap().to_string_lossy(),
         std::process::id()
     ));
-    let tag_file = part.with_extension("metadata.txt.part");
+    let tag_file = part.with_extension("metadata.json.part");
+    let video = path
+        .extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("mp4"));
+    let mut tags = tags(item, video);
+    tags.insert("SourceFile".into(), "*".into());
+    let tags = serde_json::to_vec(&[tags]).map_err(|error| error.to_string())?;
     let mut output = tokio::fs::OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -524,14 +579,19 @@ pub async fn embed(
         output.flush().await.map_err(|error| error.to_string())?;
         drop(output);
         let mut tag_output = tokio::fs::OpenOptions::new().create_new(true).write(true).open(&tag_file).await.map_err(|error|error.to_string())?;
-        tag_output.write_all(comment(item).as_bytes()).await.map_err(|error|error.to_string())?;
+        tag_output.write_all(&tags).await.map_err(|error|error.to_string())?;
         tag_output.flush().await.map_err(|error|error.to_string())?;
         drop(tag_output);
         // The Windows launcher may lose Unicode argv, so filenames and tag
-        // payload travel through explicit UTF-8 streams/files instead.
-        let arguments = format!("-overwrite_original\n-P\n-charset\nfilename=UTF8\n-charset\nUTF8\n-Comment<={}\n{}\n", tag_file.to_string_lossy(), part.to_string_lossy());
+        // payload travel through explicit UTF-8 streams/files instead. The
+        // JSON import applies every tag to the one file named after it.
+        let arguments = format!("-overwrite_original\n-P\n-charset\nfilename=UTF8\n-charset\nUTF8\n-json={}\n{}\n", tag_file.to_string_lossy(), part.to_string_lossy());
         let result = run_tag(tool, &arguments, cancel).await?;
-        if !result.status.success() || !String::from_utf8_lossy(&result.stdout).contains("1 image files updated") {
+        // With `-json=` ExifTool reports the summary on stderr instead of stdout.
+        let updated = [&result.stdout, &result.stderr]
+            .iter()
+            .any(|output| String::from_utf8_lossy(output).contains("1 image files updated"));
+        if !result.status.success() || !updated {
             return Err(format!("ExifTool: {}", String::from_utf8_lossy(&result.stderr).trim()));
         }
         tokio::fs::rename(&part, path).await.map_err(|error|error.to_string())?;
@@ -619,6 +679,30 @@ mod tests {
         assert!(value.len() <= 60000 && value.ends_with('…'));
     }
     #[test]
+    fn structured_tags_name_the_author_once_and_skip_missing_values() {
+        let mut item = MediaCandidate {
+            username: "@demo".into(),
+            author_name: "demo".into(),
+            tweet_id: "1".into(),
+            ..Default::default()
+        };
+        let tags = super::tags(&item, false);
+        assert_eq!(tags["EXIF:Artist"], "@demo");
+        assert!(!tags.contains_key("EXIF:ImageDescription"));
+        assert!(!tags.contains_key("XMP-dc:Source"));
+        // Snowflake IDs too small to hold a date leave the date tags unset.
+        assert!(!tags.contains_key("EXIF:DateTimeOriginal"));
+        item.author_name = "Demo Account".into();
+        item.tweet_text = "  hello  ".into();
+        item.created_at = "Sun Aug 31 17:52:02 +0000 2025".into();
+        let tags = super::tags(&item, true);
+        assert_eq!(tags["QuickTime:Artist"], "Demo Account (@demo)");
+        assert_eq!(tags["QuickTime:Description"], "hello");
+        assert_eq!(tags["Keys:CreationDate"], "2025:08:31 17:52:02+00:00");
+        assert!(!tags.contains_key("EXIF:Artist"));
+    }
+
+    #[test]
     fn archive_paths_cannot_escape_and_support_files_are_required() {
         use zip::{ZipWriter, write::SimpleFileOptions};
         let fixture = crate::download::saved_files::tests::Fixture::new();
@@ -643,10 +727,52 @@ mod tests {
         let item = MediaCandidate {
             url: "https://pbs.twimg.com/media/ABC.jpg?name=orig".into(),
             tweet_url: "https://x.com/demo/status/123".into(),
+            tweet_id: "123".into(),
             username: "demo".into(),
+            author_name: "Démo 世界".into(),
             tweet_text: "Halo 世界 é 🐦\nSecond line; $(unchanged)".into(),
             created_at: "Sun Aug 31 17:52:02 +0000 2025".into(),
             ..Default::default()
+        };
+        let read_tags = async |path: &Path| -> serde_json::Value {
+            let read = command(&tool)
+                .args(["-j", "-G1", "-charset", "UTF8", "-a"])
+                .args([
+                    "-Comment",
+                    "-Artist",
+                    "-Creator",
+                    "-ImageDescription",
+                    "-Description",
+                    "-DateTimeOriginal",
+                    "-OffsetTimeOriginal",
+                    "-DateCreated",
+                    "-CreationDate",
+                    "-Source",
+                    "-Identifier",
+                    "-Copyright",
+                    "-Duration#",
+                ])
+                .arg(path)
+                .output()
+                .await
+                .unwrap();
+            serde_json::from_slice::<serde_json::Value>(&read.stdout).unwrap()[0].take()
+        };
+        let author = "Démo 世界 (@demo)";
+        let assert_image_tags = |tags: &serde_json::Value, comment_group: &str| {
+            assert_eq!(tags[format!("{comment_group}:Comment")], comment(&item));
+            assert_eq!(tags["IFD0:Artist"], author);
+            assert_eq!(tags["XMP-dc:Creator"], author);
+            assert_eq!(tags["IFD0:ImageDescription"], item.tweet_text);
+            assert_eq!(tags["XMP-dc:Description"], item.tweet_text);
+            assert_eq!(tags["ExifIFD:DateTimeOriginal"], "2025:08:31 17:52:02");
+            assert_eq!(tags["ExifIFD:OffsetTimeOriginal"], "+00:00");
+            assert_eq!(
+                tags["XMP-photoshop:DateCreated"],
+                "2025:08:31 17:52:02+00:00"
+            );
+            assert_eq!(tags["XMP-dc:Source"], "https://x.com/demo/status/123");
+            assert_eq!(tags["XMP-dc:Identifier"], 123);
         };
         let photo = fixture.0.join("photo with spaces.jpg");
         image::RgbImage::from_pixel(16, 12, image::Rgb([12, 44, 88]))
@@ -655,7 +781,7 @@ mod tests {
         let expected_pixels = image::open(&photo).unwrap().to_rgb8();
         let existing = command(&tool)
             .arg("-overwrite_original")
-            .arg("-Artist=Original camera author")
+            .arg("-Copyright=Original owner")
             .arg(&photo)
             .output()
             .await
@@ -664,16 +790,22 @@ mod tests {
         embed(&tool, &photo, &item, Arc::new(AtomicBool::new(false)))
             .await
             .unwrap();
-        let read = command(&tool)
-            .args(["-j", "-Comment", "-Artist"])
-            .arg(&photo)
-            .output()
+        let tags = read_tags(&photo).await;
+        assert_image_tags(&tags, "File");
+        assert_eq!(tags["IFD0:Copyright"], "Original owner");
+        assert_eq!(image::open(&photo).unwrap().to_rgb8(), expected_pixels);
+        // The reader passes paths as argv, which the Windows launcher may not
+        // keep as Unicode; `embed` itself is covered with a Unicode name below.
+        let png = fixture.0.join("photo with spaces.png");
+        image::RgbImage::from_pixel(16, 12, image::Rgb([12, 44, 88]))
+            .save(&png)
+            .unwrap();
+        let png_pixels = image::open(&png).unwrap().to_rgb8();
+        embed(&tool, &png, &item, Arc::new(AtomicBool::new(false)))
             .await
             .unwrap();
-        let tags: serde_json::Value = serde_json::from_slice(&read.stdout).unwrap();
-        assert_eq!(tags[0]["Comment"], comment(&item));
-        assert_eq!(tags[0]["Artist"], "Original camera author");
-        assert_eq!(image::open(&photo).unwrap().to_rgb8(), expected_pixels);
+        assert_image_tags(&read_tags(&png).await, "PNG");
+        assert_eq!(image::open(&png).unwrap().to_rgb8(), png_pixels);
         let unicode_photo = fixture.0.join("写真 世界 é.jpg");
         std::fs::copy(&photo, &unicode_photo).unwrap();
         embed(
@@ -694,25 +826,20 @@ mod tests {
             &video,
         )
         .unwrap();
-        let before = command(&tool)
-            .args(["-j", "-Duration#"])
-            .arg(&video)
-            .output()
-            .await
-            .unwrap();
+        let before = read_tags(&video).await;
         embed(&tool, &video, &item, Arc::new(AtomicBool::new(false)))
             .await
             .unwrap();
-        let read = command(&tool)
-            .args(["-j", "-Comment", "-Duration#"])
-            .arg(&video)
-            .output()
-            .await
-            .unwrap();
-        let tags: serde_json::Value = serde_json::from_slice(&read.stdout).unwrap();
-        let before: serde_json::Value = serde_json::from_slice(&before.stdout).unwrap();
-        assert_eq!(tags[0]["Comment"], comment(&item));
-        assert_eq!(tags[0]["Duration"], before[0]["Duration"]);
+        let tags = read_tags(&video).await;
+        assert_eq!(tags["ItemList:Comment"], comment(&item));
+        assert_eq!(tags["ItemList:Artist"], author);
+        assert_eq!(tags["XMP-dc:Creator"], author);
+        assert_eq!(tags["ItemList:Description"], item.tweet_text);
+        assert_eq!(tags["XMP-dc:Description"], item.tweet_text);
+        assert_eq!(tags["Keys:CreationDate"], "2025:08:31 17:52:02+00:00");
+        assert_eq!(tags["XMP-dc:Source"], "https://x.com/demo/status/123");
+        assert_eq!(tags["Track1:Duration"], before["Track1:Duration"]);
+        assert_eq!(tags["QuickTime:Duration"], before["QuickTime:Duration"]);
         let corrupt = fixture.0.join("corrupt.jpg");
         std::fs::write(&corrupt, b"keep original invalid data").unwrap();
         assert!(
@@ -731,17 +858,17 @@ mod tests {
                 .is_err()
         );
         assert_eq!(std::fs::read(&photo).unwrap(), bytes);
-        let png = fixture.0.join("unsupported.png");
-        std::fs::write(&png, b"unchanged").unwrap();
+        let gif = fixture.0.join("unsupported.gif");
+        std::fs::write(&gif, b"unchanged").unwrap();
         embed(
             Path::new("missing-tool"),
-            &png,
+            &gif,
             &item,
             Arc::new(AtomicBool::new(false)),
         )
         .await
         .unwrap();
-        assert_eq!(std::fs::read(&png).unwrap(), b"unchanged");
+        assert_eq!(std::fs::read(&gif).unwrap(), b"unchanged");
         assert!(std::fs::read_dir(&fixture.0).unwrap().all(|entry| {
             !entry
                 .unwrap()

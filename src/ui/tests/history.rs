@@ -217,12 +217,14 @@ fn history_source_filter_keeps_only_url_likes_or_bookmark_fetches() {
         ("2", "liker", "https://x.com/liker/likes"),
         ("3", "saver", "https://x.com/i/bookmarks"),
     ]
-    .map(|(id, username, source)| crate::download::engine::HistoryEntry {
-        id: id.into(),
-        username: username.into(),
-        source_url: source.into(),
-        ..Default::default()
-    });
+    .map(
+        |(id, username, source)| crate::download::engine::HistoryEntry {
+            id: id.into(),
+            username: username.into(),
+            source_url: source.into(),
+            ..Default::default()
+        },
+    );
     let searches = Rc::new(RefCell::new(0));
     app.on_search_history({
         let app = app.as_weak();
@@ -570,7 +572,11 @@ fn wide_windows_fill_the_history_with_more_card_columns() {
     };
     let long = |h: &Harness<'_, Desktop>| {
         h.get_all_by_role(egui::accesskit::Role::Button)
-            .find(|node| node.accesskit_node().label().is_some_and(|label| label.starts_with("An account with a long display name")))
+            .find(|node| {
+                node.accesskit_node()
+                    .label()
+                    .is_some_and(|label| label.starts_with("An account with a long display name"))
+            })
             .unwrap()
             .rect()
     };
@@ -578,11 +584,18 @@ fn wide_windows_fill_the_history_with_more_card_columns() {
     h.run();
     let narrow = tops(&h);
     assert_eq!(narrow[0], narrow[1]);
-    assert!(long(&h).top() > narrow[0], "Two columns wrap the third card");
+    assert!(
+        long(&h).top() > narrow[0],
+        "Two columns wrap the third card"
+    );
     h.set_size(Vec2::new(1900.0, 700.0));
     h.run();
     let wide = tops(&h);
-    assert_eq!(long(&h).top(), wide[0], "Wide windows show the cards side by side");
+    assert_eq!(
+        long(&h).top(),
+        wide[0],
+        "Wide windows show the cards side by side"
+    );
     assert!(long(&h).width() <= 520.0);
     assert!(h.get_by_label("Search accounts…").rect().right() > 1500.0);
 }

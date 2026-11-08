@@ -937,7 +937,10 @@ fn clicks_select_results_and_the_eye_button_opens_the_preview() {
         // The range includes the Saved item 4, but downloads only count the others.
         click(&mut h, 6, egui::Modifiers::SHIFT);
         assert_eq!(selected(&app), [1, 2, 3, 4, 5, 6], "{view}");
-        assert!(h.query_by_label("Download selected (5)").is_some(), "{view}");
+        assert!(
+            h.query_by_label("Download selected (5)").is_some(),
+            "{view}"
+        );
 
         click(&mut h, 3, egui::Modifiers::NONE);
         assert_eq!(selected(&app), [1, 2, 4, 5, 6], "{view}");
@@ -958,6 +961,77 @@ fn clicks_select_results_and_the_eye_button_opens_the_preview() {
         assert_eq!(selected(&app), [1, 2, 3, 5, 6, 7, 8], "{view}");
         assert!(h.query_by_label("Media preview").is_some(), "{view}");
     }
+}
+
+#[test]
+fn keyboard_selects_the_filter_and_reposts_narrow_the_results() {
+    fn selected(app: &AppWindow) -> Vec<i32> {
+        let mut values = app
+            .global::<MediaSelection>()
+            .get_indices()
+            .iter()
+            .collect::<Vec<_>>();
+        values.sort();
+        values
+    }
+    let app = original_home_fixture();
+    let mut h = harness(app.clone());
+    h.set_size(Vec2::new(1440.0, 1400.0));
+    h.run();
+    assert!(
+        h.query_by_label("Post type").is_none(),
+        "Results with only original posts have nothing to narrow"
+    );
+    let pending = (0..15).filter(|index| *index != 4).collect::<Vec<_>>();
+    h.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::A);
+    h.run();
+    assert_eq!(selected(&app), pending, "Saved item 4 is skipped");
+    // A second press keeps everything selected instead of toggling it off.
+    h.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::A);
+    h.run();
+    assert_eq!(selected(&app), pending);
+    h.key_press(egui::Key::Escape);
+    h.run();
+    assert!(selected(&app).is_empty());
+
+    let items = app.get_media_items();
+    for row in (1..15).step_by(2) {
+        let mut item = items.row_data(row).unwrap();
+        item.is_repost = true;
+        items.set_row_data(row, item);
+    }
+    let mut reply = items.row_data(2).unwrap();
+    reply.is_reply = true;
+    items.set_row_data(2, reply);
+    h.run();
+    // Options list the post types present: All posts, Originals, Replies, Reposts.
+    h.get_by_label("Post type").click();
+    h.run();
+    assert!(h.query_by_label("Quotes").is_none());
+    for _ in 0..3 {
+        h.key_press(egui::Key::ArrowDown);
+    }
+    h.run();
+    h.key_press(egui::Key::Enter);
+    h.run();
+    assert_eq!(h.state().kind, "all@repost");
+    assert!(
+        h.query_by_label("Image  2").is_some(),
+        "Type counts follow the post type"
+    );
+    h.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::A);
+    h.run();
+    assert_eq!(selected(&app), [1, 3, 5, 7, 9, 11, 13]);
+    assert!(h.query_by_label("Download selected (7)").is_some());
+
+    // Esc closes the preview first and leaves the selection alone.
+    h.get_by_label("Preview · xbatchdemo · @xbatchdemo · item 1")
+        .click();
+    h.run();
+    h.key_press(egui::Key::Escape);
+    h.run();
+    assert_eq!(app.get_selected_media_index(), -1);
+    assert_eq!(selected(&app), [1, 3, 5, 7, 9, 11, 13]);
 }
 
 #[test]
@@ -994,7 +1068,10 @@ fn banner_preview_zooms_fills_the_width_and_closes_with_escape() {
     let stage = h.get_by_label("Media canvas").rect();
     let fitted_width = 100.0 * stage.height() / 300.0;
     assert!((h.state().preview_canvas.zoom - stage.width() / fitted_width).abs() < 0.01);
-    assert!(h.state().preview_canvas.pan.y > 0.0, "Fit to width starts at the top");
+    assert!(
+        h.state().preview_canvas.pan.y > 0.0,
+        "Fit to width starts at the top"
+    );
     h.get_by_label("Fit to screen").click();
     h.run();
     assert_eq!(h.state().preview_canvas.zoom, 1.0);

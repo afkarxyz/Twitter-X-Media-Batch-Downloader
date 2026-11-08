@@ -62,12 +62,109 @@ pub fn initialize(connection: &Connection) -> rusqlite::Result<()> {
             identity BLOB NOT NULL, author TEXT NOT NULL, kind TEXT NOT NULL,
             status TEXT NOT NULL, saved_path TEXT NOT NULL,
             saved_bytes INTEGER NOT NULL, is_new INTEGER NOT NULL,
-            sort_stamp INTEGER, PRIMARY KEY(entry_id,ordinal)
+            sort_stamp INTEGER, post_flags INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY(entry_id,ordinal)
          ) WITHOUT ROWID;
          CREATE INDEX IF NOT EXISTS history_media_author ON history_media_index(author,entry_id);
          CREATE INDEX IF NOT EXISTS history_media_identity ON history_media_index(identity,entry_id);
          CREATE INDEX IF NOT EXISTS history_media_saved ON history_media_index(entry_id,saved_path,saved_bytes) WHERE saved_path!='';"
-    )
+    )?;
+    add_post_flags_column(connection)
+}
+
+fn item_post_flags(item: &MediaCandidate) -> u8 {
+    crate::media::results::post_flags(item.is_repost, item.is_reply, item.is_quote)
+}
+
+/// Older databases index media without post types. Add the column once and
+/// fill it so saved results can be filtered by reply, quote or repost without
+/// decoding every page each time they open. Media pages always carried the
+/// repost flag; replies and quotes are recovered from the saved response.
+fn add_post_flags_column(connection: &Connection) -> rusqlite::Result<()> {
+    if connection
+        .prepare("SELECT post_flags FROM history_media_index LIMIT 0")
+        .is_ok()
+    {
+        return Ok(());
+    }
+    #[derive(Deserialize)]
+    struct Post {
+        #[serde(default)]
+        tweet_id: serde_json::Value,
+        #[serde(default)]
+        is_repost: bool,
+        #[serde(default)]
+        is_reply: bool,
+        #[serde(default)]
+        is_quote: bool,
+    }
+    #[derive(Deserialize)]
+    struct Response {
+        #[serde(default)]
+        tweets: Vec<Post>,
+    }
+    let transaction = connection.unchecked_transaction()?;
+    transaction.execute(
+        "ALTER TABLE history_media_index ADD COLUMN post_flags INTEGER NOT NULL DEFAULT 0",
+        [],
+    )?;
+    let ids = transaction
+        .prepare("SELECT entry_id FROM history_payloads")?
+        .query_map([], |row| row.get::<_, String>(0))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    let mut update = transaction
+        .prepare("UPDATE history_media_index SET post_flags=?3 WHERE entry_id=?1 AND ordinal=?2")?;
+    let mut pages = transaction
+        .prepare("SELECT page,payload_zlib FROM history_media_pages WHERE entry_id=?1")?;
+    for id in ids {
+        let posts = read_response(&transaction, &id)
+            .ok()
+            .and_then(|response| serde_json::from_str::<Response>(&response).ok())
+            .map(|response| {
+                response
+                    .tweets
+                    .into_iter()
+                    .filter_map(|post| {
+                        let flags =
+                            crate::media::results::post_flags(false, post.is_reply, post.is_quote);
+                        Some((post.tweet_id.as_str()?.to_owned(), flags))
+                    })
+                    .collect::<std::collections::HashMap<_, _>>()
+            })
+            .unwrap_or_default();
+        let mut rows = pages.query([&id])?;
+        while let Some(row) = rows.next()? {
+            let page: i64 = row.get(0)?;
+            let data: Vec<u8> = row.get(1)?;
+            let Ok(items) = decompress(&data)
+                .and_then(|bytes| serde_json::from_slice::<Vec<Post>>(&bytes).map_err(data_error))
+            else {
+                crate::platform::logging::error(format!(
+                    "Could not read post types for saved media page {page} of {id}."
+                ));
+                continue;
+            };
+            for (slot, item) in items.iter().enumerate() {
+                let replied = item
+                    .tweet_id
+                    .as_str()
+                    .and_then(|tweet| posts.get(tweet))
+                    .copied()
+                    .unwrap_or_default();
+                let flags = replied
+                    | crate::media::results::post_flags(
+                        item.is_repost,
+                        item.is_reply,
+                        item.is_quote,
+                    );
+                if flags != 0 {
+                    update.execute(params![id, page * PAGE_SIZE as i64 + slot as i64, flags])?;
+                }
+            }
+        }
+    }
+    drop((update, pages));
+    transaction.commit()
 }
 
 pub fn account_json(response: &str) -> rusqlite::Result<String> {
@@ -169,8 +266,8 @@ pub fn write_media(
     connection.execute("DELETE FROM history_media_pages WHERE entry_id=?1", [id])?;
     connection.execute("DELETE FROM history_media_index WHERE entry_id=?1", [id])?;
     let mut index = connection.prepare_cached(
-        "INSERT INTO history_media_index(entry_id,ordinal,media_index,identity,author,kind,status,saved_path,saved_bytes,is_new,sort_stamp)
-         VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)"
+        "INSERT INTO history_media_index(entry_id,ordinal,media_index,identity,author,kind,status,saved_path,saved_bytes,is_new,sort_stamp,post_flags)
+         VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)"
     )?;
     let mut summary = Summary::default();
     for (ordinal, item) in media.iter().enumerate() {
@@ -190,7 +287,8 @@ pub fn write_media(
             item.saved_path,
             item.saved_bytes as i64,
             item.is_new,
-            crate::media::identity::post_timestamp(item).map(|date| date.timestamp_millis())
+            crate::media::identity::post_timestamp(item).map(|date| date.timestamp_millis()),
+            item_post_flags(item)
         ])?;
         summary.count += 1;
         *summary.kinds.entry(item.media_type.clone()).or_default() += 1;

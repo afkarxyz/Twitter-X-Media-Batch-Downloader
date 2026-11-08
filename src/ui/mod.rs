@@ -41,27 +41,34 @@ pub fn run(app: AppWindow) -> Result<(), ui_runtime::PlatformError> {
     result
 }
 
-fn run_with_renderer(app: AppWindow, gpu: bool) -> Result<(), ui_runtime::PlatformError> {
-    let icon = image::load_from_memory(include_bytes!(concat!(
+fn window_icon() -> egui::IconData {
+    if cfg!(target_os = "macos") {
+        // An explicit empty icon prevents eframe from replacing the bundle's
+        // Dock icon. None would substitute eframe's default application icon.
+        return egui::IconData::default();
+    }
+    image::load_from_memory(include_bytes!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/assets/logo/logo.png"
     )))
     .ok()
     .map(|image| {
         let rgba = image.to_rgba8();
-        std::sync::Arc::new(egui::IconData {
+        egui::IconData {
             width: rgba.width(),
             height: rgba.height(),
             rgba: rgba.into_raw(),
-        })
-    });
-    let mut viewport = egui::ViewportBuilder::default()
+        }
+    })
+    .unwrap_or_default()
+}
+
+fn run_with_renderer(app: AppWindow, gpu: bool) -> Result<(), ui_runtime::PlatformError> {
+    let viewport = egui::ViewportBuilder::default()
         .with_inner_size([1024.0, 600.0])
         .with_min_inner_size([1024.0, 600.0])
-        .with_app_id(crate::APP_ID);
-    if let Some(icon) = icon {
-        viewport = viewport.with_icon(icon);
-    }
+        .with_app_id(crate::APP_ID)
+        .with_icon(window_icon());
     let options = eframe::NativeOptions {
         viewport,
         renderer: if gpu {
@@ -479,6 +486,9 @@ impl Desktop {
         self.preview_overlay(&ctx);
         self.profile_preview_overlay(&ctx);
         self.dialogs(&ctx);
+        if displaying_media {
+            self.selection_shortcuts(&ctx);
+        }
         if self.app.get_selected_media_index() >= 0 {
             self.visible_media
                 .insert(self.app.get_selected_media_index());

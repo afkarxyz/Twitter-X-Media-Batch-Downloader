@@ -1,5 +1,5 @@
 msgid ""
-msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.4\nLanguage: fr\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=2; plural=(n != 1);\n"
+msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.5\nLanguage: fr\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=2; plural=(n != 1);\n"
 
 msgid "Ready for an X/Twitter URL."
 msgstr "Prêt pour une URL X/Twitter."
@@ -647,6 +647,15 @@ msgstr "Sélectionner le filtre"
 msgid "Deselect filter"
 msgstr "Désélectionner le filtre"
 
+msgid "All posts"
+msgstr "Toutes les publications"
+
+msgid "Originals"
+msgstr "Originales"
+
+msgid "Post type"
+msgstr "Type de publication"
+
 msgid "Download selected ({})"
 msgstr "Télécharger la sélection ({})"
 
@@ -1082,11 +1091,11 @@ msgstr "Chaque compte conserve ses filtres de récupération enregistrés."
 msgid "Embed post metadata"
 msgstr "Intégrer les métadonnées de la publication"
 
-msgid "Write the post URL, original media name and post text into JPG/MP4 comments."
-msgstr "Écrire l’URL de la publication, le nom d’origine du média et le texte de la publication dans les commentaires JPG/MP4."
+msgid "Write the author, post date, text and URL into JPG, PNG and MP4 metadata."
+msgstr "Écrire l’auteur, la date, le texte et l’URL de la publication dans les métadonnées JPG, PNG et MP4."
 
-msgid "ExifTool is downloaded into the portable data folder when missing. Applies to new JPG/MP4 downloads; converted GIFs are excluded."
-msgstr "ExifTool est téléchargé dans le dossier de données portable s’il est absent. S’applique aux nouveaux téléchargements JPG/MP4 ; les GIF convertis sont exclus."
+msgid "ExifTool is downloaded into the portable data folder when missing. Applies to new JPG, PNG and MP4 downloads; converted GIFs are excluded."
+msgstr "ExifTool est téléchargé dans le dossier de données portable s’il est absent. S’applique aux nouveaux téléchargements JPG, PNG et MP4 ; les GIF convertis sont exclus."
 
 msgid "All groups"
 msgstr "Tous les groupes"

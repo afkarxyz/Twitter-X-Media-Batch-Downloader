@@ -430,7 +430,10 @@ fn background_storage_refreshes_keep_the_previous_figures_and_layout() {
     assert!(!h.get_by_label("Refresh").accesskit_node().is_disabled());
     app.set_storage_busy(false);
     h.run();
-    assert_eq!(h.get_by_label("Download folder usage metric").rect(), metric);
+    assert_eq!(
+        h.get_by_label("Download folder usage metric").rect(),
+        metric
+    );
 }
 
 #[test]

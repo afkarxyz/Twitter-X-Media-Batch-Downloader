@@ -416,6 +416,106 @@ fn archive_dropdowns_and_switch_send_selected_conversion_options() {
 }
 
 #[test]
+fn switch_thumb_reads_on_the_track_in_every_scheme_mode_and_frame() {
+    let app = fixture();
+    let checked = Rc::new(std::cell::Cell::new(false));
+    let rect = egui::Rect::from_min_size(egui::pos2(20.0, 20.0), Vec2::new(38.0, 22.0));
+    let mut h = Harness::builder()
+        .with_size([120.0, 80.0])
+        .with_step_dt(1.0 / 60.0)
+        .build_ui_state(
+            {
+                let checked = checked.clone();
+                move |ui, state: &mut Desktop| {
+                    if state.frame == 0 {
+                        setup(ui.ctx());
+                        state.frame = 1;
+                        ui.ctx().request_repaint();
+                        return;
+                    }
+                    state.theme(ui.ctx());
+                    let mut value = checked.get();
+                    state.switch_control(ui, rect, &mut value, "Test switch", true);
+                    checked.set(value);
+                }
+            },
+            Desktop::new(app.clone()),
+        );
+    let painted = |h: &Harness<'_, Desktop>| {
+        let shapes = &h.output().shapes;
+        let track = shapes
+            .iter()
+            .find_map(|shape| match &shape.shape {
+                egui::Shape::Rect(value) if value.rect == rect => Some(value.fill),
+                _ => None,
+            })
+            .expect("Missing switch track");
+        let thumb = shapes
+            .iter()
+            .find_map(|shape| match &shape.shape {
+                egui::Shape::Circle(value)
+                    if value.radius == 8.0 && rect.contains(value.center) =>
+                {
+                    Some(value.fill)
+                }
+                _ => None,
+            })
+            .expect("Missing switch thumb");
+        (track, thumb)
+    };
+    // Both animations settle within 0.18 s, so 20 frames at 60 Hz reach the resting state.
+    const FRAMES: usize = 20;
+    for scheme in schemes::SCHEMES {
+        for dark in [false, true] {
+            app.set_theme_mode(if dark { "dark" } else { "light" }.into());
+            app.global::<AppTheme>().set_preset(scheme.id.into());
+            let colors = appearance::Palette::new(scheme.id, dark);
+            checked.set(false);
+            h.run_steps(FRAMES);
+            let (track, off_thumb) = painted(&h);
+            let mode = format!("{} dark={dark}", scheme.id);
+            assert_eq!(track, colors.control_border, "{mode} off");
+            // Off keeps its white thumb, except where white vanishes on the track.
+            let off = appearance::contrast(off_thumb, track);
+            assert!(
+                off >= appearance::contrast(Color32::WHITE, track),
+                "{mode} off: thumb contrast {off}"
+            );
+            if off_thumb != Color32::WHITE {
+                assert!(
+                    dark && scheme.id == "high-contrast",
+                    "{mode} off: thumb {off_thumb:?}"
+                );
+            }
+            for on in [true, false] {
+                checked.set(on);
+                let mut lowest = f32::MAX;
+                for _ in 0..FRAMES {
+                    h.step();
+                    let (track, thumb) = painted(&h);
+                    lowest = lowest.min(appearance::contrast(thumb, track));
+                }
+                let (track, thumb) = painted(&h);
+                let rest = appearance::contrast(thumb, track);
+                if on {
+                    assert_eq!(track, colors.accent, "{mode} on");
+                    assert!(rest >= 3.0, "{mode} on: thumb contrast {rest}");
+                } else {
+                    assert_eq!((track, thumb), (colors.control_border, off_thumb), "{mode}");
+                }
+                // Mid-toggle the thumb must never sink into the fading track. Light mode's
+                // white thumb on the pale off track sits below 3:1 by design.
+                let floor = 3.0_f32.min(off);
+                assert!(
+                    lowest >= floor,
+                    "{mode} on={on}: lowest contrast {lowest} mid-toggle"
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn action_buttons_share_hover_focus_and_disabled_visuals() {
     let app = fixture();
     let mut h = Harness::builder().with_size([600.0, 300.0]).build_ui_state(

@@ -121,7 +121,7 @@ fn hash(path: &Path) -> Result<String, String> {
         }
         digest.update(&buffer[..size]);
     }
-    Ok(format!("{:x}", digest.finalize()))
+    Ok(hex::encode(digest.finalize()))
 }
 
 fn version_of(binary: &Path) -> Option<String> {
@@ -430,7 +430,7 @@ async fn install_archive(
         file.flush().await.map_err(|error| error.to_string())?;
         drop(file);
         if let Some(expected) = &release.1.digest {
-            let actual = format!("sha256:{:x}", digest.finalize());
+            let actual = format!("sha256:{}", hex::encode(digest.finalize()));
             if !actual.eq_ignore_ascii_case(expected) {
                 return Err("Xtractor archive checksum mismatch.".into());
             }
@@ -866,7 +866,7 @@ mod tests {
             .unwrap();
         archive.write_all(&std::fs::read(&source).unwrap()).unwrap();
         let payload = archive.finish().unwrap().into_inner();
-        let digest = format!("sha256:{:x}", Sha256::digest(&payload));
+        let digest = format!("sha256:{}", hex::encode(Sha256::digest(&payload)));
         let server = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = server.local_addr().unwrap();
         let served = tokio::spawn(async move {

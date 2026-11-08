@@ -20,9 +20,8 @@ impl Desktop {
         } else {
             appearance::card_page_width(bounds.width())
         };
-        let page =
-            egui::Rect::from_center_size(bounds.center(), Vec2::new(width, bounds.height()))
-                .shrink(12.0);
+        let page = egui::Rect::from_center_size(bounds.center(), Vec2::new(width, bounds.height()))
+            .shrink(12.0);
         let mut content = child(ui, "library-page", page);
         if self.app.get_library().view_ready {
             if self.app.get_library().workspace_pending {
@@ -708,7 +707,8 @@ impl Desktop {
                         let colors = self.colors(ui);
                         ui.label(
                             RichText::new(
-                                self.tr("{} selected").replace("{}", &chosen.total.to_string()),
+                                self.tr("{} selected")
+                                    .replace("{}", &chosen.total.to_string()),
                             )
                             .font(egui::FontId::new(
                                 typography::BODY,
@@ -718,9 +718,27 @@ impl Desktop {
                         );
                         let idle = !self.busy();
                         for (label, icon, tone, width, enabled) in [
-                            ("Download again", Icon::Restart, 0, 150.0, idle && chosen.saved > 0),
-                            ("Copy to folder…", Icon::Copy, 0, 150.0, idle && chosen.saved > 0),
-                            ("Delete files", Icon::Trash, 2, 130.0, idle && chosen.saved > 0),
+                            (
+                                "Download again",
+                                Icon::Restart,
+                                0,
+                                150.0,
+                                idle && chosen.saved > 0,
+                            ),
+                            (
+                                "Copy to folder…",
+                                Icon::Copy,
+                                0,
+                                150.0,
+                                idle && chosen.saved > 0,
+                            ),
+                            (
+                                "Delete files",
+                                Icon::Trash,
+                                2,
+                                130.0,
+                                idle && chosen.saved > 0,
+                            ),
                             ("Clear selection", Icon::Close, 0, 150.0, true),
                         ] {
                             if self

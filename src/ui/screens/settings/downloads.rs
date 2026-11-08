@@ -252,8 +252,8 @@ impl Desktop {
         let (speed,delay,jitter)=self.setting_card(ui,"Download organization and limits",12.0,|this,ui|{
             let app=this.app.clone();let enabled=!this.busy();this.setting_heading(ui,"Download organization and limits");
             setting_switch!(this,ui,get_separate_media_folders,set_separate_media_folders,"Separate media folders","Store media in Image, Video and GIF subfolders inside each account folder.",enabled);
-            setting_switch!(this,ui,get_embed_metadata,set_embed_metadata,"Embed post metadata","Write the post URL, original media name and post text into JPG/MP4 comments.",enabled);
-            if app.get_embed_metadata(){this.setting_caption(ui,"ExifTool is downloaded into the portable data folder when missing. Applies to new JPG/MP4 downloads; converted GIFs are excluded.");}
+            setting_switch!(this,ui,get_embed_metadata,set_embed_metadata,"Embed post metadata","Write the author, post date, text and URL into JPG, PNG and MP4 metadata.",enabled);
+            if app.get_embed_metadata(){this.setting_caption(ui,"ExifTool is downloaded into the portable data folder when missing. Applies to new JPG, PNG and MP4 downloads; converted GIFs are excluded.");}
             let mut speed=this.speed.clone();let mut delay=this.delay.clone();let mut jitter=this.jitter.clone();let mut enter=false;
             let width=(ui.available_width()-12.0)/2.0;
             ui.horizontal(|ui|{ui.spacing_mut().item_spacing.x=12.0;for (label,value) in [("Total speed limit (KiB/s)",&mut speed),("Delay between requests (ms)",&mut delay)] {ui.vertical(|ui|{

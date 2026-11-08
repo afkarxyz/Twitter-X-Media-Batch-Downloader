@@ -158,7 +158,7 @@ fn unpack(archive: &Path, staging: &Path, digest: Option<&str>) -> Result<(), St
             }
             hash.update(&buffer[..count]);
         }
-        if format!("{:x}", hash.finalize()) != expected.to_ascii_lowercase() {
+        if hex::encode(hash.finalize()) != expected.to_ascii_lowercase() {
             return Err("FFmpeg archive checksum did not match.".into());
         }
     }
@@ -172,7 +172,7 @@ fn unpack(archive: &Path, staging: &Path, digest: Option<&str>) -> Result<(), St
     for index in 0..zip.len() {
         let mut entry = zip.by_index(index).map_err(|error| error.to_string())?;
         if entry.is_dir()
-            || Path::new(entry.name())
+            || Path::new(&*entry.name().map_err(|error| error.to_string())?)
                 .file_name()
                 .is_none_or(|base| base != name)
         {
@@ -485,7 +485,7 @@ mod tests {
         unpack(
             &path,
             &staging,
-            Some(&format!("sha256:{:x}", Sha256::digest(&bytes))),
+            Some(&format!("sha256:{}", hex::encode(Sha256::digest(&bytes)))),
         )
         .unwrap();
         assert_eq!(std::fs::read(staging).unwrap(), b"binary fixture");

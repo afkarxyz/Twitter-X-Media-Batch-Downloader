@@ -1,5 +1,5 @@
 msgid ""
-msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.4\nLanguage: zh_Hans\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=1; plural=0;\n"
+msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.5\nLanguage: zh_Hans\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=1; plural=0;\n"
 
 msgid "Ready for an X/Twitter URL."
 msgstr "已准备好接收 X/Twitter URL。"
@@ -647,6 +647,15 @@ msgstr "选择筛选结果"
 msgid "Deselect filter"
 msgstr "取消选择筛选结果"
 
+msgid "All posts"
+msgstr "全部帖子"
+
+msgid "Originals"
+msgstr "原创"
+
+msgid "Post type"
+msgstr "帖子类型"
+
 msgid "Download selected ({})"
 msgstr "下载所选 ({})"
 
@@ -1082,11 +1091,11 @@ msgstr "每个账号保留各自已保存的提取筛选条件。"
 msgid "Embed post metadata"
 msgstr "嵌入帖子元数据"
 
-msgid "Write the post URL, original media name and post text into JPG/MP4 comments."
-msgstr "将帖子 URL、原始媒体名称和帖子文本写入 JPG/MP4 注释。"
+msgid "Write the author, post date, text and URL into JPG, PNG and MP4 metadata."
+msgstr "将帖子作者、日期、文本和 URL 写入 JPG、PNG 和 MP4 元数据。"
 
-msgid "ExifTool is downloaded into the portable data folder when missing. Applies to new JPG/MP4 downloads; converted GIFs are excluded."
-msgstr "缺少 ExifTool 时，会将其下载到便携数据文件夹。仅适用于新下载的 JPG/MP4 文件，转换后的 GIF 除外。"
+msgid "ExifTool is downloaded into the portable data folder when missing. Applies to new JPG, PNG and MP4 downloads; converted GIFs are excluded."
+msgstr "缺少 ExifTool 时，会将其下载到便携数据文件夹。仅适用于新下载的 JPG、PNG 和 MP4 文件，转换后的 GIF 除外。"
 
 msgid "All groups"
 msgstr "所有分组"

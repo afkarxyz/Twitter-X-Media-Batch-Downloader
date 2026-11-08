@@ -52,7 +52,7 @@ pub fn read_signature(path: &Path, cancel: Option<&AtomicBool>) -> Result<Signat
     }
     Ok(Signature {
         bytes,
-        sha256: format!("{:x}", hash.finalize()),
+        sha256: hex::encode(hash.finalize()),
     })
 }
 pub async fn signature(path: PathBuf, cancel: Arc<AtomicBool>) -> Option<Signature> {
@@ -332,6 +332,19 @@ pub fn register(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn signatures_keep_the_existing_lowercase_sha256_format() {
+        let fixture = crate::download::saved_files::tests::Fixture::new();
+        let path = fixture.0.join("known-hash.bin");
+        std::fs::write(&path, b"abc").unwrap();
+        let signature = read_signature(&path, None).unwrap();
+        assert_eq!(signature.bytes, 3);
+        assert_eq!(
+            signature.sha256,
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+    }
+
     #[test]
     fn signatures_detect_truncation_and_same_size_changes_without_rejecting_converted_files() {
         let fixture = crate::download::saved_files::tests::Fixture::new();

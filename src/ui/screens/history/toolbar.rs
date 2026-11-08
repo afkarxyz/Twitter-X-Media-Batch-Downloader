@@ -160,10 +160,7 @@ impl Desktop {
         );
         if next != selected {
             app.set_history_source_filter(next as i32);
-            app.invoke_search_history(
-                app.get_history_search_query(),
-                app.get_history_show_saved(),
-            );
+            app.invoke_search_history(app.get_history_search_query(), app.get_history_show_saved());
         }
         let mut query = app.get_history_search_query();
         if self.account_search_input(

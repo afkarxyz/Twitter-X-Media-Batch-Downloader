@@ -1,6 +1,6 @@
 [package]
 name = "twitterxmediabatchdownloader"
-version = "6.0.4"
+version = "6.0.5"
 edition = "2024"
 rust-version = "1.98"
 description = "Downloads original-quality images and videos from Twitter/X accounts."
@@ -15,35 +15,37 @@ name = "TwitterXMediaBatchDownloader"
 path = "src/main.rs"
 
 [dependencies]
-eframe = { version = "0.36.1", default-features = false, features = ["default_fonts", "glow", "wgpu", "x11", "wayland", "accesskit"] }
-egui = { version = "0.36.1", features = ["bytemuck"] }
-egui_extras = { version = "0.36.1", features = ["svg", "image"] }
-fastframe-fonts = { git = "https://github.com/crmne/fastframe", tag = "v0.15.3" }
-fastframe-text = { git = "https://github.com/crmne/fastframe", tag = "v0.15.3" }
-fastframe-icons = { git = "https://github.com/crmne/fastframe", tag = "v0.15.3" }
-fastframe-scroll = { git = "https://github.com/crmne/fastframe", tag = "v0.15.3" }
-fastframe-shell = { git = "https://github.com/crmne/fastframe", tag = "v0.15.3" }
-tokio = { version = "1.52.3", features = ["rt-multi-thread", "macros", "process", "io-util", "fs", "time", "sync", "net"] }
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.150"
-reqwest = { version = "0.13", features = ["stream", "socks"] }
-futures-util = "0.3.32"
-flate2 = "1.1.9"
-dirs = "6.0"
-rfd = "0.17"
-open = "5.3.6"
+# Fastframe v0.17 uses egui/eframe 0.36; upgrade this UI stack together.
+eframe = { version = "0.36.2", default-features = false, features = ["default_fonts", "glow", "wgpu", "x11", "wayland", "accesskit"] }
+egui = { version = "0.36.2", features = ["bytemuck"] }
+egui_extras = { version = "0.36.2", features = ["svg", "image"] }
+fastframe-fonts = { git = "https://github.com/crmne/fastframe", tag = "v0.17.0" }
+fastframe-text = { git = "https://github.com/crmne/fastframe", tag = "v0.17.0" }
+fastframe-icons = { git = "https://github.com/crmne/fastframe", tag = "v0.17.0" }
+fastframe-scroll = { git = "https://github.com/crmne/fastframe", tag = "v0.17.0" }
+fastframe-shell = { git = "https://github.com/crmne/fastframe", tag = "v0.17.0" }
+tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros", "process", "io-util", "fs", "time", "sync", "net"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+reqwest = { version = "0.13.5", features = ["stream", "socks"] }
+futures-util = "0.3.34"
+flate2 = "1.1.11"
+dirs = "7.0"
+rfd = "0.18.0"
+open = "5.4.5"
 copypasta = "0.10.2"
-sys-locale = "0.3"
+sys-locale = "0.3.2"
 chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
-fs4 = { version = "0.9.1", default-features = false }
-zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2"] }
-sha2 = "0.10.9"
-rusqlite = { version = "0.40.2", features = ["bundled", "backup"] }
+fs4 = { version = "1.1.0", default-features = false }
+zip = { version = "9.4.2", default-features = false, features = ["deflate-flate2"] }
+sha2 = "0.11.1"
+hex = "0.4.3"
+rusqlite = { version = "0.41.1", features = ["bundled", "backup"] }
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp"] }
 linkify = "0.11"
 
 [target.'cfg(windows)'.dependencies]
-bytemuck = "1.25"
+bytemuck = "1.25.2"
 windows = { version = "0.62.2", features = ["Foundation", "Media_Core", "Media_Playback", "Graphics_DirectX_Direct3D11", "Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Graphics_Direct3D", "Win32_Graphics_Direct3D10", "Win32_Graphics_Direct3D11", "Win32_Graphics_Dxgi", "Win32_Graphics_Dxgi_Common", "Win32_Storage_FileSystem", "Win32_System_WinRT", "Win32_System_WinRT_Direct3D11", "Win32_UI_HiDpi", "Win32_UI_WindowsAndMessaging"] }
 
 # GNOME has no server-side window frames on Wayland, so winit draws one. Without the
@@ -60,8 +62,8 @@ image = { version = "0.25.10", default-features = false, features = ["gif"] }
 
 [build-dependencies]
 image = { version = "0.25.10", default-features = false, features = ["png"] }
-ico = "0.5.0"
-embed-resource = "3.0.11"
+ico = "0.6.0"
+embed-resource = "3.0.12"
 
 [features]
 default = ["gpu-renderer"]

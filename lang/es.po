@@ -1,5 +1,5 @@
 msgid ""
-msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.4\nLanguage: es\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=2; plural=(n != 1);\n"
+msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.5\nLanguage: es\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=2; plural=(n != 1);\n"
 
 msgid "Ready for an X/Twitter URL."
 msgstr "Listo para una URL de X/Twitter."
@@ -647,6 +647,15 @@ msgstr "Seleccionar filtro"
 msgid "Deselect filter"
 msgstr "Deseleccionar filtro"
 
+msgid "All posts"
+msgstr "Todas las publicaciones"
+
+msgid "Originals"
+msgstr "Originales"
+
+msgid "Post type"
+msgstr "Tipo de publicación"
+
 msgid "Download selected ({})"
 msgstr "Descargar selección ({})"
 
@@ -1082,11 +1091,11 @@ msgstr "Cada cuenta conserva sus filtros de extracción guardados."
 msgid "Embed post metadata"
 msgstr "Incrustar metadatos de la publicación"
 
-msgid "Write the post URL, original media name and post text into JPG/MP4 comments."
-msgstr "Escribe la URL de la publicación, el nombre original del medio y el texto de la publicación en los comentarios de JPG/MP4."
+msgid "Write the author, post date, text and URL into JPG, PNG and MP4 metadata."
+msgstr "Escribe el autor, la fecha, el texto y la URL de la publicación en los metadatos de JPG, PNG y MP4."
 
-msgid "ExifTool is downloaded into the portable data folder when missing. Applies to new JPG/MP4 downloads; converted GIFs are excluded."
-msgstr "ExifTool se descarga en la carpeta de datos portátil si no está disponible. Se aplica a las nuevas descargas JPG/MP4; los GIF convertidos quedan excluidos."
+msgid "ExifTool is downloaded into the portable data folder when missing. Applies to new JPG, PNG and MP4 downloads; converted GIFs are excluded."
+msgstr "ExifTool se descarga en la carpeta de datos portátil si no está disponible. Se aplica a las nuevas descargas JPG, PNG y MP4; los GIF convertidos quedan excluidos."
 
 msgid "All groups"
 msgstr "Todos los grupos"

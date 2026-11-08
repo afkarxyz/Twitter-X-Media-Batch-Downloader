@@ -114,7 +114,7 @@ fn write_package_checked(
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .map_err(|e| e.to_string())?,
         created_at: chrono::Utc::now().to_rfc3339(),
-        sha256: format!("{:x}", Sha256::digest(&bytes)),
+        sha256: hex::encode(Sha256::digest(&bytes)),
     };
     let part = destination.with_extension(format!(
         "tdbackup-{}.part",
@@ -187,7 +187,7 @@ fn read_package(path: &Path, root: &Path) -> Result<(Work, Manifest), String> {
         .take(MAX_DB + 1)
         .read_to_end(&mut bytes)
         .map_err(|e| e.to_string())?;
-    if bytes.len() as u64 > MAX_DB || format!("{:x}", Sha256::digest(&bytes)) != manifest.sha256 {
+    if bytes.len() as u64 > MAX_DB || hex::encode(Sha256::digest(&bytes)) != manifest.sha256 {
         return Err("Backup checksum mismatch.".into());
     }
     let work = Work::new(root)?;

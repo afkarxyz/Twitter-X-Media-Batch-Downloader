@@ -2,7 +2,11 @@ use crate::ui::components::icon_button::IconStyle;
 use crate::ui::*;
 
 impl Desktop {
-    pub(in crate::ui) fn result_toolbar(&self, ui: &mut Ui, items: ui_runtime::ModelRc<MediaItem>) {
+    pub(in crate::ui) fn result_toolbar(
+        &mut self,
+        ui: &mut Ui,
+        items: ui_runtime::ModelRc<MediaItem>,
+    ) {
         let app = self.app.clone();
         let results = app.global::<MediaResults>();
         let selected = crate::media::results::downloadable_selection(&app);
@@ -20,12 +24,20 @@ impl Desktop {
         );
         let (row, _) =
             ui.allocate_exact_size(Vec2::new(ui.available_width(), 32.0), egui::Sense::hover());
-        ui.painter().text(
+        let counted = ui.painter().text(
             row.left_center(),
             egui::Align2::LEFT_CENTER,
             &count,
             egui::FontId::new(typography::BODY, egui::FontFamily::Name("cera-bold".into())),
             colors.secondary,
+        );
+        self.post_type_picker(
+            ui,
+            &items,
+            egui::pos2(
+                counted.right() + 12.0,
+                row.center().y - appearance::CONTROL_HEIGHT / 2.0,
+            ),
         );
         let mut actions = ui.new_child(
             egui::UiBuilder::new()
@@ -66,7 +78,7 @@ impl Desktop {
             self.tr("Download selected ({})")
                 .replace("{}", &selected.to_string())
         } else {
-            self.tr(match self.kind.as_str() {
+            self.tr(match crate::media::results::split_filter(&self.kind).0 {
                 "photo" => "Download images",
                 "video" => "Download videos",
                 "animated_gif" => "Download GIFs",
@@ -138,6 +150,8 @@ impl Desktop {
                 .layout(egui::Layout::left_to_right(egui::Align::Center)),
         );
         filters.spacing_mut().item_spacing.x = 6.0;
+        let (types, post) = crate::media::results::split_filter(&self.kind);
+        let types = types.to_owned();
         for (key, label, icon) in [
             ("all", "All", None),
             ("photo", "Image", Some(Icon::Photo)),
@@ -145,11 +159,14 @@ impl Desktop {
             ("animated_gif", "GIF", Some(Icon::Film)),
             ("text", "Text", Some(Icon::Text)),
         ] {
-            let active = self.kind == key
-                || (self.kind != "all"
+            let active = types == key
+                || (types != "all"
                     && key != "all"
-                    && crate::media::results::matches_kind(key, &self.kind));
-            let count = results.invoke_count(items.clone(), key.into());
+                    && crate::media::results::matches_kind(key, &types));
+            let count = results.invoke_count(
+                items.clone(),
+                crate::media::results::with_post_type(key, post),
+            );
             let caption = format!("{}  {count}", self.tr(label));
             filters.add_enabled_ui(key == "all" || count > 0, |ui| {
                 if self
@@ -279,4 +296,100 @@ impl Desktop {
             },
         );
     }
+
+    /// Ctrl/Cmd+A selects every downloadable item in the current filter and
+    /// Esc clears the selection. Runs after dialogs so their keys win.
+    pub(in crate::ui) fn selection_shortcuts(&self, ctx: &egui::Context) {
+        let app = &self.app;
+        if self.busy()
+            || app.get_selected_media_index() >= 0
+            || ctx.memory(|memory| memory.top_modal_layer().is_some())
+            || egui::Popup::is_any_open(ctx)
+            || ctx.text_edit_focused()
+        {
+            return;
+        }
+        let selection = app.global::<MediaSelection>();
+        if ctx.input_mut(|input| input.consume_key(egui::Modifiers::COMMAND, egui::Key::A)) {
+            let items = app.get_media_items();
+            if !selection.invoke_all_selected(selection.get_indices(), items, self.kind.clone()) {
+                selection.invoke_toggle_filter(self.kind.clone());
+            }
+        } else if selection.get_indices().row_count() > 0
+            && ctx.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Escape))
+        {
+            selection.invoke_clear();
+        }
+    }
+
+    /// Narrows results to original posts, replies, quotes or reposts, starting
+    /// at `left_top`. It lists the post types present and only appears when
+    /// the results mix at least two of them.
+    fn post_type_picker(
+        &mut self,
+        ui: &mut Ui,
+        items: &ui_runtime::ModelRc<MediaItem>,
+        left_top: egui::Pos2,
+    ) {
+        use crate::media::results::{POST_TYPES, split_filter, with_post_type};
+        let results = self.app.global::<MediaResults>();
+        let current = split_filter(&self.kind).1;
+        let present = POST_TYPES[1..]
+            .iter()
+            .copied()
+            .filter(|post| results.invoke_count(items.clone(), format!("all@{post}")) > 0)
+            .collect::<Vec<_>>();
+        if present.len() < 2 {
+            if current != "all" {
+                self.kind = with_post_type(&self.kind, "all");
+            }
+            return;
+        }
+        let options = POST_TYPES
+            .iter()
+            .copied()
+            .filter(|post| *post == "all" || *post == current || present.contains(post))
+            .collect::<Vec<_>>();
+        let rect = egui::Rect::from_min_size(
+            left_top,
+            Vec2::new(POST_TYPE_PICKER_WIDTH, appearance::CONTROL_HEIGHT),
+        );
+        let mut picker = ui.new_child(
+            egui::UiBuilder::new()
+                .id_salt("post-type")
+                .max_rect(rect)
+                .layout(egui::Layout::top_down(egui::Align::Min)),
+        );
+        picker.spacing_mut().interact_size.y = appearance::CONTROL_HEIGHT;
+        picker.spacing_mut().button_padding = Vec2::new(8.0, 4.0);
+        // Counts stay on the type buttons, which follow the chosen post type.
+        let choices = options
+            .iter()
+            .map(|post| {
+                self.tr(match *post {
+                    "original" => "Originals",
+                    "reply" => "Replies",
+                    "quote" => "Quotes",
+                    "repost" => "Reposts",
+                    _ => "All posts",
+                })
+            })
+            .collect::<Vec<_>>();
+        let selected = options
+            .iter()
+            .position(|post| *post == current)
+            .unwrap_or_default();
+        let next = self.choice_picker(
+            &mut picker,
+            rect,
+            &crate::ui::components::dropdown::SelectOptions::new("Post type", &choices),
+            selected,
+        );
+        if next != selected {
+            self.kind = with_post_type(&self.kind, options[next]);
+            self.limit = 30;
+        }
+    }
 }
+
+const POST_TYPE_PICKER_WIDTH: f32 = 120.0;

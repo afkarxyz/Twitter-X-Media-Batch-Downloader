@@ -600,7 +600,11 @@ fn selected_library_files_offer_download_again_copy_and_confirmed_delete() {
     h.get_by_role_and_label(egui::accesskit::Role::Button, "Library media 2")
         .click();
     h.run();
-    assert!(h.get_by_label("Delete files").accesskit_node().is_disabled());
+    assert!(
+        h.get_by_label("Delete files")
+            .accesskit_node()
+            .is_disabled()
+    );
     h.get_by_role_and_label(egui::accesskit::Role::Button, "Library media 0")
         .click();
     h.run();

@@ -1,3 +1,8 @@
+[env]
+# The runtime has one process-wide UI queue. Parallel tests can consume events
+# belonging to another test's thread-local window, so run the harness serially.
+RUST_TEST_THREADS = "1"
+
 # Keep enough stack for image decoding and deeply nested debug UI layouts.
 [target.x86_64-pc-windows-msvc]
 rustflags = ["-C", "link-arg=/STACK:8000000"]

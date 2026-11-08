@@ -659,6 +659,15 @@ msgstr ""
 msgid "Deselect filter"
 msgstr ""
 
+msgid "All posts"
+msgstr ""
+
+msgid "Originals"
+msgstr ""
+
+msgid "Post type"
+msgstr ""
+
 msgid "Download selected ({})"
 msgstr ""
 
@@ -923,10 +932,10 @@ msgstr ""
 msgid "Embed post metadata"
 msgstr ""
 
-msgid "Write the post URL, original media name and post text into JPG/MP4 comments."
+msgid "Write the author, post date, text and URL into JPG, PNG and MP4 metadata."
 msgstr ""
 
-msgid "ExifTool is downloaded into the portable data folder when missing. Applies to new JPG/MP4 downloads; converted GIFs are excluded."
+msgid "ExifTool is downloaded into the portable data folder when missing. Applies to new JPG, PNG and MP4 downloads; converted GIFs are excluded."
 msgstr ""
 
 msgid "All groups"

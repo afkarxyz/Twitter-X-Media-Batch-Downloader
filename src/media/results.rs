@@ -17,16 +17,87 @@ pub fn matches_kind(media_type: &str, kind: &str) -> bool {
     kind == "all" || kind.split('|').any(|kind| media_type == kind)
 }
 
+/// Post type bits stored per media item, as reported by xtractor.
+pub const REPOST: u8 = 1;
+pub const REPLY: u8 = 2;
+pub const QUOTE: u8 = 4;
+
+/// Post types a result filter can be narrowed to, `all` first.
+pub const POST_TYPES: [&str; 5] = ["all", "original", "reply", "quote", "repost"];
+
+pub fn post_flags(is_repost: bool, is_reply: bool, is_quote: bool) -> u8 {
+    [(is_repost, REPOST), (is_reply, REPLY), (is_quote, QUOTE)]
+        .into_iter()
+        .filter(|(set, _)| *set)
+        .fold(0, |flags, (_, bit)| flags | bit)
+}
+
+/// Replies and quotes mean the account's own posts; a repost of someone
+/// else's reply only counts as a repost. A reply that quotes is both.
+fn matches_post(post: &str, flags: u8) -> bool {
+    let own = flags & REPOST == 0;
+    match post {
+        "original" => flags == 0,
+        "reply" => own && flags & REPLY != 0,
+        "quote" => own && flags & QUOTE != 0,
+        "repost" => !own,
+        _ => true,
+    }
+}
+
+/// Result filters are media types joined by `|`, optionally narrowed to one
+/// post type with a suffix such as `@reply`.
+pub fn split_filter(filter: &str) -> (&str, &'static str) {
+    if let Some((types, post)) = filter.rsplit_once('@')
+        && let Some(post) = POST_TYPES[1..].iter().find(|known| **known == post)
+    {
+        return (types, post);
+    }
+    (filter, "all")
+}
+
+pub fn with_post_type(filter: &str, post: &str) -> String {
+    let types = split_filter(filter).0;
+    if POST_TYPES[1..].contains(&post) {
+        format!("{types}@{post}")
+    } else {
+        types.into()
+    }
+}
+
+pub fn matches_filter(media_type: &str, flags: u8, filter: &str) -> bool {
+    let (types, post) = split_filter(filter);
+    matches_post(post, flags) && matches_kind(media_type, types)
+}
+
 fn matches(item: &MediaItem, kind: &str) -> bool {
     match kind {
         "library-saved" => item.status == "Saved",
         "library-missing" => item.status == "Missing",
         "library-pending" => item.status != "Saved",
-        _ => matches_kind(item.media_type.as_str(), kind),
+        _ => matches_filter(
+            &item.media_type,
+            post_flags(item.is_repost, item.is_reply, item.is_quote),
+            kind,
+        ),
     }
 }
 
+/// Sums counts indexed by post type bits for one post type.
+pub fn count_posts<T: Copy + std::iter::Sum>(counts: &[T; 8], post: &str) -> T {
+    (0..8u8)
+        .filter(|flags| matches_post(post, *flags))
+        .map(|flags| counts[usize::from(flags)])
+        .sum()
+}
+
+/// Toggles one media type in a filter and keeps its post type.
 pub fn toggle_kind(current: &str, kind: &str) -> String {
+    let (types, post) = split_filter(current);
+    with_post_type(&toggle_types(types, kind), post)
+}
+
+fn toggle_types(current: &str, kind: &str) -> String {
     if kind == "all" {
         return "all".into();
     }
@@ -87,7 +158,9 @@ impl ViewCache {
 struct Counts {
     source: Option<std::rc::Weak<dyn Model<Data = MediaItem>>>,
     revision: u64,
-    kinds: HashMap<String, i32>,
+    /// Counts per media type, indexed by post type bits.
+    kinds: HashMap<String, [i32; 8]>,
+    library: HashMap<&'static str, i32>,
     total: i32,
     new: i32,
 }
@@ -102,19 +175,23 @@ impl Counts {
             return;
         }
         self.kinds.clear();
+        self.library.clear();
         self.total = 0;
         self.new = 0;
         source.visit(&mut |_, row| {
+            let flags = usize::from(post_flags(row.is_repost, row.is_reply, row.is_quote));
             if let Some(count) = self.kinds.get_mut(&row.media_type) {
-                *count += 1;
+                count[flags] += 1;
             } else {
-                self.kinds.insert(row.media_type.clone(), 1);
+                let mut count = [0; 8];
+                count[flags] = 1;
+                self.kinds.insert(row.media_type.clone(), count);
             }
             self.total += 1;
             self.new += i32::from(row.is_new);
             for kind in ["library-saved", "library-missing", "library-pending"] {
                 if matches(row, kind) {
-                    *self.kinds.entry(kind.into()).or_default() += 1;
+                    *self.library.entry(kind).or_default() += 1;
                 }
             }
             true
@@ -126,12 +203,13 @@ impl Counts {
         if kind == "all" {
             self.total
         } else if kind.starts_with("library-") {
-            self.kinds.get(kind).copied().unwrap_or_default()
+            self.library.get(kind).copied().unwrap_or_default()
         } else {
+            let (types, post) = split_filter(kind);
             self.kinds
                 .iter()
-                .filter(|(media_type, _)| matches_kind(media_type, kind))
-                .map(|(_, count)| count)
+                .filter(|(media_type, _)| matches_kind(media_type, types))
+                .map(|(_, count)| count_posts(count, post))
                 .sum()
         }
     }
@@ -592,6 +670,71 @@ mod tests {
 #[cfg(test)]
 mod combination_tests {
     use super::*;
+    #[test]
+    fn post_types_narrow_filters_counts_and_survive_type_toggles() {
+        assert_eq!(split_filter("photo|video@reply"), ("photo|video", "reply"));
+        assert_eq!(split_filter("library-saved"), ("library-saved", "all"));
+        assert_eq!(split_filter("photo@unknown"), ("photo@unknown", "all"));
+        assert_eq!(toggle_kind("all@repost", "photo"), "photo@repost");
+        assert_eq!(toggle_kind("photo@original", "photo"), "none@original");
+        assert_eq!(toggle_kind("photo@quote", "all"), "all@quote");
+        assert_eq!(with_post_type("photo@repost", "all"), "photo");
+        assert_eq!(with_post_type("photo", "reply"), "photo@reply");
+        assert!(matches_filter("photo", REPOST, "all@repost"));
+        assert!(!matches_filter("photo", 0, "photo@repost"));
+        assert!(matches_filter("photo", REPOST, "photo"));
+        // A reply that quotes is both; a reposted reply is only a repost.
+        assert!(matches_filter("photo", REPLY | QUOTE, "all@reply"));
+        assert!(matches_filter("photo", REPLY | QUOTE, "all@quote"));
+        assert!(!matches_filter("photo", REPLY | QUOTE, "all@original"));
+        assert!(!matches_filter("photo", REPOST | REPLY, "all@reply"));
+        let items = downloader::model_from_rows(
+            [
+                ("photo", 0),
+                ("photo", REPOST),
+                ("video", REPOST),
+                ("photo", REPLY),
+                ("video", REPLY | QUOTE),
+                ("text", QUOTE),
+            ]
+            .into_iter()
+            .enumerate()
+            .map(|(index, (kind, flags))| MediaItem {
+                media_type: kind.into(),
+                media_index: index as i32,
+                is_repost: flags & REPOST != 0,
+                is_reply: flags & REPLY != 0,
+                is_quote: flags & QUOTE != 0,
+                ..Default::default()
+            })
+            .collect(),
+        );
+        let indices = |kind| {
+            filter(&items, kind, 30)
+                .iter()
+                .map(|item| item.media_index)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(indices("all@repost"), [1, 2]);
+        assert_eq!(indices("photo@original"), [0]);
+        assert_eq!(indices("all@reply"), [3, 4]);
+        assert_eq!(indices("all@quote"), [4, 5]);
+        assert_eq!(indices("photo"), [0, 1, 3]);
+        let mut counts = Counts::default();
+        counts.refresh(&items);
+        assert_eq!(
+            (
+                counts.count("photo"),
+                counts.count("photo@repost"),
+                counts.count("all@original"),
+                counts.count("video@reply"),
+                counts.count("all@quote"),
+                counts.count("all"),
+            ),
+            (3, 1, 1, 1, 2, 6)
+        );
+    }
+
     #[test]
     fn combined_filters_keep_indices_and_text_remains_an_independent_type() {
         assert_eq!(toggle_kind("all", "photo"), "photo");

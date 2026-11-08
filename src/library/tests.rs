@@ -659,7 +659,11 @@ async fn selected_files_are_downloaded_again_in_place_and_deleted_from_disk() {
     })
     .await;
     server.join().unwrap();
-    assert!(app.get_library().error.is_empty(), "{}", app.get_library().error);
+    assert!(
+        app.get_library().error.is_empty(),
+        "{}",
+        app.get_library().error
+    );
     assert_eq!(std::fs::read(&path).unwrap(), bytes);
     assert_eq!(
         std::fs::read_dir(&folder).unwrap().count(),

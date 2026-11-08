@@ -57,7 +57,7 @@ jobs:
             appimagetool_sha256: f0837e7448a0c1e4e650a93bb3e85802546e60654ef287576f46c71c126a9158
           # MACOSX_DEPLOYMENT_TARGET keeps the binary running on macOS 11 and later.
           - name: macos-universal
-            os: macos-latest
+            os: macos-26
             targets: aarch64-apple-darwin,x86_64-apple-darwin
             asset: TwitterXMediaBatchDownloader.dmg
     steps:
@@ -139,18 +139,11 @@ jobs:
       - name: Package macOS disk image
         if: runner.os == 'macOS'
         run: |
+          python3 -B -m unittest discover -s packaging/macos -p 'test_*.py'
           staging="$RUNNER_TEMP/dmg"
           app="$staging/$BIN.app"
           mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
           install -m 755 "target/universal/$BIN" "$app/Contents/MacOS/$BIN"
-
-          iconset="$RUNNER_TEMP/AppIcon.iconset"
-          mkdir -p "$iconset"
-          for size in 16 32 128 256 512; do
-            sips -z $size $size assets/logo/logo.png --out "$iconset/icon_${size}x${size}.png" >/dev/null
-            sips -z $((size * 2)) $((size * 2)) assets/logo/logo.png --out "$iconset/icon_${size}x${size}@2x.png" >/dev/null
-          done
-          iconutil -c icns "$iconset" -o "$app/Contents/Resources/AppIcon.icns"
 
           cat > "$app/Contents/Info.plist" <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
@@ -171,6 +164,8 @@ jobs:
           </dict>
           </plist>
           EOF
+          mkdir -p "$RUNNER_TEMP/native-icons"
+          python3 packaging/macos/macos_icons.py "$app/Contents/Resources" "$RUNNER_TEMP/native-icons" "$app/Contents/Info.plist"
           plutil -lint "$app/Contents/Info.plist"
 
           # Ad-hoc signature: Apple Silicon refuses to run unsigned code.
@@ -179,9 +174,10 @@ jobs:
 
           # In Applications the app uses Application Support and ~/Downloads;
           # anywhere else it stays portable beside the .app.
-          ln -s /Applications "$staging/Applications"
           mkdir -p out
-          hdiutil create -volname "$BIN" -srcfolder "$staging" -fs HFS+ -format UDZO -ov "out/${{ matrix.asset }}"
+          python3 -m venv "$RUNNER_TEMP/dmg-venv"
+          "$RUNNER_TEMP/dmg-venv/bin/python" -m pip install --require-hashes -r packaging/macos/requirements.txt
+          "$RUNNER_TEMP/dmg-venv/bin/python" packaging/macos/macos_dmg.py "$app" "out/${{ matrix.asset }}"
 
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v4

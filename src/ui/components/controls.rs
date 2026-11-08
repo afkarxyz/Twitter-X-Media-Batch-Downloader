@@ -308,6 +308,9 @@ impl Desktop {
         response
     }
 
+    /// An on/off switch drawn in `rect`, whose track radius and thumb travel fit 38 x 22.
+    /// Turning on, the track fades from the control border to the accent. The thumb is
+    /// white, or the palette's `on_accent` colour where that reads better on the track.
     pub(in crate::ui) fn switch_control(
         &self,
         ui: &mut Ui,
@@ -345,15 +348,22 @@ impl Desktop {
             0.14,
             ease_out,
         );
-        control.painter().rect_filled(
-            rect,
-            11,
-            appearance::mix(colors.accent, colors.control_border, tint),
-        );
+        let track = appearance::mix(colors.accent, colors.control_border, tint);
+        control.painter().rect_filled(rect, 11, track);
+        // Most dark-mode accents are too light for a white thumb, so each frame the thumb
+        // takes whichever of white or the accent's text colour reads better on the track.
+        // Fading between the two instead would match the track's luminance mid-toggle.
+        let thumb = if appearance::contrast(colors.on_accent, track)
+            > appearance::contrast(Color32::WHITE, track)
+        {
+            colors.on_accent
+        } else {
+            Color32::WHITE
+        };
         control.painter().circle_filled(
             egui::pos2(rect.left() + 11.0 + 16.0 * amount, rect.center().y),
             8.0,
-            Color32::WHITE,
+            thumb,
         );
         if crate::ui::components::navigation::focus_visible(&control, &response) {
             control.painter().rect_stroke(

@@ -204,7 +204,8 @@ impl Palette {
         visuals.weak_text_color = Some(self.secondary);
         visuals.hyperlink_color = self.accent;
         visuals.selection.bg_fill = self.accent;
-        visuals.selection.stroke = egui::Stroke::new(1.0, Color32::WHITE);
+        // egui draws selected text in this colour over the accent fill.
+        visuals.selection.stroke = egui::Stroke::new(1.0, self.on_accent);
         for widget in [
             &mut visuals.widgets.noninteractive,
             &mut visuals.widgets.inactive,

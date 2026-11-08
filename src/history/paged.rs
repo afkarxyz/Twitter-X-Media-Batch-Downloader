@@ -23,7 +23,23 @@ pub struct Descriptor {
     pub status: String,
     pub saved_path: String,
     pub is_new: bool,
+    /// Post type bits from `crate::media::results`.
+    pub post_flags: u8,
     pub stamp: Option<i64>,
+}
+
+impl Descriptor {
+    /// The index is the source of truth for post types: media pages saved
+    /// before reply and quote flags existed do not carry them.
+    /// Returns `(is_repost, is_reply, is_quote)`.
+    fn post_types(&self) -> (bool, bool, bool) {
+        use crate::media::results::{QUOTE, REPLY, REPOST};
+        (
+            self.post_flags & REPOST != 0,
+            self.post_flags & REPLY != 0,
+            self.post_flags & QUOTE != 0,
+        )
+    }
 }
 
 #[derive(Debug)]
@@ -38,27 +54,28 @@ pub struct StoredView {
 
 #[derive(Default, Debug)]
 struct Stats {
-    kinds: HashMap<(String, String), usize>,
+    /// Counts per media type and status, indexed by post type bits.
+    kinds: HashMap<(String, String), [usize; 8]>,
     new: usize,
     total: usize,
 }
 impl Stats {
     fn add(&mut self, row: &Descriptor) {
-        *self
-            .kinds
+        self.kinds
             .entry((row.kind.clone(), row.status.clone()))
-            .or_default() += 1;
+            .or_default()[usize::from(row.post_flags)] += 1;
         self.new += usize::from(row.is_new);
         self.total += 1;
     }
     fn remove(&mut self, row: &Descriptor) {
         if let Some(count) = self.kinds.get_mut(&(row.kind.clone(), row.status.clone())) {
-            *count -= 1;
+            count[usize::from(row.post_flags)] -= 1;
         }
         self.new -= usize::from(row.is_new);
         self.total -= 1;
     }
     fn count(&self, kind: &str, pending: bool) -> usize {
+        let (types, post) = crate::media::results::split_filter(kind);
         self.kinds
             .iter()
             .filter(|((media, status), _)| {
@@ -67,10 +84,10 @@ impl Stats {
                         "library-saved" => status == "Saved",
                         "library-missing" => status == "Missing",
                         "library-pending" => status != "Saved",
-                        _ => crate::media::results::matches_kind(media, kind),
+                        _ => crate::media::results::matches_kind(media, types),
                     }
             })
-            .map(|(_, count)| count)
+            .map(|(_, count)| crate::media::results::count_posts(count, post))
             .sum()
     }
 }
@@ -108,7 +125,7 @@ impl StoredView {
                 stored.path.as_ref(),
                 rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
             )?;
-            let mut statement = connection.prepare("SELECT ordinal,media_index,identity,kind,status,is_new,sort_stamp,saved_path FROM history_media_index WHERE entry_id=?1 ORDER BY ordinal")?;
+            let mut statement = connection.prepare("SELECT ordinal,media_index,identity,kind,status,is_new,sort_stamp,saved_path,post_flags FROM history_media_index WHERE entry_id=?1 ORDER BY ordinal")?;
             let mut cursor = statement.query([&stored.id])?;
             while let Some(row) = cursor.next()? {
                 let identity: Vec<u8> = row.get(2)?;
@@ -127,6 +144,7 @@ impl StoredView {
                     status: row.get(4)?,
                     saved_path: row.get(7)?,
                     is_new: row.get::<_, bool>(5)? && (individual || source == 0),
+                    post_flags: row.get(8)?,
                     stamp: row.get(6)?,
                 });
             }
@@ -181,6 +199,7 @@ impl StoredView {
         let mut item = page.swap_remove(row.ordinal % storage::PAGE_SIZE);
         item.media_index = index as usize;
         item.is_new = row.is_new;
+        (item.is_repost, item.is_reply, item.is_quote) = row.post_types();
         Ok(item)
     }
 
@@ -198,7 +217,7 @@ impl StoredView {
                 if kind == "selected" {
                     selected.contains(&(row.index as usize))
                 } else {
-                    crate::media::results::matches_kind(&row.kind, kind)
+                    crate::media::results::matches_filter(&row.kind, row.post_flags, kind)
                 }
             })
             .cloned()
@@ -218,6 +237,7 @@ impl StoredView {
             let mut item = page.as_ref().unwrap().1[row.ordinal % storage::PAGE_SIZE].clone();
             item.media_index = row.index as usize;
             item.is_new = row.is_new;
+            (item.is_repost, item.is_reply, item.is_quote) = row.post_types();
             result.push(item);
         }
         Ok(result)
@@ -362,6 +382,7 @@ impl PagedModel {
             let mut row = rows.get(descriptor.ordinal % storage::PAGE_SIZE)?.clone();
             row.media_index = descriptor.index;
             row.is_new = descriptor.is_new;
+            (row.is_repost, row.is_reply, row.is_quote) = descriptor.post_types();
             row.status = descriptor.status;
             row.saved_path = descriptor.saved_path;
             return Some(row);
@@ -370,9 +391,13 @@ impl PagedModel {
         if request && !failed && cache.pending.insert(key) {
             let _ = self.sender.send(key);
         }
+        let (is_repost, is_reply, is_quote) = descriptor.post_types();
         Some(MediaItem {
             media_index: descriptor.index,
             media_type: descriptor.kind,
+            is_repost,
+            is_reply,
+            is_quote,
             status: if failed {
                 "Failed".into()
             } else {
@@ -590,7 +615,7 @@ fn matches(row: &Descriptor, kind: &str) -> bool {
         "library-saved" => row.status == "Saved",
         "library-missing" => row.status == "Missing",
         "library-pending" => row.status != "Saved",
-        _ => crate::media::results::matches_kind(&row.kind, kind),
+        _ => crate::media::results::matches_filter(&row.kind, row.post_flags, kind),
     }
 }
 
@@ -675,6 +700,74 @@ pub fn position(items: &ModelRc<MediaItem>, index: i32) -> Option<i32> {
 mod tests {
     use super::*;
     use std::time::{Duration, Instant};
+
+    #[test]
+    fn post_types_are_indexed_and_backfilled_for_older_databases() {
+        let fixture = crate::download::saved_files::tests::Fixture::new();
+        let path = fixture.0.join("post-types.sqlite3");
+        let connection = Connection::open(&path).unwrap();
+        crate::history::db::initialize_database(&connection).unwrap();
+        // Older media pages kept only the repost flag; replies and quotes live
+        // in the saved xtractor response.
+        let media = (0..150)
+            .map(|index| MediaCandidate {
+                media_index: index,
+                username: "demo".into(),
+                tweet_id: index.to_string(),
+                media_type: if index % 2 == 0 { "photo" } else { "video" }.into(),
+                url: format!("https://example.invalid/{index}.jpg"),
+                is_repost: index % 3 == 0,
+                status: "Ready".into(),
+                ..Default::default()
+            })
+            .collect::<Vec<_>>();
+        let response = serde_json::json!({"tweets": (0..150).map(|index| serde_json::json!({
+            "tweet_id": index.to_string(),
+            "is_repost": index % 3 == 0,
+            "is_reply": index % 5 == 0,
+            "is_quote": index % 7 == 0,
+        })).collect::<Vec<_>>()});
+        connection.execute("INSERT INTO history_entries(id,fetched_at,source_url,username,media_json,response_json) VALUES('1','today','https://x.com/demo','demo','[]','{}')",[]).unwrap();
+        storage::write_payload(&connection, "1", "demo", &media, &response.to_string()).unwrap();
+        let counts = |connection: &Connection| {
+            let entries =
+                crate::history::db::read_summaries(connection, Arc::new(path.clone())).unwrap();
+            let model =
+                PagedModel::new(StoredView::prepare(&entries, "1", false).unwrap().unwrap());
+            (
+                model.count("all@repost"),
+                model.count("photo@repost"),
+                model.count("all@reply"),
+                model.count("all@quote"),
+                model.count("all@original"),
+                model.eligible("video@repost").len(),
+                model,
+            )
+        };
+        let (reposts, photo_reposts, replies, ..) = counts(&connection);
+        assert_eq!((reposts, photo_reposts, replies), (50, 25, 0));
+        connection
+            .execute("ALTER TABLE history_media_index DROP COLUMN post_flags", [])
+            .unwrap();
+        crate::history::db::initialize_database(&connection).unwrap();
+        let (reposts, photo_reposts, replies, quotes, originals, video_reposts, model) =
+            counts(&connection);
+        // Reposts of replies or quotes stay reposts; a reply that quotes is both.
+        assert_eq!(
+            (
+                reposts,
+                photo_reposts,
+                replies,
+                quotes,
+                originals,
+                video_reposts
+            ),
+            (50, 25, 20, 14, 69, 25)
+        );
+        let loaded = model.view.media("all@reply", &HashSet::new()).unwrap();
+        assert_eq!(loaded.len(), 20);
+        assert!(loaded.iter().all(|item| item.is_reply && !item.is_repost));
+    }
 
     #[test]
     fn filtering_sorting_and_sparse_visible_rows_only_decode_requested_pages() {

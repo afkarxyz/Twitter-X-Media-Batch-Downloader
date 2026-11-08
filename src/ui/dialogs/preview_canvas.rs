@@ -378,10 +378,16 @@ impl Desktop {
         );
         ui.painter()
             .rect_filled(pill, 16, Color32::from_black_alpha(170));
-        egui::Spinner::new().size(16.0).color(Color32::WHITE).paint_at(
-            ui,
-            egui::Rect::from_center_size(pill.left_center() + Vec2::new(22.0, 0.0), Vec2::splat(16.0)),
-        );
+        egui::Spinner::new()
+            .size(16.0)
+            .color(Color32::WHITE)
+            .paint_at(
+                ui,
+                egui::Rect::from_center_size(
+                    pill.left_center() + Vec2::new(22.0, 0.0),
+                    Vec2::splat(16.0),
+                ),
+            );
         ui.painter().text(
             pill.left_center() + Vec2::new(38.0, 0.0),
             egui::Align2::LEFT_CENTER,
@@ -453,20 +459,22 @@ mod tests {
         let frame = Arc::new(egui::ColorImage::filled([96, 54], Color32::RED));
         let texture = cache.update(&ctx, &frame);
         let id = texture.id();
-        let changes = ctx.tex_manager().write().take_delta();
+        let mut changes = ctx.tex_manager().write().take_delta();
         let delta = &changes.set[&id][0];
         assert_eq!(delta.pos, None);
         let egui::ImageData::Color(upload) = &delta.image;
         assert!(Arc::ptr_eq(upload, &frame));
+        // This test has no painter, so discard texture commands after inspecting them.
+        changes.clear();
         let _ = cache.update(&ctx, &frame);
-        assert!(ctx.tex_manager().write().take_delta().set.is_empty());
+        assert!(ctx.tex_manager().write().take_delta().is_empty());
         for index in 0..120 {
             let frame = Arc::new(egui::ColorImage::filled(
                 [96, 54],
                 Color32::from_rgb(index, 55, 88),
             ));
             assert_eq!(cache.update(&ctx, &frame).id(), id);
-            let changes = ctx.tex_manager().write().take_delta();
+            let mut changes = ctx.tex_manager().write().take_delta();
             assert_eq!(changes.set.len(), 1);
             assert!(changes.free.is_empty());
             let delta = &changes.set[&id][0];
@@ -480,20 +488,25 @@ mod tests {
                 Arc::ptr_eq(upload, &frame),
                 "The UI must not copy video pixels"
             );
+            changes.clear();
         }
         let resized = Arc::new(egui::ColorImage::filled([54, 96], Color32::BLUE));
         let resized_texture = cache.update(&ctx, &resized);
         assert_eq!(resized_texture.id(), id);
         assert_eq!(resized_texture.size(), [54, 96]);
-        let changes = ctx.tex_manager().write().take_delta();
+        let mut changes = ctx.tex_manager().write().take_delta();
         assert_eq!(
             changes.set[&id][0].pos, None,
             "A size change requires reallocation"
         );
+        changes.clear();
         drop(texture);
         drop(resized_texture);
         drop(cache);
-        assert!(ctx.tex_manager().write().take_delta().free.contains(&id));
+        let mut changes = ctx.tex_manager().write().take_delta();
+        let freed = changes.free.contains(&id);
+        changes.clear();
+        assert!(freed);
     }
 
     #[test]
@@ -524,13 +537,15 @@ mod tests {
             .get_mut(&egui::ViewportId::ROOT)
             .unwrap()
             .fullscreen = Some(true);
-        let output = ctx.run_ui(input, |ui| {
+        let mut output = ctx.run_ui(input, |ui| {
             let ctx = ui.ctx();
             let mut canvas = PreviewCanvas::default();
             canvas.toggle_fullscreen(ctx);
             canvas.leave_fullscreen(ctx);
             assert!(!canvas.fullscreen);
         });
+        // Only viewport commands are under test; no painter consumes the font texture.
+        output.textures_delta.clear();
         let modes = output.viewport_output[&egui::ViewportId::ROOT]
             .commands
             .iter()

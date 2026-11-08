@@ -15,7 +15,10 @@ async fn replace_file(previous: &Path, fresh: &Path) -> Result<PathBuf, String> 
         .is_some_and(|(left, right)| left.eq_ignore_ascii_case(right));
     if same_format {
         tokio::fs::rename(fresh, previous).await.map_err(|error| {
-            format!("Downloaded again, but could not replace {}: {error}", previous.display())
+            format!(
+                "Downloaded again, but could not replace {}: {error}",
+                previous.display()
+            )
         })?;
         return Ok(previous.to_path_buf());
     }
@@ -86,11 +89,9 @@ fn run_file_job(
                 data.error = errors.first().cloned().unwrap_or_default();
             });
             app.invoke_library_refresh();
-            let message = crate::i18n::translate(
-                &app.global::<crate::I18n>().get_language(),
-                summary,
-            )
-            .replace("{}", &count.to_string());
+            let message =
+                crate::i18n::translate(&app.global::<crate::I18n>().get_language(), summary)
+                    .replace("{}", &count.to_string());
             crate::app::notifications::show_library_toast(
                 &app,
                 if let Some(error) = errors.first() {
@@ -120,7 +121,9 @@ fn library_idle(app: &AppWindow) -> bool {
 fn register_file_actions(app: &AppWindow, context: Context) {
     let owner = context.clone();
     app.on_library_delete_selected(move || {
-        let Some(app) = owner.ui.upgrade() else { return };
+        let Some(app) = owner.ui.upgrade() else {
+            return;
+        };
         if !library_idle(&app) {
             return;
         }
@@ -152,7 +155,9 @@ fn register_file_actions(app: &AppWindow, context: Context) {
         );
     });
     app.on_library_copy_selected(move || {
-        let Some(app) = context.ui.upgrade() else { return };
+        let Some(app) = context.ui.upgrade() else {
+            return;
+        };
         if !library_idle(&app) {
             return;
         }
@@ -179,7 +184,9 @@ fn register_file_actions(app: &AppWindow, context: Context) {
                 let mut copied = 0;
                 let mut errors = Vec::new();
                 for source in files {
-                    let Some(name) = source.file_name() else { continue };
+                    let Some(name) = source.file_name() else {
+                        continue;
+                    };
                     let target = free_path(&folder, name);
                     match std::fs::copy(&source, &target) {
                         Ok(_) => copied += 1,

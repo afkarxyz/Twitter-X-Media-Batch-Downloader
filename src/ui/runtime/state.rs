@@ -71,6 +71,8 @@ pub struct MediaItem {
     pub quotes: String,
     pub bookmarks: String,
     pub is_repost: bool,
+    pub is_reply: bool,
+    pub is_quote: bool,
     pub reposted_by: String,
     pub replies: String,
     pub reposts: String,
@@ -835,7 +837,12 @@ impl AppWindow {
         self.state.borrow_mut().appwindow.library_delete_selected = Some(Rc::new(callback));
     }
     pub fn invoke_library_delete_selected(&self) {
-        let callback = self.state.borrow().appwindow.library_delete_selected.clone();
+        let callback = self
+            .state
+            .borrow()
+            .appwindow
+            .library_delete_selected
+            .clone();
         if let Some(callback) = callback {
             callback();
         }

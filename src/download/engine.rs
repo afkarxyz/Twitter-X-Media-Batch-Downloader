@@ -41,6 +41,8 @@ pub struct MediaCandidate {
     pub quotes: u64,
     pub bookmarks: u64,
     pub is_repost: bool,
+    pub is_reply: bool,
+    pub is_quote: bool,
     pub reposted_by: String,
     pub tweet_text: String,
     pub created_at: String,
@@ -1036,6 +1038,8 @@ pub fn to_ui_rows(candidates: &[MediaCandidate]) -> Vec<MediaItem> {
                 bookmarks: format_count(item.bookmarks),
                 alt_text: item.alt_text.clone(),
                 is_repost: item.is_repost,
+                is_reply: item.is_reply,
+                is_quote: item.is_quote,
                 reposted_by: item.reposted_by.clone(),
                 preview_date: format_preview_date(&item.created_at),
                 file_extension: file_extension(item).to_uppercase(),
@@ -1691,10 +1695,10 @@ pub(crate) fn collect_media(response: &Value) -> Vec<MediaCandidate> {
             .eq_ignore_ascii_case("square");
             item.quotes = number(stats, "quotes");
             item.bookmarks = number(stats, "bookmarks");
-            item.is_repost = tweet
-                .get("is_repost")
-                .and_then(Value::as_bool)
-                .unwrap_or(false);
+            let flag = |key| tweet.get(key).and_then(Value::as_bool).unwrap_or(false);
+            item.is_repost = flag("is_repost");
+            item.is_reply = flag("is_reply");
+            item.is_quote = flag("is_quote");
             item.reposted_by = tweet
                 .get("reposted_by")
                 .and_then(|value| value.get("username"))
@@ -1727,6 +1731,8 @@ pub(crate) fn restore_preview_details(media: &mut [MediaCandidate], response: &s
             item.quotes = detail.quotes;
             item.bookmarks = detail.bookmarks;
             item.is_repost = detail.is_repost;
+            item.is_reply = detail.is_reply;
+            item.is_quote = detail.is_quote;
             item.reposted_by.clone_from(&detail.reposted_by);
         }
     }
@@ -2026,7 +2032,7 @@ pub fn selected_media_url(item: &MediaCandidate, video_quality: &str, image_size
 
 fn metadata_eligible(item: &MediaCandidate, convert_gif: bool) -> bool {
     !(convert_gif && item.media_type == "animated_gif")
-        && matches!(file_extension(item).as_str(), "jpg" | "jpeg" | "mp4")
+        && crate::download::metadata::EXTENSIONS.contains(&file_extension(item).as_str())
 }
 
 pub async fn download_all(
@@ -2426,7 +2432,11 @@ pub fn matches_download_scope(
     if kind == "selected" {
         selected.contains(&item.media_index)
     } else {
-        crate::media::results::matches_kind(&item.media_type, kind)
+        crate::media::results::matches_filter(
+            &item.media_type,
+            crate::media::results::post_flags(item.is_repost, item.is_reply, item.is_quote),
+            kind,
+        )
     }
 }
 

@@ -1,5 +1,5 @@
 msgid ""
-msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.4\nLanguage: id\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=1; plural=0;\n"
+msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.5\nLanguage: id\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=1; plural=0;\n"
 
 msgid "Ready for an X/Twitter URL."
 msgstr "Siap menerima URL X/Twitter."
@@ -647,6 +647,15 @@ msgstr "Pilih filter"
 msgid "Deselect filter"
 msgstr "Batalkan pilihan filter"
 
+msgid "All posts"
+msgstr "Semua postingan"
+
+msgid "Originals"
+msgstr "Postingan asli"
+
+msgid "Post type"
+msgstr "Jenis postingan"
+
 msgid "Download selected ({})"
 msgstr "Unduh pilihan ({})"
 
@@ -911,11 +920,11 @@ msgstr "Tiap akun memakai filter fetch yang tersimpan."
 msgid "Embed post metadata"
 msgstr "Sematkan metadata posting"
 
-msgid "Write the post URL, original media name and post text into JPG/MP4 comments."
-msgstr "Tulis URL posting, nama media asli, dan teks posting pada komentar JPG/MP4."
+msgid "Write the author, post date, text and URL into JPG, PNG and MP4 metadata."
+msgstr "Tulis penulis, tanggal, teks, dan URL posting ke metadata JPG, PNG, dan MP4."
 
-msgid "ExifTool is downloaded into the portable data folder when missing. Applies to new JPG/MP4 downloads; converted GIFs are excluded."
-msgstr "ExifTool diunduh ke folder data portable jika belum ada. Berlaku untuk unduhan JPG/MP4 baru; GIF hasil konversi dikecualikan."
+msgid "ExifTool is downloaded into the portable data folder when missing. Applies to new JPG, PNG and MP4 downloads; converted GIFs are excluded."
+msgstr "ExifTool diunduh ke folder data portable jika belum ada. Berlaku untuk unduhan JPG, PNG, dan MP4 baru; GIF hasil konversi dikecualikan."
 
 msgid "All groups"
 msgstr "Semua grup"

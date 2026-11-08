@@ -1,5 +1,5 @@
 msgid ""
-msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.4\nLanguage: pt\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=2; plural=(n != 1);\n"
+msgstr "Project-Id-Version: twitterxmediabatchdownloader 6.0.5\nLanguage: pt\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=2; plural=(n != 1);\n"
 
 msgid "Ready for an X/Twitter URL."
 msgstr "Pronto para um URL X/Twitter."
@@ -647,6 +647,15 @@ msgstr "Selecionar filtro"
 msgid "Deselect filter"
 msgstr "Desmarcar filtro"
 
+msgid "All posts"
+msgstr "Todas as publicações"
+
+msgid "Originals"
+msgstr "Originais"
+
+msgid "Post type"
+msgstr "Tipo de publicação"
+
 msgid "Download selected ({})"
 msgstr "Baixar seleção ({})"
 
@@ -1082,11 +1091,11 @@ msgstr "Cada conta mantém seus filtros de extração salvos."
 msgid "Embed post metadata"
 msgstr "Incorporar metadados da publicação"
 
-msgid "Write the post URL, original media name and post text into JPG/MP4 comments."
-msgstr "Gravar a URL da publicação, o nome original da mídia e o texto da publicação nos comentários de JPG/MP4."
+msgid "Write the author, post date, text and URL into JPG, PNG and MP4 metadata."
+msgstr "Gravar o autor, a data, o texto e a URL da publicação nos metadados de JPG, PNG e MP4."
 
-msgid "ExifTool is downloaded into the portable data folder when missing. Applies to new JPG/MP4 downloads; converted GIFs are excluded."
-msgstr "O ExifTool é baixado para a pasta de dados portátil quando estiver ausente. Aplica-se a novos downloads JPG/MP4; GIFs convertidos ficam de fora."
+msgid "ExifTool is downloaded into the portable data folder when missing. Applies to new JPG, PNG and MP4 downloads; converted GIFs are excluded."
+msgstr "O ExifTool é baixado para a pasta de dados portátil quando estiver ausente. Aplica-se a novos downloads JPG, PNG e MP4; GIFs convertidos ficam de fora."
 
 msgid "All groups"
 msgstr "Todos os grupos"
