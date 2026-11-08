@@ -47,10 +47,6 @@ If it does not start, install FUSE (`sudo apt install fuse3`) or run it with
 
 ### macOS
 
-The DMG uses a custom Retina drag-to-Applications layout and the original Icon Composer app
-icon that stays unchanged while running. See [macOS packaging](packaging/macos/README.md)
-for artwork sources, build requirements and mounted-image verification.
-
 After copying the app out of the DMG, run this once, or macOS reports that the app
 is damaged:
 
